@@ -1,0 +1,154 @@
+# Git attributes for Unity Package
+# Ensures consistent line endings and proper handling of Unity files
+
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Unity files
+*.cs text diff=csharp
+*.shader text
+*.cginc text
+*.hlsl text
+*.glsl text
+*.compute text
+*.json text
+*.asmdef text
+*.asmref text
+*.md text
+*.txt text
+*.xml text
+*.yml text
+*.yaml text
+
+# Unity YAML files - use LF and treat as text
+*.unity text eol=lf
+*.prefab text eol=lf
+*.mat text eol=lf
+*.meta text eol=lf
+*.asset text eol=lf
+*.controller text eol=lf
+*.anim text eol=lf
+*.physicMaterial text eol=lf
+*.physicsMaterial2D text eol=lf
+*.renderTexture text eol=lf
+*.flare text eol=lf
+*.fontsettings text eol=lf
+*.guiskin text eol=lf
+*.giparams text eol=lf
+*.mixer text eol=lf
+*.mask text eol=lf
+*.brush text eol=lf
+*.preset text eol=lf
+*.shadervariants text eol=lf
+*.spriteatlas text eol=lf
+*.terrainlayer text eol=lf
+*.overrideController text eol=lf
+*.lighting text eol=lf
+*.playable text eol=lf
+*.timeline text eol=lf
+*.signal text eol=lf
+
+# Documentation
+*.pdf binary
+*.doc binary
+*.docx binary
+
+# Graphics
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.bmp binary
+*.tga binary
+*.tif binary
+*.tiff binary
+*.ico binary
+*.svg binary
+*.eps binary
+*.psd binary
+*.ai binary
+*.exr binary
+*.hdr binary
+
+# Audio
+*.mp3 binary
+*.wav binary
+*.ogg binary
+*.aif binary
+*.aiff binary
+*.mod binary
+*.it binary
+*.s3m binary
+*.xm binary
+
+# Video
+*.mp4 binary
+*.mov binary
+*.avi binary
+*.mpg binary
+*.mpeg binary
+*.webm binary
+*.ogv binary
+
+# 3D models
+*.fbx binary
+*.dae binary
+*.3ds binary
+*.dxf binary
+*.obj text
+*.mtl text
+*.blend binary
+*.blend1 binary
+*.ma binary
+*.mb binary
+*.ply binary
+*.skp binary
+*.stl binary
+
+# Fonts
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.eot binary
+
+# Archives
+*.zip binary
+*.7z binary
+*.rar binary
+*.tar binary
+*.gz binary
+*.bz2 binary
+*.xz binary
+
+# Binaries and libraries
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
+*.a binary
+*.lib binary
+*.pdb binary
+*.mdb binary
+*.jar binary
+*.aar binary
+*.bc binary
+
+# Unity packages
+*.unitypackage binary
+
+# IDE files
+*.suo binary
+*.user binary
+*.userprefs binary
+*.pidb binary
+*.booproj binary
+*.svd binary
+*.pdb binary
+*.opendb binary
+*.VC.db binary
+
+# OS generated files
+.DS_Store binary
+Thumbs.db binary
+Desktop.ini text

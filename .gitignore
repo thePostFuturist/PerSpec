@@ -1,0 +1,129 @@
+# Unity Package Git Ignore
+# For PerSpec Framework Package Repository
+
+# Unity generated
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+
+# Unity test results
+TestResults*.xml
+test_results/
+
+# Visual Studio / VS Code
+.vs/
+.vscode/
+*.csproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+*.VC.VC.opendb
+
+# Rider
+.idea/
+*.iml
+
+# OS generated
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Package build output
+*.unitypackage
+*.tgz
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# SQLite databases (except test coordination)
+*.db
+*.sqlite
+*.sqlite3
+# Keep the test coordination database template if included
+!test_coordination.db.template
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Documentation build
+Documentation~/.build/
+Documentation~/site/
+
+# Test coverage
+CodeCoverage/
+*.coverage
+coverage.xml
+
+# Never ignore package essentials
+!*.dll
+!*.so
+!*.dylib
+!*.aar
+!*.bc
+!*.a
+!*.lib
+
+# Never ignore meta files in this package
+!*.meta
+
+# Never ignore asmdefs
+!*.asmdef
+!*.asmref
+
+# Temporary files
+*~
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# NuGet
+.nuget/
+packages/
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+bld/
+[Bb]in/
+
+# Node modules (if using npm for any tools)
+node_modules/
+
+# Custom ignore for local development
+.local/
+*.local
+*.private
