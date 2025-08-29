@@ -1,4 +1,14 @@
-# PerSpec - Unity Alternative to MCP via SQLite and Code Generation Framework
+
+```
+     ____            _____                
+    / __ \___  _____/ ___/____  ___  _____
+   / /_/ / _ \/ ___/\__ \/ __ \/ _ \/ ___/
+  / ____/  __/ /   ___/ / /_/ /  __/ /__  
+ /_/    \___/_/   /____/ .___/\___/\___/  
+                      /_/
+```
+
+## Unity Alternative to MCP via SQLite and Code Generation Framework
 
 > **Transform your LLM from a code chaos generator into a precision TDD machine**
 > 
@@ -6,7 +16,7 @@
 
 ## 🎯 The Problem with LLMs
 
-What's the typical result of vibe coding in Unity?
+Recognize any of these characters during your vibe code?
 
 - **Monolithic nightmares** - 500+ line scripts that do everything and nothing
 - **Indigestible spaghetti** - Code so tangled you can't tell where features start or end  
@@ -76,7 +86,7 @@ public class PlayerInput : MonoBehaviour { /* 30 lines */ }
 public class PlayerAnimator : MonoBehaviour { /* 40 lines */ }
 ```
 
-### "Vibe Code" Your Features
+### Vibe Code Your Features
 Watch your feature evolve through rapid TDD cycles:
 1. **Write test** → See it fail (red)
 2. **Write code** → Make it pass (green)  
@@ -108,7 +118,7 @@ https://github.com/thePostFuturist/PerSpec.git
 ```json
 {
   "dependencies": {
-    "com.perspec.framework": "https://github.com/thePostFuturist/PerSpec.git",
+    "com.digitraver.perspec": "https://github.com/thePostFuturist/PerSpec.git",
     "com.cysharp.unitask": "2.5.10",
     "com.gilzoide.sqlite-net": "1.3.1",
     "com.newtonsoft.json": "1.0.1"
