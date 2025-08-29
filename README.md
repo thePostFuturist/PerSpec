@@ -121,7 +121,7 @@ https://github.com/thePostFuturist/PerSpec.git
     "com.digitraver.perspec": "https://github.com/thePostFuturist/PerSpec.git",
     "com.cysharp.unitask": "2.5.10",
     "com.gilzoide.sqlite-net": "1.3.1",
-    "com.newtonsoft.json": "1.0.1"
+    "com.unity.nuget.newtonsoft-json": "3.2.1"
   }
 }
 ```
