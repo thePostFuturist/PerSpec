@@ -2,7 +2,8 @@
     "name": "PerSpec.Editor.Initialization",
     "rootNamespace": "PerSpec.Editor.Initialization",
     "references": [
-        "PerSpec.Runtime"
+        "PerSpec.Runtime",
+        "PerSpec.Editor.Services"
     ],
     "includePlatforms": [
         "Editor"

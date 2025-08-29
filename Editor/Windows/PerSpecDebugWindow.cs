@@ -332,8 +332,8 @@ PerSpecDebug.LogTestSetup(""Creating prefab"");";
         private static bool IsDebugEnabled()
         {
             var buildTarget = EditorUserBuildSettings.activeBuildTarget;
-            var targetGroup = BuildPipeline.GetBuildTargetGroup(buildTarget);
-            string symbols = PlayerSettings.GetScriptingDefineSymbolsForGroup(targetGroup);
+            var namedTarget = NamedBuildTarget.FromBuildTargetGroup(BuildPipeline.GetBuildTargetGroup(buildTarget));
+            string symbols = PlayerSettings.GetScriptingDefineSymbols(namedTarget);
             return symbols.Contains(PERSPEC_DEBUG_SYMBOL);
         }
         

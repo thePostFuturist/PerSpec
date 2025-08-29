@@ -249,7 +249,7 @@ if %ERRORLEVEL% NEQ 0 (
             // Unix shell script
             string shContent = $@"#!/bin/bash
 # PerSpec wrapper script for {pythonScript}
-python "{fullScriptPath}" "$@"";
+python ""{fullScriptPath}"" ""$@""";
             
             string shPath = Path.Combine(targetDir, $"{scriptName}.sh");
             File.WriteAllText(shPath, shContent);
