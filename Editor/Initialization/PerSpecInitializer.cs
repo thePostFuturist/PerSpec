@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using UnityEngine;
 using UnityEditor;
+using PerSpec.Editor.Services;
 
 namespace PerSpec.Editor.Initialization
 {
@@ -220,23 +221,25 @@ namespace PerSpec.Editor.Initialization
         private void CreateConvenienceScripts()
         {
             string scriptsPath = Path.Combine(ProjectPerSpecPath, "scripts");
-            string packageScriptsPath = "Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts";
             
-            // Create test scripts
-            CreateWrapperScript(scriptsPath, "test", "quick_test.py", packageScriptsPath);
-            CreateWrapperScript(scriptsPath, "logs", "quick_logs.py", packageScriptsPath);
-            CreateWrapperScript(scriptsPath, "refresh", "quick_refresh.py", packageScriptsPath);
-            CreateWrapperScript(scriptsPath, "init_db", "db_initializer.py", packageScriptsPath);
+            // Create test scripts using dynamic package path
+            CreateWrapperScript(scriptsPath, "test", "quick_test.py");
+            CreateWrapperScript(scriptsPath, "logs", "quick_logs.py");
+            CreateWrapperScript(scriptsPath, "refresh", "quick_refresh.py");
+            CreateWrapperScript(scriptsPath, "init_db", "db_initializer.py");
             
             Debug.Log($"[PerSpec] Created convenience scripts in: {scriptsPath}");
         }
         
-        private void CreateWrapperScript(string targetDir, string scriptName, string pythonScript, string packagePath)
+        private void CreateWrapperScript(string targetDir, string scriptName, string pythonScript)
         {
+            // Get the actual path to the Python script
+            string fullScriptPath = PackagePathResolver.GetPythonScriptPath(pythonScript);
+            
             // Windows batch file
             string batContent = $@"@echo off
 REM PerSpec wrapper script for {pythonScript}
-python ""%~dp0\..\..\{packagePath}\{pythonScript}"" %*
+python ""{fullScriptPath}"" %*
 if %ERRORLEVEL% NEQ 0 (
     echo Error running {pythonScript}
     pause
@@ -246,8 +249,7 @@ if %ERRORLEVEL% NEQ 0 (
             // Unix shell script
             string shContent = $@"#!/bin/bash
 # PerSpec wrapper script for {pythonScript}
-SCRIPT_DIR=""$( cd ""$( dirname ""${{BASH_SOURCE[0]}}"" )"" && pwd )""
-python ""$SCRIPT_DIR/../../{packagePath}/{pythonScript}"" ""$@""";
+python "{fullScriptPath}" "$@"";
             
             string shPath = Path.Combine(targetDir, $"{scriptName}.sh");
             File.WriteAllText(shPath, shContent);
@@ -272,8 +274,7 @@ python ""$SCRIPT_DIR/../../{packagePath}/{pythonScript}"" ""$@""";
         
         private void InitializePythonDatabase()
         {
-            string initScript = Path.Combine(Application.dataPath, "..", 
-                "Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/db_initializer.py");
+            string initScript = PackagePathResolver.GetPythonScriptPath("db_initializer.py");
             
             if (!File.Exists(initScript))
             {

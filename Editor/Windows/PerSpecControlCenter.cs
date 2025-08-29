@@ -550,15 +550,18 @@ PerSpecDebug.LogTestComplete(""Test passed"");";
             
             DrawSection("4-Step TDD Workflow", () =>
             {
+                // Use relative paths for display (these are informational, not executed)
                 string workflow = @"1. Write code and tests with TDD
 2. Refresh Unity: 
-   python ScriptingTools/Coordination/Scripts/quick_refresh.py full --wait
+   python quick_refresh.py full --wait
 3. Check for errors:
-   python ScriptingTools/Coordination/Scripts/quick_logs.py errors
+   python quick_logs.py errors
 4. Run tests:
-   python ScriptingTools/Coordination/Scripts/quick_test.py all -p edit --wait";
+   python quick_test.py all -p edit --wait
+
+Note: Use the convenience scripts in PerSpec/Scripts/ or run from package location";
    
-                EditorGUILayout.TextArea(workflow, GUILayout.Height(120));
+                EditorGUILayout.TextArea(workflow, GUILayout.Height(140));
             });
         }
         

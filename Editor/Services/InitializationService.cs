@@ -127,19 +127,52 @@ namespace PerSpec.Editor.Services
         
         private static void CreateWrapperScripts()
         {
-            // Create convenience wrapper scripts
-            string refreshScript = @"@echo off
-python ""%~dp0..\..\ScriptingTools\Coordination\Scripts\quick_refresh.py"" %*";
+            // Create convenience wrapper scripts with dynamic paths
+            string refreshPath = PackagePathResolver.GetPythonScriptPath("quick_refresh.py");
+            string testPath = PackagePathResolver.GetPythonScriptPath("quick_test.py");
+            string logsPath = PackagePathResolver.GetPythonScriptPath("quick_logs.py");
             
-            string testScript = @"@echo off
-python ""%~dp0..\..\ScriptingTools\Coordination\Scripts\quick_test.py"" %*";
+            string refreshScript = $@"@echo off
+python ""{refreshPath}"" %*";
             
-            string logsScript = @"@echo off
-python ""%~dp0..\..\ScriptingTools\Coordination\Scripts\quick_logs.py"" %*";
+            string testScript = $@"@echo off
+python ""{testPath}"" %*";
+            
+            string logsScript = $@"@echo off
+python ""{logsPath}"" %*";
             
             File.WriteAllText(Path.Combine(ScriptsPath, "refresh.bat"), refreshScript);
             File.WriteAllText(Path.Combine(ScriptsPath, "test.bat"), testScript);
             File.WriteAllText(Path.Combine(ScriptsPath, "logs.bat"), logsScript);
+            
+            // Create Unix shell scripts too
+            string refreshShScript = $@"#!/bin/bash
+python ""{refreshPath}"" ""$@""";
+            string testShScript = $@"#!/bin/bash
+python ""{testPath}"" ""$@""";
+            string logsShScript = $@"#!/bin/bash
+python ""{logsPath}"" ""$@""";
+            
+            File.WriteAllText(Path.Combine(ScriptsPath, "refresh.sh"), refreshShScript);
+            File.WriteAllText(Path.Combine(ScriptsPath, "test.sh"), testShScript);
+            File.WriteAllText(Path.Combine(ScriptsPath, "logs.sh"), logsShScript);
+            
+            // Make shell scripts executable on Unix
+            if (Application.platform == RuntimePlatform.OSXEditor || Application.platform == RuntimePlatform.LinuxEditor)
+            {
+                try
+                {
+                    var chmod = new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = "chmod",
+                        Arguments = $"+x \"{Path.Combine(ScriptsPath, "*.sh")}\"",
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    };
+                    System.Diagnostics.Process.Start(chmod)?.WaitForExit(1000);
+                }
+                catch { /* Ignore chmod errors */ }
+            }
             
             Debug.Log("[PerSpec] Created convenience wrapper scripts");
         }
