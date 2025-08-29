@@ -1,5 +1,7 @@
 using System;
 using System.Linq;
+using System.IO;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 using PerSpec.Editor.Services;
@@ -29,6 +31,7 @@ namespace PerSpec.Editor.Windows
             "Debug Settings",
             "Console Logs",
             "Initialization",
+            "LLM Setup",
             "About"
         };
         
@@ -101,7 +104,8 @@ namespace PerSpec.Editor.Windows
                 case 2: DrawDebugSettingsTab(); break;
                 case 3: DrawConsoleLogsTab(); break;
                 case 4: DrawInitializationTab(); break;
-                case 5: DrawAboutTab(); break;
+                case 5: DrawLLMSetupTab(); break;
+                case 6: DrawAboutTab(); break;
             }
             
             EditorGUILayout.EndScrollView();
@@ -513,6 +517,287 @@ PerSpecDebug.LogTestComplete(""Test passed"");";
                     EditorGUILayout.EndHorizontal();
                 }
             });
+        }
+        
+        #endregion
+        
+        #region GUI Drawing - LLM Setup Tab
+        
+        private void DrawLLMSetupTab()
+        {
+            DrawSection("LLM Configuration Management", () =>
+            {
+                EditorGUILayout.HelpBox("Configure your AI coding assistant with PerSpec's TDD instructions.", MessageType.Info);
+                EditorGUILayout.Space(10);
+                
+                // Detect existing LLM configurations
+                var detectedConfigs = DetectLLMConfigurations();
+                
+                if (detectedConfigs.Count > 0)
+                {
+                    EditorGUILayout.LabelField("Detected Configurations:", EditorStyles.boldLabel);
+                    foreach (var config in detectedConfigs)
+                    {
+                        EditorGUILayout.BeginHorizontal();
+                        EditorGUILayout.LabelField($"• {config.Key}", GUILayout.Width(200));
+                        
+                        if (GUILayout.Button("Update", GUILayout.Width(80)))
+                        {
+                            UpdateLLMConfiguration(config.Value);
+                        }
+                        
+                        if (GUILayout.Button("View", GUILayout.Width(80)))
+                        {
+                            EditorUtility.RevealInFinder(config.Value);
+                        }
+                        
+                        EditorGUILayout.EndHorizontal();
+                    }
+                }
+                else
+                {
+                    EditorGUILayout.HelpBox("No LLM configuration files detected in your project.", MessageType.Warning);
+                }
+                
+                EditorGUILayout.Space(20);
+                EditorGUILayout.LabelField("Create New Configuration:", EditorStyles.boldLabel);
+                
+                // Dropdown for LLM selection
+                string[] llmOptions = new string[] 
+                {
+                    "Claude (CLAUDE.md)",
+                    "Cursor (.cursorrules)",
+                    "GitHub Copilot (.github/copilot-instructions.md)",
+                    "Aider (.aider.conf.yml)",
+                    "Codeium (.codeium/instructions.md)",
+                    "Continue (.continue/context.md)"
+                };
+                
+                EditorGUILayout.BeginHorizontal();
+                int selectedLLM = EditorGUILayout.Popup("Select LLM:", 0, llmOptions);
+                
+                if (GUILayout.Button("Create", GUILayout.Width(100)))
+                {
+                    CreateLLMConfiguration(selectedLLM);
+                }
+                EditorGUILayout.EndHorizontal();
+                
+                EditorGUILayout.Space(10);
+                
+                // Copy agents folder option
+                if (GUILayout.Button("Copy Agent Definitions to Project", GUILayout.Height(30)))
+                {
+                    CopyAgentDefinitions();
+                }
+            });
+            
+            DrawSection("Instructions", () =>
+            {
+                string instructions = @"1. Detect: Scans your project for existing LLM configuration files
+2. Update: Appends PerSpec's TDD instructions to existing configs
+3. Create: Creates a new configuration file with PerSpec instructions
+4. Agents: Copies specialized agent definitions to .claude/agents/
+
+Supported LLMs:
+• Claude Code - CLAUDE.md
+• Cursor - .cursorrules
+• GitHub Copilot - .github/copilot-instructions.md
+• Aider - .aider.conf.yml
+• Codeium - .codeium/instructions.md
+• Continue - .continue/context.md";
+                
+                EditorGUILayout.TextArea(instructions, GUILayout.Height(180));
+            });
+        }
+        
+        private Dictionary<string, string> DetectLLMConfigurations()
+        {
+            var configs = new Dictionary<string, string>();
+            string projectPath = Directory.GetParent(Application.dataPath).FullName;
+            
+            // Check for various LLM configuration files
+            var llmFiles = new Dictionary<string, string>
+            {
+                { "Claude (CLAUDE.md)", "CLAUDE.md" },
+                { "Cursor (.cursorrules)", ".cursorrules" },
+                { "Copilot", Path.Combine(".github", "copilot-instructions.md") },
+                { "Aider", ".aider.conf.yml" },
+                { "Codeium", Path.Combine(".codeium", "instructions.md") },
+                { "Continue", Path.Combine(".continue", "context.md") }
+            };
+            
+            foreach (var file in llmFiles)
+            {
+                string fullPath = Path.Combine(projectPath, file.Value);
+                if (File.Exists(fullPath))
+                {
+                    configs[file.Key] = fullPath;
+                }
+            }
+            
+            return configs;
+        }
+        
+        private void UpdateLLMConfiguration(string configPath)
+        {
+            try
+            {
+                string llmContent = GetLLMContent();
+                string existingContent = File.ReadAllText(configPath);
+                
+                // Check if content already exists
+                if (existingContent.Contains("PerSpec Testing Framework") || 
+                    existingContent.Contains("TDD Development Workflow"))
+                {
+                    EditorUtility.DisplayDialog("Already Updated",
+                        "This configuration already contains PerSpec instructions.",
+                        "OK");
+                    return;
+                }
+                
+                // Append with separator
+                string separator = "\n\n# ==================== PerSpec TDD Instructions ====================\n\n";
+                File.AppendAllText(configPath, separator + llmContent);
+                
+                EditorUtility.DisplayDialog("Success",
+                    $"Updated {Path.GetFileName(configPath)} with PerSpec instructions.",
+                    "OK");
+                
+                AssetDatabase.Refresh();
+            }
+            catch (Exception e)
+            {
+                EditorUtility.DisplayDialog("Error",
+                    $"Failed to update configuration: {e.Message}",
+                    "OK");
+            }
+        }
+        
+        private void CreateLLMConfiguration(int llmIndex)
+        {
+            string projectPath = Directory.GetParent(Application.dataPath).FullName;
+            string configPath = "";
+            
+            switch (llmIndex)
+            {
+                case 0: // Claude
+                    configPath = Path.Combine(projectPath, "CLAUDE.md");
+                    break;
+                case 1: // Cursor
+                    configPath = Path.Combine(projectPath, ".cursorrules");
+                    break;
+                case 2: // Copilot
+                    string githubDir = Path.Combine(projectPath, ".github");
+                    if (!Directory.Exists(githubDir))
+                        Directory.CreateDirectory(githubDir);
+                    configPath = Path.Combine(githubDir, "copilot-instructions.md");
+                    break;
+                case 3: // Aider
+                    configPath = Path.Combine(projectPath, ".aider.conf.yml");
+                    break;
+                case 4: // Codeium
+                    string codeiumDir = Path.Combine(projectPath, ".codeium");
+                    if (!Directory.Exists(codeiumDir))
+                        Directory.CreateDirectory(codeiumDir);
+                    configPath = Path.Combine(codeiumDir, "instructions.md");
+                    break;
+                case 5: // Continue
+                    string continueDir = Path.Combine(projectPath, ".continue");
+                    if (!Directory.Exists(continueDir))
+                        Directory.CreateDirectory(continueDir);
+                    configPath = Path.Combine(continueDir, "context.md");
+                    break;
+            }
+            
+            if (File.Exists(configPath))
+            {
+                if (!EditorUtility.DisplayDialog("File Exists",
+                    $"Configuration file already exists at:\n{configPath}\n\nOverwrite?",
+                    "Overwrite", "Cancel"))
+                {
+                    return;
+                }
+            }
+            
+            try
+            {
+                string llmContent = GetLLMContent();
+                
+                // For Aider, we need to wrap in YAML format
+                if (llmIndex == 3)
+                {
+                    llmContent = $"# Aider configuration with PerSpec instructions\n\n" +
+                                $"instructions: |\n" +
+                                string.Join("\n", llmContent.Split('\n').Select(line => "  " + line));
+                }
+                
+                File.WriteAllText(configPath, llmContent);
+                
+                EditorUtility.DisplayDialog("Success",
+                    $"Created {Path.GetFileName(configPath)} with PerSpec instructions.",
+                    "OK");
+                
+                AssetDatabase.Refresh();
+            }
+            catch (Exception e)
+            {
+                EditorUtility.DisplayDialog("Error",
+                    $"Failed to create configuration: {e.Message}",
+                    "OK");
+            }
+        }
+        
+        private void CopyAgentDefinitions()
+        {
+            try
+            {
+                string projectPath = Directory.GetParent(Application.dataPath).FullName;
+                string targetDir = Path.Combine(projectPath, ".claude", "agents");
+                string sourceDir = Path.Combine(PackagePathResolver.PackagePath, "Documentation~", "agents");
+                
+                if (!Directory.Exists(sourceDir))
+                {
+                    EditorUtility.DisplayDialog("Error",
+                        "Agent definitions not found in package.",
+                        "OK");
+                    return;
+                }
+                
+                // Create target directory
+                Directory.CreateDirectory(targetDir);
+                
+                // Copy all agent files
+                foreach (string file in Directory.GetFiles(sourceDir, "*.md"))
+                {
+                    string fileName = Path.GetFileName(file);
+                    string targetPath = Path.Combine(targetDir, fileName);
+                    File.Copy(file, targetPath, true);
+                }
+                
+                EditorUtility.DisplayDialog("Success",
+                    $"Copied agent definitions to:\n{targetDir}",
+                    "OK");
+                
+                AssetDatabase.Refresh();
+            }
+            catch (Exception e)
+            {
+                EditorUtility.DisplayDialog("Error",
+                    $"Failed to copy agent definitions: {e.Message}",
+                    "OK");
+            }
+        }
+        
+        private string GetLLMContent()
+        {
+            string llmPath = Path.Combine(PackagePathResolver.PackagePath, "Documentation~", "LLM.md");
+            
+            if (!File.Exists(llmPath))
+            {
+                throw new FileNotFoundException($"LLM.md not found at: {llmPath}");
+            }
+            
+            return File.ReadAllText(llmPath);
         }
         
         #endregion
