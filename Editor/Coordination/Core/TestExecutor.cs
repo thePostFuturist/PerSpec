@@ -40,7 +40,7 @@ namespace PerSpec.Editor.Coordination
             
             // Initialize test results path
             string projectPath = Directory.GetParent(Application.dataPath).FullName;
-            _testResultsPath = Path.Combine(projectPath, "TestResults");
+            _testResultsPath = Path.Combine(projectPath, "PerSpec", "TestResults");
         }
         
         public void ExecuteTests(TestRequest request, Filter filter, Action<TestRequest, bool, string, TestResultSummary> onComplete)

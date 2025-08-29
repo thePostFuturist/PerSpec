@@ -1,12 +1,12 @@
-# PerSpec - Generate Unity Code That You Can Read and Write
+# PerSpec - Unity Alternative to MCP via SQLite and Code Generation Framework
 
 > **Transform your LLM from a code chaos generator into a precision TDD machine**
 > 
 > 🚫 **NO MCP SERVERS REQUIRED** - Uses rock-solid SQLite + Python instead!
 
-## 🎯 The Problem with LLMs and Unity
+## 🎯 The Problem with LLMs
 
-Let's be honest. When you ask an LLM to write Unity code, what do you get?
+What's the typical result of vibe coding in Unity?
 
 - **Monolithic nightmares** - 500+ line scripts that do everything and nothing
 - **Indigestible spaghetti** - Code so tangled you can't tell where features start or end  

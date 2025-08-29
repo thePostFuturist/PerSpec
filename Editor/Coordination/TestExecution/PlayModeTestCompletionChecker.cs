@@ -19,7 +19,7 @@ namespace PerSpec.Editor.Coordination
         static PlayModeTestCompletionChecker()
         {
             string projectPath = Directory.GetParent(Application.dataPath).FullName;
-            _testResultsPath = Path.Combine(projectPath, "TestResults");
+            _testResultsPath = Path.Combine(projectPath, "PerSpec", "TestResults");
             
             // Subscribe to play mode state changes
             EditorApplication.playModeStateChanged += OnPlayModeStateChanged;

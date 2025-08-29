@@ -358,7 +358,7 @@ namespace PerSpec.Editor.Coordination
             try
             {
                 string projectPath = Directory.GetParent(Application.dataPath).FullName;
-                string testResultsPath = Path.Combine(projectPath, "TestResults");
+                string testResultsPath = Path.Combine(projectPath, "PerSpec", "TestResults");
                 
                 if (Directory.Exists(testResultsPath))
                 {

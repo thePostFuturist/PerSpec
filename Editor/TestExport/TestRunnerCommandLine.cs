@@ -142,7 +142,7 @@ namespace PerSpec.Editor.TestExport
             var filter = new Filter()
             {
                 testMode = TestMode.EditMode,
-                testNames = new[] { "TestFramework.Unity.Tests.Unit" }
+                testNames = new[] { "PerSpec.Tests.Unit" }
             };
             
             ExecuteTests(filter, "Unit Tests");
@@ -156,7 +156,7 @@ namespace PerSpec.Editor.TestExport
             var filter = new Filter()
             {
                 testMode = TestMode.PlayMode,
-                testNames = new[] { "TestFramework.Unity.Tests.Integration" }
+                testNames = new[] { "PerSpec.Tests.Integration" }
             };
             
             ExecuteTests(filter, "Integration Tests");
@@ -188,7 +188,7 @@ namespace PerSpec.Editor.TestExport
                 _exitCode = 0;
                 
                 // Clear TestResults directory
-                var testResultsDir = Path.Combine(Application.dataPath, "..", "TestResults");
+                var testResultsDir = Path.Combine(Application.dataPath, "..", "PerSpec", "TestResults");
                 ClearTestResultsDirectory(testResultsDir);
                 
                 // Setup output path
@@ -280,7 +280,7 @@ namespace PerSpec.Editor.TestExport
             }
             
             // Default path
-            var directory = Path.Combine(Application.dataPath, "..", "TestResults");
+            var directory = Path.Combine(Application.dataPath, "..", "PerSpec", "TestResults");
             if (!Directory.Exists(directory))
             {
                 Directory.CreateDirectory(directory);
@@ -293,7 +293,7 @@ namespace PerSpec.Editor.TestExport
         {
             try
             {
-                var exitCodeFile = Path.Combine(Application.dataPath, "..", "TestResults", "exit_code.txt");
+                var exitCodeFile = Path.Combine(Application.dataPath, "..", "PerSpec", "TestResults", "exit_code.txt");
                 File.WriteAllText(exitCodeFile, code.ToString());
                 
                 Console.WriteLine($"[TEST-CLI] Exit code written to: {exitCodeFile}");

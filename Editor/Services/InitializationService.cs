@@ -15,6 +15,7 @@ namespace PerSpec.Editor.Services
         public static string ProjectPerSpecPath => Path.Combine(Directory.GetParent(Application.dataPath).FullName, "PerSpec");
         public static string DatabasePath => Path.Combine(ProjectPerSpecPath, "test_coordination.db");
         public static string ScriptsPath => Path.Combine(ProjectPerSpecPath, "Scripts");
+        public static string TestResultsPath => Path.Combine(ProjectPerSpecPath, "TestResults");
         
         public static bool IsInitialized => Directory.Exists(ProjectPerSpecPath);
         
