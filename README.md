@@ -101,15 +101,17 @@ public IEnumerator PlayerShouldMoveForward() => UniTask.ToCoroutine(async () => 
 **Via Unity Package Manager:**
 ```
 Window > Package Manager > + > Add package from git URL...
-https://github.com/yourusername/perspec-framework.git#main
+https://github.com/thePostFuturist/PerSpec.git
 ```
 
 **Or add to `manifest.json`:**
 ```json
 {
   "dependencies": {
-    "com.perspec.framework": "https://github.com/yourusername/perspec-framework.git#main",
-    "com.cysharp.unitask": "2.3.3"
+    "com.perspec.framework": "https://github.com/thePostFuturist/PerSpec.git",
+    "com.cysharp.unitask": "2.5.10",
+    "com.gilzoide.sqlite-net": "1.3.1",
+    "com.newtonsoft.json": "1.0.1"
   }
 }
 ```
@@ -196,8 +198,10 @@ python ScriptingTools/Coordination/Scripts/quick_test.py all -p edit --wait
 
 ## 🛠️ Requirements
 
-- Unity 2021.3 or higher
+- Unity 6.000.47f1 or higher
 - UniTask package
+- SQLite package
+- Entities package
 - Python 3.7+ (for coordination scripts)
 - Git (for package installation)
 

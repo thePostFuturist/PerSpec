@@ -220,7 +220,7 @@ namespace PerSpec.Editor.Initialization
         private void CreateConvenienceScripts()
         {
             string scriptsPath = Path.Combine(ProjectPerSpecPath, "scripts");
-            string packageScriptsPath = "Packages/com.perspec.framework/ScriptingTools/Coordination/Scripts";
+            string packageScriptsPath = "Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts";
             
             // Create test scripts
             CreateWrapperScript(scriptsPath, "test", "quick_test.py", packageScriptsPath);
@@ -273,7 +273,7 @@ python ""$SCRIPT_DIR/../../{packagePath}/{pythonScript}"" ""$@""";
         private void InitializePythonDatabase()
         {
             string initScript = Path.Combine(Application.dataPath, "..", 
-                "Packages/com.perspec.framework/ScriptingTools/Coordination/Scripts/db_initializer.py");
+                "Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/db_initializer.py");
             
             if (!File.Exists(initScript))
             {
