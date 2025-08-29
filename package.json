@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "displayName": "PerSpec Testing Framework",
   "description": "Professional Unity TDD framework with UniTask async patterns, DOTS support, and SQLite-based test coordination between Python and Unity. Features intelligent console log capture, background test polling, and comprehensive test execution management.",
-  "unity": "6.000.47f1",
+  "unity": "6000.0",
   "unityRelease": "0f1",
   "documentationUrl": "https://github.com/thePostFuturist/PerSpec/blob/main/README.md",
   "changelogUrl": "https://github.com/thePostFuturist/PerSpec/blob/main/CHANGELOG.md",
