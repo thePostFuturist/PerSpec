@@ -31,19 +31,41 @@ namespace PerSpec.Editor.Coordination
         
         static AssetRefreshCoordinator()
         {
+            // Check if PerSpec is initialized
+            if (!SQLiteManager.IsPerSpecInitialized())
+            {
+                // Silent - PerSpecInitializer will show the prompt
+                return;
+            }
+            
             Debug.Log("[AssetRefreshCoordinator] Initializing asset refresh coordination");
             
             // Capture Unity's sync context for thread marshalling
             _unitySyncContext = SynchronizationContext.Current;
             
-            _dbManager = new SQLiteManager();
-            EditorApplication.update += OnEditorUpdate;
-            _lastCheckTime = EditorApplication.timeSinceStartup;
-            
-            // Set up background fallback timer if enabled
-            if (_useBackgroundFallback)
+            try
             {
-                SetupBackgroundFallback();
+                _dbManager = new SQLiteManager();
+                
+                // Only proceed if database is ready
+                if (!_dbManager.IsInitialized)
+                {
+                    return;
+                }
+                
+                EditorApplication.update += OnEditorUpdate;
+                _lastCheckTime = EditorApplication.timeSinceStartup;
+                
+                // Set up background fallback timer if enabled
+                if (_useBackgroundFallback)
+                {
+                    SetupBackgroundFallback();
+                }
+            }
+            catch (Exception e)
+            {
+                // Silent failure
+                return;
             }
             
             // Force Unity to run in background

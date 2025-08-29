@@ -187,6 +187,16 @@ namespace PerSpec.Editor.Coordination
     {
         private readonly string _dbPath;
         private readonly SQLiteConnection _connection;
+        private readonly bool _isInitialized;
+        
+        public bool IsInitialized => _isInitialized;
+        
+        public static bool IsPerSpecInitialized()
+        {
+            string projectPath = Directory.GetParent(Application.dataPath).FullName;
+            string perspecPath = Path.Combine(projectPath, "PerSpec");
+            return Directory.Exists(perspecPath);
+        }
         
         public SQLiteManager()
         {
@@ -198,32 +208,34 @@ namespace PerSpec.Editor.Coordination
             // Check if PerSpec is initialized
             if (!Directory.Exists(perspecPath))
             {
-                Debug.LogError($"[SQLiteManager] PerSpec not initialized. Please run Tools > PerSpec > Initialize PerSpec");
-                throw new DirectoryNotFoundException($"PerSpec directory not found at: {perspecPath}. Please initialize PerSpec first.");
+                _isInitialized = false;
+                return;
             }
             
             // Database will be created by Python scripts if it doesn't exist yet
             if (!File.Exists(_dbPath))
             {
-                Debug.LogWarning($"[SQLiteManager] Database not found at: {_dbPath}. It will be created on first use.");
-                // Don't throw here - let Python scripts create it
+                _isInitialized = false;
+                return;
             }
             
             try
             {
                 _connection = new SQLiteConnection(_dbPath, SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.FullMutex);
                 _connection.BusyTimeout = TimeSpan.FromSeconds(5);
-                Debug.Log($"[SQLiteManager] Connected to database at: {_dbPath}");
+                _isInitialized = true;
             }
             catch (Exception e)
             {
-                Debug.LogError($"[SQLiteManager] Failed to connect to database: {e.Message}");
-                throw;
+                _isInitialized = false;
+                // Silent failure - database might be locked or not ready
             }
         }
         
         public TestRequest GetNextPendingRequest()
         {
+            if (!_isInitialized) return null;
+            
             try
             {
                 var query = _connection.Table<TestRequest>()
@@ -243,6 +255,8 @@ namespace PerSpec.Editor.Coordination
         
         public void UpdateRequestStatus(int requestId, string status, string errorMessage = null)
         {
+            if (!_isInitialized) return;
+            
             try
             {
                 var request = _connection.Table<TestRequest>().FirstOrDefault(r => r.Id == requestId);
@@ -324,6 +338,8 @@ namespace PerSpec.Editor.Coordination
         
         public void LogExecution(int? requestId, string logLevel, string source, string message)
         {
+            if (!_isInitialized) return;
+            
             try
             {
                 var log = new ExecutionLog

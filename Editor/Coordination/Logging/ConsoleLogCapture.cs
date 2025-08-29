@@ -55,9 +55,22 @@ namespace PerSpec.Editor.Coordination
         
         static ConsoleLogCapture()
         {
+            // Check if PerSpec is initialized
+            if (!SQLiteManager.IsPerSpecInitialized())
+            {
+                // Silent - PerSpecInitializer will show the prompt
+                return;
+            }
+            
             try
             {
                 _dbManager = new SQLiteManager();
+                
+                // Only proceed if database is ready
+                if (!_dbManager.IsInitialized)
+                {
+                    return;
+                }
                 
                 // Subscribe to Unity's thread-safe log handler
                 Application.logMessageReceivedThreaded += OnLogMessageReceived;
@@ -73,7 +86,7 @@ namespace PerSpec.Editor.Coordination
             }
             catch (Exception e)
             {
-                Debug.LogError($"[ConsoleLogCapture] Failed to initialize: {e.Message}");
+                // Silent failure - don't spam the console
             }
         }
         

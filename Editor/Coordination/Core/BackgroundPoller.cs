@@ -27,6 +27,13 @@ namespace PerSpec.Editor.Coordination
         
         static BackgroundPoller()
         {
+            // Check if PerSpec is initialized
+            if (!SQLiteManager.IsPerSpecInitialized())
+            {
+                // Silent - PerSpecInitializer will show the prompt
+                return;
+            }
+            
             Debug.Log("[BackgroundPoller] Initializing background polling system");
             
             // Capture Unity's synchronization context for thread marshalling
@@ -36,10 +43,16 @@ namespace PerSpec.Editor.Coordination
             try
             {
                 _dbManager = new SQLiteManager();
+                
+                // Only proceed if database is ready
+                if (!_dbManager.IsInitialized)
+                {
+                    return;
+                }
             }
             catch (Exception e)
             {
-                Debug.LogError($"[BackgroundPoller] Failed to initialize database: {e.Message}");
+                // Silent failure
                 return;
             }
             

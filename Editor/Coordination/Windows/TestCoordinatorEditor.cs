@@ -30,27 +30,49 @@ namespace PerSpec.Editor.Coordination
         
         static TestCoordinatorEditor()
         {
+            // Check if PerSpec is initialized
+            if (!SQLiteManager.IsPerSpecInitialized())
+            {
+                // Silent - PerSpecInitializer will show the prompt
+                return;
+            }
+            
             Debug.Log("[TestCoordinator] Initializing test coordination system");
             
             // Capture Unity's sync context for thread marshalling
             _unitySyncContext = SynchronizationContext.Current;
             
-            _dbManager = new SQLiteManager();
-            _testExecutor = new TestExecutor(_dbManager);
-            
-            EditorApplication.update += OnEditorUpdate;
-            
-            // Initialize last check time
-            _lastCheckTime = EditorApplication.timeSinceStartup;
-            
-            // Set up background polling if enabled
-            if (_useBackgroundPolling)
+            try
             {
-                SetupBackgroundPolling();
+                _dbManager = new SQLiteManager();
+                
+                // Only proceed if database is ready
+                if (!_dbManager.IsInitialized)
+                {
+                    return;
+                }
+                
+                _testExecutor = new TestExecutor(_dbManager);
+                
+                EditorApplication.update += OnEditorUpdate;
+                
+                // Initialize last check time
+                _lastCheckTime = EditorApplication.timeSinceStartup;
+                
+                // Set up background polling if enabled
+                if (_useBackgroundPolling)
+                {
+                    SetupBackgroundPolling();
+                }
+                
+                // Force Unity to run in background
+                Application.runInBackground = true;
             }
-            
-            // Force Unity to run in background
-            Application.runInBackground = true;
+            catch (Exception e)
+            {
+                // Silent failure
+                return;
+            }
             
             // Update system heartbeat
             _dbManager.UpdateSystemHeartbeat("Unity");
