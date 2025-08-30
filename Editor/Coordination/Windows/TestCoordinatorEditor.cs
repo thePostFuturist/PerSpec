@@ -164,7 +164,7 @@ namespace PerSpec.Editor.Coordination
             }
         }
         
-        private static void ProcessTestRequest(TestRequest request)
+        internal static void ProcessTestRequest(TestRequest request)
         {
             _isRunningTests = true;
             _currentRequestId = request.Id;

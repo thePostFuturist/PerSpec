@@ -217,28 +217,11 @@ namespace PerSpec.Editor.Coordination
                 {
                     Debug.Log($"[BackgroundPoller] Processing test request #{request.Id}");
                     
-                    // Update status to running
-                    _dbManager.UpdateRequestStatus(request.Id, "running");
-                    
-                    // Create test filter based on request
-                    var filter = CreateTestFilter(request);
-                    
-                    // Use TestExecutor to run the tests
-                    var executor = new TestExecutor(_dbManager);
-                    executor.ExecuteTests(request, filter, (req, success, error, summary) =>
-                    {
-                        if (success)
-                        {
-                            Debug.Log($"[BackgroundPoller] Test request #{req.Id} completed successfully");
-                        }
-                        else
-                        {
-                            Debug.LogError($"[BackgroundPoller] Test request #{req.Id} failed: {error}");
-                        }
-                    });
+                    // Delegate to TestCoordinatorEditor which has proper database update logic
+                    TestCoordinatorEditor.ProcessTestRequest(request);
                     
                     _dbManager.LogExecution(request.Id, "INFO", "BackgroundPoller", 
-                        "Test request triggered via background polling");
+                        "Test request triggered via background polling and delegated to TestCoordinator");
                 }
             }
             catch (Exception ex)
@@ -247,45 +230,6 @@ namespace PerSpec.Editor.Coordination
             }
         }
         
-        private static Filter CreateTestFilter(TestRequest request)
-        {
-            var filter = new Filter();
-            
-            // Set test mode based on platform
-            if (request.TestPlatform == "EditMode")
-            {
-                filter.testMode = TestMode.EditMode;
-            }
-            else if (request.TestPlatform == "PlayMode")
-            {
-                filter.testMode = TestMode.PlayMode;
-            }
-            else // Both
-            {
-                // Default to EditMode for "Both" - may need to run twice
-                filter.testMode = TestMode.EditMode;
-            }
-            
-            // Set filter based on request type
-            if (request.RequestType == "all")
-            {
-                // No additional filtering needed for all tests
-            }
-            else if (request.RequestType == "class" && !string.IsNullOrEmpty(request.TestFilter))
-            {
-                filter.testNames = new[] { request.TestFilter };
-            }
-            else if (request.RequestType == "method" && !string.IsNullOrEmpty(request.TestFilter))
-            {
-                filter.testNames = new[] { request.TestFilter };
-            }
-            else if (request.RequestType == "category" && !string.IsNullOrEmpty(request.TestFilter))
-            {
-                filter.categoryNames = new[] { request.TestFilter };
-            }
-            
-            return filter;
-        }
         
         private static void ProcessPendingRefreshRequest()
         {

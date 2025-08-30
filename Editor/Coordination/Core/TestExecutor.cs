@@ -505,6 +505,42 @@ namespace PerSpec.Editor.Coordination
                             File.Copy(testResultFile, destPath, true);
                             Debug.Log($"[TestExecutor] Copied test results to: {destPath}");
                             
+                            // For EditMode tests, parse and update database immediately
+                            // since RunFinished callback doesn't fire reliably
+                            if (_currentRequest != null && _currentRequest.TestPlatform == "EditMode" && !_hasCompletedViaCallback)
+                            {
+                                Debug.Log($"[TestExecutor] EditMode test detected, parsing XML and updating database");
+                                ParseXmlFile(destPath);
+                                
+                                // Update database with parsed results
+                                _dbManager.UpdateRequestResults(
+                                    _currentRequest.Id,
+                                    "completed",
+                                    _currentSummary.TotalTests,
+                                    _currentSummary.PassedTests,
+                                    _currentSummary.FailedTests,
+                                    _currentSummary.SkippedTests,
+                                    _currentSummary.Duration
+                                );
+                                
+                                _dbManager.LogExecution(_currentRequest.Id, "INFO", "TestExecutor", 
+                                    $"EditMode test completed: {_currentSummary.PassedTests}/{_currentSummary.TotalTests} passed");
+                                
+                                Debug.Log($"[TestExecutor] Request {_currentRequest.Id} marked as completed");
+                                
+                                // Mark as completed so we don't process again
+                                _hasCompletedViaCallback = true;
+                                
+                                // Notify completion callback
+                                if (_onComplete != null)
+                                {
+                                    _onComplete(_currentRequest, true, null, _currentSummary);
+                                }
+                                
+                                // Stop monitoring
+                                StopFileMonitoring();
+                            }
+                            
                             return destPath;
                         }
                     }
