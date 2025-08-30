@@ -16,6 +16,12 @@ namespace PerSpec.Editor.Initialization
         private static string DatabasePath => Path.Combine(ProjectPerSpecPath, "test_coordination.db");
         private static bool hasShownThisSession = false;
         
+        // State for inline message display
+        private bool initializationAttempted = false;
+        private bool initializationSuccess = false;
+        private string initializationMessage = "";
+        private bool showOpenControlCenter = false;
+        
         static PerSpecInitializer()
         {
             // Check on Unity startup after a delay
@@ -116,7 +122,32 @@ namespace PerSpec.Editor.Initialization
         
         private void ShowInitializedUI()
         {
-            EditorGUILayout.HelpBox("PerSpec is initialized and ready to use!", MessageType.Info);
+            // Show inline success message if just initialized
+            if (initializationAttempted && initializationSuccess)
+            {
+                EditorGUILayout.HelpBox(initializationMessage, MessageType.Info);
+                
+                if (showOpenControlCenter)
+                {
+                    EditorGUILayout.Space(5);
+                    
+                    var oldColor = GUI.backgroundColor;
+                    GUI.backgroundColor = new Color(0.3f, 0.7f, 1f);
+                    if (GUILayout.Button("Open Control Center", GUILayout.Height(35)))
+                    {
+                        EditorApplication.ExecuteMenuItem("Tools/PerSpec/Control Center");
+                        showOpenControlCenter = false;
+                        initializationAttempted = false;
+                    }
+                    GUI.backgroundColor = oldColor;
+                    
+                    EditorGUILayout.Space(10);
+                }
+            }
+            else
+            {
+                EditorGUILayout.HelpBox("PerSpec is initialized and ready to use!", MessageType.Info);
+            }
             
             EditorGUILayout.Space(10);
             
@@ -159,6 +190,8 @@ namespace PerSpec.Editor.Initialization
                     "This will recreate the folder structure and copy fresh scripts from the package.\n\nYour database and test results will be preserved.\n\nContinue?", 
                     "Yes", "Cancel"))
                 {
+                    // Reset message state for re-initialization
+                    initializationAttempted = false;
                     InitializePerSpec();
                 }
             }
@@ -166,7 +199,16 @@ namespace PerSpec.Editor.Initialization
         
         private void ShowNotInitializedUI()
         {
-            EditorGUILayout.HelpBox("PerSpec needs to be initialized for this project.", MessageType.Warning);
+            // Show inline error message if initialization failed
+            if (initializationAttempted && !initializationSuccess)
+            {
+                EditorGUILayout.HelpBox(initializationMessage, MessageType.Error);
+                EditorGUILayout.Space(10);
+            }
+            else
+            {
+                EditorGUILayout.HelpBox("PerSpec needs to be initialized for this project.", MessageType.Warning);
+            }
             
             EditorGUILayout.Space(10);
             
@@ -202,21 +244,27 @@ namespace PerSpec.Editor.Initialization
         {
             try
             {
+                // Reset state
+                initializationAttempted = true;
+                initializationSuccess = false;
+                initializationMessage = "";
+                showOpenControlCenter = false;
+                
                 // Use the centralized InitializationService
                 bool success = InitializationService.Initialize();
                 
                 if (success)
                 {
-                    // Success message
-                    EditorUtility.DisplayDialog("Success", 
-                        "PerSpec has been initialized successfully!\n\n" +
-                        "Working directory created at:\n" + ProjectPerSpecPath + "\n\n" +
+                    // Set success state
+                    initializationSuccess = true;
+                    showOpenControlCenter = true;
+                    initializationMessage = "PerSpec has been initialized successfully!\n\n" +
+                        "Working directory created at: " + ProjectPerSpecPath + "\n\n" +
                         "You can now:\n" +
                         "• Use Tools > PerSpec menu items\n" +
                         "• Run tests from PerSpec/Coordination/Scripts/\n" +
                         "• View test results in PerSpec/TestResults/\n" +
-                        "• Export logs to PerSpec/Logs/", 
-                        "OK");
+                        "• Export logs to PerSpec/Logs/";
                     
                     // Refresh Unity
                     AssetDatabase.Refresh();
@@ -224,21 +272,31 @@ namespace PerSpec.Editor.Initialization
                     // Update window
                     Repaint();
                     
-                    Debug.Log("[PerSpec] Initialization complete!");
+                    Debug.Log("[PerSpec] Initialization complete! Working directory: " + ProjectPerSpecPath);
                 }
                 else
                 {
-                    EditorUtility.DisplayDialog("Error", 
-                        "Failed to initialize PerSpec. Check the console for details.", 
-                        "OK");
+                    // Set error state
+                    initializationSuccess = false;
+                    initializationMessage = "Failed to initialize PerSpec. Check the console for error details.";
+                    
+                    Debug.LogError("[PerSpec] Initialization failed. Please check the console for details.");
+                    
+                    // Update window
+                    Repaint();
                 }
             }
             catch (Exception e)
             {
-                EditorUtility.DisplayDialog("Error", 
-                    $"Failed to initialize PerSpec:\n{e.Message}", 
-                    "OK");
+                // Set error state
+                initializationAttempted = true;
+                initializationSuccess = false;
+                initializationMessage = $"Failed to initialize PerSpec:\n{e.Message}";
+                
                 Debug.LogError($"[PerSpec] Initialization failed: {e}");
+                
+                // Update window
+                Repaint();
             }
         }
         
