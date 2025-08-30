@@ -59,11 +59,15 @@ python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait
 
 **Options:**
 - `all` - Run all tests
-- `class ClassName` - Specific class
-- `method MethodName` - Specific method
+- `class Namespace.ClassName` - Specific class (**MUST use full namespace!**)
+- `method Namespace.ClassName.MethodName` - Specific method (**MUST use full path!**)
 - `-p edit` - EditMode tests
 - `-p play` - PlayMode tests
 - `-p both` - Both modes
+
+> **⚠️ IMPORTANT**: Class and method filters require FULL namespace-qualified names!
+> - ❌ WRONG: `class SimplePerSpecTest` (finds 0 tests)
+> - ✅ CORRECT: `class Tests.PlayMode.SimplePerSpecTest`
 
 ## Complete Example
 

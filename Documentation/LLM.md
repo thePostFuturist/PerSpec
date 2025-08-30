@@ -55,6 +55,7 @@ ls "Packages/com.digitraver.perspec/Editor/"
 | "show me the errors" | `python PerSpec/Coordination/Scripts/quick_logs.py errors` |
 | "check for compilation errors" | `python PerSpec/Coordination/Scripts/quick_logs.py errors` |
 | "run the tests" | `python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait` |
+| "run tests for a class" | `python PerSpec/Coordination/Scripts/quick_test.py class Tests.PlayMode.ClassName -p play --wait` |
 | "refresh Unity" | `python PerSpec/Coordination/Scripts/quick_refresh.py full --wait` |
 | "show test results" | `python PerSpec/Coordination/Scripts/quick_logs.py latest -n 50` |
 | "monitor the logs" | `python PerSpec/Coordination/Scripts/quick_logs.py monitor` |
@@ -144,14 +145,89 @@ python PerSpec/Coordination/Scripts/quick_logs.py errors
 python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait
 ```
 
+### 🎯 Test Execution Patterns
+
+> **IMPORTANT**: Class and method filters require FULL namespace-qualified names!
+
+```bash
+# Run ALL tests
+python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait
+
+# Run tests by CLASS (MUST use full namespace)
+python PerSpec/Coordination/Scripts/quick_test.py class Tests.PlayMode.SimplePerSpecTest -p play --wait
+# ❌ WRONG: quick_test.py class SimplePerSpecTest (will find 0 tests)
+# ✅ CORRECT: quick_test.py class Tests.PlayMode.SimplePerSpecTest
+
+# Run specific METHOD (full namespace + method name)
+python PerSpec/Coordination/Scripts/quick_test.py method Tests.PlayMode.SimplePerSpecTest.Should_Pass_Basic_Test -p play --wait
+
+# Run by CATEGORY
+python PerSpec/Coordination/Scripts/quick_test.py category Integration -p both --wait
+```
+
+## 🤖 Agentic Workflow for TDD (CLOSED-LOOP AUTOMATION)
+
+> **CRITICAL**: Use MULTIPLE SPECIALIZED AGENTS for complex tasks, but AVOID agents for simple edits!
+
+### When to Use Agents vs Direct Commands
+
+| Task Type | Use Agents? | Which Agents | Example |
+|-----------|------------|--------------|---------|
+| **Complex Feature (5+ files)** | ✅ YES - Multiple | `test-writer-agent` + `refactor-agent` | "Implement user authentication system" |
+| **Test Suite Creation** | ✅ YES | `test-writer-agent` | "Write comprehensive tests for PlayerController" |
+| **Large Refactoring** | ✅ YES - Multiple | `refactor-agent` + `batch-refactor-agent` | "Split all files over 750 lines" |
+| **Performance Analysis** | ✅ YES | `dots-performance-profiler` | "Analyze DOTS system performance" |
+| **Simple Bug Fix** | ❌ NO | Direct edit | "Fix null reference on line 42" |
+| **Add Single Method** | ❌ NO | Direct edit | "Add GetName() method" |
+| **Update Config** | ❌ NO | Direct edit | "Change timeout to 60 seconds" |
+| **View File** | ❌ NO | Read tool | "Show me the Player class" |
+
+### 🎯 Agent Decision Matrix
+
+```
+Complexity Score = Number of files + Number of operations + Integration points
+
+Score 1-3:   DO NOT use agents - Direct tools only
+Score 4-7:   Use ONE specialized agent
+Score 8+:    Use MULTIPLE agents in PARALLEL
+```
+
+### 🔄 Automated 4-Step Process with Agents
+
+```python
+# For COMPLEX features (Score 8+): Launch agents IN PARALLEL for maximum efficiency
+
+# Step 1: Write comprehensive tests and implementation
+Task(test-writer-agent): "Write tests for [feature] using prefab pattern"
+Task(refactor-agent): "Prepare existing code for [feature] integration"
+
+# Steps 2-4: Automated cycle (agents handle this internally)
+# Agents will automatically:
+# - Refresh Unity
+# - Check compilation errors  
+# - Run tests
+# - Fix issues
+# - Repeat until green
+```
+
+> **IMPORTANT**: Launch multiple agents CONCURRENTLY when possible! Use a single message with multiple Task tool invocations.
+
 ### 🔄 TDD Development Cycle
 
 **A. Feature Implementation (TDD)**
 1. User requests a feature
+   - **Simple feature (1-2 files)**: Write directly, no agents
+   - **Complex feature (3+ files)**: Use `test-writer-agent` for comprehensive test coverage
 2. **Create prefab factory FIRST** (unless testing pure utilities)
+   - Agent will handle this automatically for complex features
 3. Write tests using the prefab pattern
+   - **For new systems**: `test-writer-agent` creates full test suite
+   - **For additions**: Direct edit if <50 lines
 4. Write production code to make tests pass
+   - **Large implementation**: `refactor-agent` to maintain SOLID principles
+   - **Small changes**: Direct edits
 5. Include debug logs with proper prefixes
+   - Agents add these automatically
 
 > **DEFAULT APPROACH**: Use the Prefab Pattern for ALL Unity tests except pure utility functions. See [Unity Test Guide](unity-test-guide.md#testing-approach-prefab-pattern-default) for details.
 
@@ -211,12 +287,14 @@ public class DataProcessor : MonoBehaviour {
 python PerSpec/Coordination/Scripts/quick_refresh.py full --wait
 # Wait for "Refresh completed" confirmation
 ```
+- **Agent Note**: Agents handle this automatically in their workflow
 
 **C. Check Compilation**
 ```bash
 python PerSpec/Coordination/Scripts/quick_logs.py errors
 # Must show "No errors found" before proceeding
 ```
+- **Agent Note**: Agents check and fix compilation errors automatically
 
 **D. Run Tests**
 ```bash
@@ -224,6 +302,7 @@ python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait
 # If tests fail, return to step A
 # Repeat cycle until all tests pass
 ```
+- **Agent Note**: Agents run tests and iterate until green
 
 ### ⚠️ CRITICAL: Never Skip Steps!
 - **NEVER** write code without tests
@@ -262,6 +341,49 @@ PerSpecDebug.LogError("[FEATURE-ERROR] Critical error (always log)");
 | async void | Convert to `UniTask`/`UniTaskVoid` | `logs.py errors` |
 | Thread error | `UniTask.SwitchToMainThread()` | `test.py` |
 | Test timeout | Add timeout attribute or check async | `test.py -v` |
+
+## 🚀 Common Agent Patterns (COPY-PASTE READY)
+
+> **USE THESE PATTERNS**: Copy and adapt for your specific needs
+
+### Pattern 1: Complex Feature Implementation (PARALLEL AGENTS)
+```python
+# Launch BOTH agents simultaneously for maximum efficiency
+Task(test-writer-agent): "Create comprehensive test suite for inventory system with item stacking, categories, and persistence. Use prefab pattern for UI components."
+Task(refactor-agent): "Prepare existing Player and UI classes for inventory integration. Split any files over 500 lines."
+```
+
+### Pattern 2: Large-Scale Refactoring (SEQUENTIAL AGENTS)
+```python
+# First: Analyze and split large files
+Task(refactor-agent): "Identify and split all C# files exceeding 750 lines in Assets/Scripts. Extract interfaces and create partial classes."
+
+# Then: Update all files with consistent patterns
+Task(batch-refactor-agent): "Add regions to all refactored files, convert async void to UniTask, and ensure XML documentation on public methods."
+```
+
+### Pattern 3: Test Coverage Enhancement
+```python
+# Single agent for focused test creation
+Task(test-writer-agent): "Add missing tests for PlayerMovement, focusing on edge cases: collision detection, boundary conditions, and async input handling."
+```
+
+### Pattern 4: Performance Analysis
+```python
+# Specialized agent for DOTS optimization
+Task(dots-performance-profiler): "Analyze EntitySpawnSystem for bottlenecks. Check Burst compilation, job scheduling, and NativeArray allocations."
+```
+
+### Pattern 5: AVOID AGENTS - Direct Commands
+```csharp
+// Simple fixes - DO NOT use agents for these:
+Edit: Fix null check on line 42
+Edit: Add [SerializeField] to health variable
+Edit: Change method visibility to public
+Read: Show the PlayerController class
+```
+
+> **REMEMBER**: Complexity Score 1-3 = NO AGENTS. Always prefer direct tools for simple tasks!
 
 ## 🎯 Project Overview
 

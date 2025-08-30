@@ -22,10 +22,10 @@ The database has been created with all required tables including test requests a
 python PerSpec/Coordination/Scripts/quick_test.py all -p edit
 
 # Run specific test class
-python PerSpec/Coordination/Scripts/quick_test.py class MyTestClass -p edit
+python PerSpec/Coordination/Scripts/quick_test.py class Tests.EditMode.MyTestClass -p edit  # MUST use full namespace!
 
-# Run specific test method
-python PerSpec/Coordination/Scripts/quick_test.py method MyTestClass.TestMethod -p edit
+# Run specific test method (MUST use full namespace path!)
+python PerSpec/Coordination/Scripts/quick_test.py method Tests.EditMode.MyTestClass.TestMethod -p edit
 
 # Run tests by category
 python PerSpec/Coordination/Scripts/quick_test.py category Integration -p both
