@@ -765,19 +765,9 @@ Supported LLMs:
                         $"Updated {Path.GetFileName(configPath)} with latest PerSpec instructions.",
                         "OK");
                 }
-                else if (existingContent.Contains("PerSpec Testing Framework") || 
-                         existingContent.Contains("TDD Development Workflow"))
-                {
-                    // Legacy content exists without markers
-                    EditorUtility.DisplayDialog("Manual Update Required",
-                        "This configuration contains PerSpec instructions without block markers.\n" +
-                        "Please remove the old content manually and update again.",
-                        "OK");
-                    return;
-                }
                 else
                 {
-                    // Append new content with markers
+                    // No markers found - just append with markers at the end
                     string separator = "\n\n";
                     string contentWithMarkers = $"{separator}{startMarker}\n{llmContent}\n{endMarker}";
                     File.AppendAllText(configPath, contentWithMarkers);
