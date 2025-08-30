@@ -225,8 +225,15 @@ import os
 import sys
 from pathlib import Path
 
-# Get the project root (parent of Assets folder)
+# Prevent Python from creating .pyc files in the package directory
+sys.dont_write_bytecode = True
+os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
+
+# Set Python cache to PerSpec directory instead of package location
 project_root = Path(__file__).parent.parent.parent
+cache_dir = project_root / 'PerSpec' / 'cache'
+cache_dir.mkdir(parents=True, exist_ok=True)
+os.environ['PYTHONPYCACHEPREFIX'] = str(cache_dir)
 
 # Possible locations for the PerSpec package
 possible_paths = [
@@ -241,10 +248,13 @@ script_found = False
 for package_path in possible_paths:
     script_path = package_path / 'ScriptingTools' / 'Coordination' / 'Scripts' / '{scriptFile}'
     if script_path.exists():
-        # Execute the script with all arguments
+        # Execute the script with all arguments, ensuring no bytecode in package dir
         import subprocess
+        env = os.environ.copy()
+        env['PYTHONDONTWRITEBYTECODE'] = '1'
+        env['PYTHONPYCACHEPREFIX'] = str(cache_dir)
         result = subprocess.run([sys.executable, str(script_path)] + sys.argv[1:], 
-                              stdout=sys.stdout, stderr=sys.stderr)
+                              stdout=sys.stdout, stderr=sys.stderr, env=env)
         sys.exit(result.returncode)
         script_found = True
         break
@@ -260,13 +270,15 @@ if not script_found:
             string pyPath = Path.Combine(ScriptsPath, $"{name}.py");
             File.WriteAllText(pyPath, pythonFinder);
             
-            // Create batch file for Windows
+            // Create batch file for Windows (with bytecode prevention)
             string batScript = $@"@echo off
+set PYTHONDONTWRITEBYTECODE=1
 python ""%~dp0{name}.py"" %*";
             File.WriteAllText(Path.Combine(ScriptsPath, $"{name}.bat"), batScript);
             
-            // Create shell script for Unix
+            // Create shell script for Unix (with bytecode prevention)
             string shScript = $@"#!/bin/bash
+export PYTHONDONTWRITEBYTECODE=1
 python ""$(dirname ""$0"")/{name}.py"" ""$@""";
             File.WriteAllText(Path.Combine(ScriptsPath, $"{name}.sh"), shScript);
             

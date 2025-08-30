@@ -4,6 +4,12 @@ SQLite Database Initializer for Unity Test Coordination
 Creates and manages the test coordination database schema
 """
 
+
+# Prevent Python from creating .pyc files
+import sys
+import os
+sys.dont_write_bytecode = True
+os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
 import sqlite3
 import os
 import sys

@@ -3,6 +3,12 @@
 Quick Test Runner - Simple interface for common test operations
 """
 
+
+# Prevent Python from creating .pyc files
+import sys
+import os
+sys.dont_write_bytecode = True
+os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
 import sys
 import argparse
 from test_coordinator import TestCoordinator, TestPlatform, TestRequestType

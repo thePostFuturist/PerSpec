@@ -3,6 +3,12 @@
 Asset Refresh Coordinator - Python interface for Unity asset refresh coordination
 """
 
+
+# Prevent Python from creating .pyc files
+import sys
+import os
+sys.dont_write_bytecode = True
+os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
 import sqlite3
 import json
 import time

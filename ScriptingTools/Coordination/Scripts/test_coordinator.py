@@ -4,6 +4,12 @@ Unity Test Coordinator - Python Interface
 Provides functions to submit test requests and monitor results
 """
 
+
+# Prevent Python from creating .pyc files
+import sys
+import os
+sys.dont_write_bytecode = True
+os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
 import sqlite3
 import json
 import time

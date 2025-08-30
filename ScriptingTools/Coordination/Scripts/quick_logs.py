@@ -4,6 +4,12 @@ Quick Console Logs CLI Tool
 Fast access to Unity console logs from command line
 """
 
+
+# Prevent Python from creating .pyc files
+import sys
+import os
+sys.dont_write_bytecode = True
+os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
 import argparse
 import sys
 import json

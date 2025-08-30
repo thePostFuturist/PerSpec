@@ -4,6 +4,12 @@ Console Log Reader for Unity Console Output
 Retrieves and formats Unity console logs from SQLite database
 """
 
+
+# Prevent Python from creating .pyc files
+import sys
+import os
+sys.dont_write_bytecode = True
+os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
 import sqlite3
 import os
 from datetime import datetime, timedelta

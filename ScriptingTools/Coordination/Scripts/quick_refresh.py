@@ -3,6 +3,12 @@
 Quick Asset Refresh - Simple CLI interface for Unity asset refresh operations
 """
 
+
+# Prevent Python from creating .pyc files
+import sys
+import os
+sys.dont_write_bytecode = True
+os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
 import sys
 import argparse
 import json

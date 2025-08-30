@@ -3,6 +3,12 @@
 Add console_logs table to existing database
 """
 
+
+# Prevent Python from creating .pyc files
+import sys
+import os
+sys.dont_write_bytecode = True
+os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
 import sqlite3
 from pathlib import Path
 
