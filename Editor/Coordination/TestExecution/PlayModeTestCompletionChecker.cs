@@ -312,8 +312,7 @@ namespace PerSpec.Editor.Coordination
             }
         }
         
-        // Integrated into main coordinator - no longer needed as separate menu item
-        // [MenuItem("Test Coordination/Debug/Check PlayMode Completion Now")]
+        // Integrated into main coordinator - accessed via Control Center
         public static void ManualCheck()
         {
             CheckForCompletedTests();

@@ -800,10 +800,21 @@ public IEnumerator TestWithUniTask() => UniTask.ToCoroutine(async () => {
 ## 🤖 Agents & Tools
 
 ### Available Agents (`.claude/agents/`)
+- **architecture-agent.md**: Documents project architecture in `/Documentation/Architecture/` - Run at project start and after major changes
+  - Creates class inventory with responsibilities
+  - Identifies redundant code and suggests consolidation
+  - Detects SOLID violations and recommends patterns
 - **refactor-agent.md**: Splits files >750 lines, enforces SOLID
 - **batch-refactor-agent.md**: Batch processes C# files, adds regions, converts async void
 - **dots-performance-profiler.md**: Analyzes DOTS/ECS performance
 - **test-coordination-agent.md**: Manages SQLite test coordination between Python and Unity (with background processing)
+
+### Architecture Documentation
+> **IMPORTANT**: Run `architecture-agent` proactively:
+> - At project initialization for baseline documentation
+> - After adding major features or systems
+> - Before significant refactoring efforts
+> - When identifying performance or maintainability issues
 
 ### Custom Scripts (`CustomScripts/`)
 - Automated refactoring scripts

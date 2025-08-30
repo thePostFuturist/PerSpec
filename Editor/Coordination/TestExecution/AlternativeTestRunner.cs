@@ -92,14 +92,12 @@ namespace PerSpec.Editor.Coordination
             }
         }
         
-        // Redundant - functionality integrated into main Test Coordinator
-        // [MenuItem("Test Coordination/Run PlayMode Tests (Alternative)")]
+        // Menu methods removed - functionality integrated into main Test Coordinator
         public static void MenuRunPlayModeTests()
         {
             RunPlayModeTests();
         }
         
-        // [MenuItem("Test Coordination/Run EditMode Tests (Alternative)")]
         public static void MenuRunEditModeTests()
         {
             RunEditModeTests();

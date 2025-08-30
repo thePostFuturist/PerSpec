@@ -253,6 +253,52 @@ namespace PerSpec.Editor.Coordination
             }
         }
         
+        /// <summary>
+        /// Generic base method for updating status with common timestamp logic
+        /// </summary>
+        private void UpdateStatusBase<T>(T entity, string status, Action<T> additionalUpdates = null) where T : class
+        {
+            if (!_isInitialized || entity == null) return;
+            
+            try
+            {
+                // Use reflection to set common status fields
+                var statusProp = entity.GetType().GetProperty("Status");
+                if (statusProp != null)
+                {
+                    statusProp.SetValue(entity, status);
+                }
+                
+                // Set timestamps based on status
+                if (status == "running")
+                {
+                    var startedProp = entity.GetType().GetProperty("StartedAt");
+                    if (startedProp != null)
+                    {
+                        startedProp.SetValue(entity, DateTime.Now);
+                    }
+                }
+                else if (status == "completed" || status == "failed" || status == "cancelled")
+                {
+                    var completedProp = entity.GetType().GetProperty("CompletedAt");
+                    if (completedProp != null)
+                    {
+                        completedProp.SetValue(entity, DateTime.Now);
+                    }
+                }
+                
+                // Apply any additional updates
+                additionalUpdates?.Invoke(entity);
+                
+                // Update in database
+                _connection.Update(entity);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[SQLiteManager] Error updating status: {e.Message}");
+            }
+        }
+        
         public void UpdateRequestStatus(int requestId, string status, string errorMessage = null)
         {
             if (!_isInitialized) return;
@@ -263,19 +309,13 @@ namespace PerSpec.Editor.Coordination
                 
                 if (request != null)
                 {
-                    request.Status = status;
-                    
-                    if (status == "running")
+                    UpdateStatusBase(request, status, r =>
                     {
-                        request.StartedAt = DateTime.Now;
-                    }
-                    else if (status == "completed" || status == "failed" || status == "cancelled")
-                    {
-                        request.CompletedAt = DateTime.Now;
-                        request.ErrorMessage = errorMessage;
-                    }
-                    
-                    _connection.Update(request);
+                        if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            r.ErrorMessage = errorMessage;
+                        }
+                    });
                 }
             }
             catch (Exception e)
@@ -495,30 +535,33 @@ namespace PerSpec.Editor.Coordination
         
         public void UpdateRefreshRequestStatus(int requestId, string status, string resultMessage = null, string errorMessage = null)
         {
+            if (!_isInitialized) return;
+            
             try
             {
                 var request = _connection.Table<AssetRefreshRequest>().FirstOrDefault(r => r.Id == requestId);
                 
                 if (request != null)
                 {
-                    request.Status = status;
-                    
-                    if (status == "running")
+                    UpdateStatusBase(request, status, r =>
                     {
-                        request.StartedAt = DateTime.Now;
-                    }
-                    else if (status == "completed" || status == "failed" || status == "cancelled")
-                    {
-                        request.CompletedAt = DateTime.Now;
-                        if (request.StartedAt.HasValue)
+                        // Calculate duration when completing
+                        if ((status == "completed" || status == "failed" || status == "cancelled") && r.StartedAt.HasValue)
                         {
-                            request.DurationSeconds = (float)(DateTime.Now - request.StartedAt.Value).TotalSeconds;
+                            r.DurationSeconds = (float)(DateTime.Now - r.StartedAt.Value).TotalSeconds;
                         }
-                        request.ResultMessage = resultMessage;
-                        request.ErrorMessage = errorMessage;
-                    }
+                        
+                        if (!string.IsNullOrEmpty(resultMessage))
+                        {
+                            r.ResultMessage = resultMessage;
+                        }
+                        
+                        if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            r.ErrorMessage = errorMessage;
+                        }
+                    });
                     
-                    _connection.Update(request);
                     Debug.Log($"[SQLiteManager] Updated refresh request {requestId} status to {status}");
                 }
             }

@@ -429,5 +429,122 @@ namespace PerSpec.Editor.Coordination
                 Debug.LogError($"[TestCoordinator] Error cleaning TestResults directory: {ex.Message}");
             }
         }
+        
+        #region Debug Methods (formerly in TestCoordinationDebug)
+        
+        // Force reinitialization - accessed via Control Center
+        public static void ForceReinitialize()
+        {
+            Debug.Log("[TestCoordinator] Forcing reinitialization...");
+            
+            // This will trigger the static constructor again after domain reload
+            EditorUtility.RequestScriptReload();
+        }
+        
+        // Test database connection - accessed via Control Center
+        public static void TestDatabaseConnection()
+        {
+            try
+            {
+                var dbManager = new SQLiteManager();
+                Debug.Log("[TestCoordinator] Database connection successful");
+                
+                var pendingRequests = dbManager.GetAllPendingRequests();
+                Debug.Log($"[TestCoordinator] Found {pendingRequests.Count} pending requests");
+                
+                foreach (var request in pendingRequests)
+                {
+                    Debug.Log($"  - Request #{request.Id}: {request.RequestType} on {request.TestPlatform} (Status: {request.Status})");
+                }
+                
+                dbManager.UpdateSystemHeartbeat("Unity");
+                Debug.Log("[TestCoordinator] Heartbeat updated");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[TestCoordinator] Database error: {e.Message}");
+                Debug.LogError(e.StackTrace);
+            }
+        }
+        
+        // Manually process next request - accessed via Control Center
+        public static void ManuallyProcessNextRequest()
+        {
+            try
+            {
+                var dbManager = new SQLiteManager();
+                var nextRequest = dbManager.GetNextPendingRequest();
+                
+                if (nextRequest != null)
+                {
+                    Debug.Log($"[TestCoordinator] Processing request #{nextRequest.Id}");
+                    
+                    // Update to running
+                    dbManager.UpdateRequestStatus(nextRequest.Id, "running");
+                    
+                    // Try to execute
+                    var testExecutor = new TestExecutor(dbManager);
+                    var filter = new Filter();
+                    
+                    if (nextRequest.TestPlatform == "EditMode")
+                    {
+                        filter.testMode = TestMode.EditMode;
+                    }
+                    else if (nextRequest.TestPlatform == "PlayMode")
+                    {
+                        filter.testMode = TestMode.PlayMode;
+                    }
+                    
+                    testExecutor.ExecuteTests(nextRequest, filter, (req, success, error, summary) =>
+                    {
+                        if (success && summary != null)
+                        {
+                            Debug.Log($"[TestCoordinator] Test completed: {summary.PassedTests}/{summary.TotalTests} passed");
+                            dbManager.UpdateRequestResults(req.Id, "completed", 
+                                summary.TotalTests, summary.PassedTests, 
+                                summary.FailedTests, summary.SkippedTests, summary.Duration);
+                        }
+                        else
+                        {
+                            Debug.LogError($"[TestCoordinator] Test failed: {error}");
+                            dbManager.UpdateRequestStatus(req.Id, "failed", error);
+                        }
+                    });
+                }
+                else
+                {
+                    Debug.Log("[TestCoordinator] No pending requests found");
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[TestCoordinator] Error processing request: {e.Message}");
+                Debug.LogError(e.StackTrace);
+            }
+        }
+        
+        // Clear all pending requests - accessed via Control Center
+        public static void ClearAllPendingRequests()
+        {
+            try
+            {
+                var dbManager = new SQLiteManager();
+                var pendingRequests = dbManager.GetAllPendingRequests();
+                
+                foreach (var request in pendingRequests)
+                {
+                    dbManager.UpdateRequestStatus(request.Id, "cancelled", "Cancelled by debug tool");
+                    Debug.Log($"[TestCoordinator] Cancelled request #{request.Id}");
+                }
+                
+                Debug.Log($"[TestCoordinator] Cleared {pendingRequests.Count} pending requests");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[TestCoordinator] Error clearing requests: {e.Message}");
+            }
+        }
+        
+        #endregion
     }
 }
