@@ -344,9 +344,9 @@ public IEnumerator TestWithUniTask() => UniTask.ToCoroutine(async () => {
 **REQUIRED 4-Step Process:**
 
 1. **Write** code/tests
-2. **Refresh**: `python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_refresh.py full --wait`
-3. **Check**: `python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_logs.py errors` (MUST be clean)
-4. **Test**: `python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_test.py all -p edit --wait`
+2. **Refresh**: `python PerSpec/scripts/refresh.py full --wait`
+3. **Check**: `python PerSpec/scripts/logs.py errors` (MUST be clean)
+4. **Test**: `python PerSpec/scripts/test.py all -p edit --wait`
 
 **Error Resolution:**
 | Error | Fix |
@@ -383,7 +383,7 @@ public IEnumerator TestWithUniTask() => UniTask.ToCoroutine(async () => {
 - **Background processing when Unity loses focus (NEW)**
 - Asset refresh coordination
 - System.Threading.Timer for continuous polling
-- Scripts located in `Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/`
+- Scripts located in `PerSpec/scripts/` (wrapper scripts)
 
 ## 📊 Code Quality
 

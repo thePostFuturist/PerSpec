@@ -13,6 +13,7 @@
         "Unity.Entities",
         "Unity.Entities.Editor",
         "Unity.Mathematics",
+        "Unity.Collections",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

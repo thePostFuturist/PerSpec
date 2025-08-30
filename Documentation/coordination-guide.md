@@ -19,47 +19,47 @@ The database has been created with all required tables including test requests a
 
 ```bash
 # Run all EditMode tests
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_test.py all -p edit
+python PerSpec/scripts/test.py all -p edit
 
 # Run specific test class
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_test.py class MyTestClass -p edit
+python PerSpec/scripts/test.py class MyTestClass -p edit
 
 # Run specific test method
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_test.py method MyTestClass.TestMethod -p edit
+python PerSpec/scripts/test.py method MyTestClass.TestMethod -p edit
 
 # Run tests by category
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_test.py category Integration -p both
+python PerSpec/scripts/test.py category Integration -p both
 
 # Check status of request
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_test.py status 1
+python PerSpec/scripts/test.py status 1
 
 # Cancel a request
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_test.py cancel 1
+python PerSpec/scripts/test.py cancel 1
 ```
 
 ### 3. Submit an asset refresh request from Python
 
 ```bash
 # Full asset refresh
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_refresh.py full
+python PerSpec/scripts/refresh.py full
 
 # Synchronous refresh (blocks until complete)
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_refresh.py full -o synchronous --wait
+python PerSpec/scripts/refresh.py full -o synchronous --wait
 
 # Refresh specific paths
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_refresh.py paths "Assets/Scripts" "Assets/Prefabs" --wait
+python PerSpec/scripts/refresh.py paths "Assets/Scripts" "Assets/Prefabs" --wait
 
 # Force update all assets
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_refresh.py full -o force_update
+python PerSpec/scripts/refresh.py full -o force_update
 
 # Check status of refresh request
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_refresh.py status 1
+python PerSpec/scripts/refresh.py status 1
 
 # Cancel a refresh request
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_refresh.py cancel 1
+python PerSpec/scripts/refresh.py cancel 1
 
 # List all pending refresh requests
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_refresh.py list
+python PerSpec/scripts/refresh.py list
 ```
 
 ### 4. Unity automatically picks up and executes requests
@@ -204,22 +204,22 @@ refresh_specific_paths(["Assets/Scripts"], ImportOptions.FORCE_UPDATE, wait=True
 ### Quick Commands
 ```bash
 # Get latest logs (all levels)
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_logs.py latest -n 20
+python PerSpec/scripts/logs.py latest -n 20
 
 # Get only errors/exceptions
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_logs.py errors
+python PerSpec/scripts/logs.py errors
 
 # Get warnings
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_logs.py warnings
+python PerSpec/scripts/logs.py warnings
 
 # Get session summary (log counts by level)
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_logs.py summary
+python PerSpec/scripts/logs.py summary
 
 # Monitor logs in real-time
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_logs.py monitor
+python PerSpec/scripts/logs.py monitor
 
 # Export logs to file
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_logs.py export logs.json
+python PerSpec/scripts/logs.py export logs.json
 ```
 
 ### Programmatic Access
@@ -323,10 +323,11 @@ Unity stack traces are automatically truncated to minimize context usage:
 
 ### Reset database
 ```bash
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/db_initializer.py reset
+python PerSpec/scripts/init_db.py reset
 ```
 
 ### Add new table to existing database
 ```bash
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/add_refresh_table.py
+# Note: Run the add_refresh_table.py script from the package location if needed
+# This is a one-time migration script, not part of the regular workflow
 ```

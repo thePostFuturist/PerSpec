@@ -123,8 +123,8 @@ grep -c "if \|else\|while\|for\|switch" *.cs
 After refactoring, validate via the 4-Step Process documented in project CLAUDE.md.
 
 **Refactor Validation:**
-- Run ALL tests after refactoring: `python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_test.py all -p both --wait`
-- Check affected classes: `python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_test.py class <RefactoredClass>Tests -p edit --wait`
+- Run ALL tests after refactoring: `python PerSpec/scripts/test.py all -p both --wait`
+- Check affected classes: `python PerSpec/scripts/test.py class <RefactoredClass>Tests -p edit --wait`
 
 **Post-Refactor Checklist:**
 ✅ Files <750 lines

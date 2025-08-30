@@ -964,22 +964,22 @@ Follow the **[4-Step Process](../../CLAUDE.md#test-development-workflow)** - REQ
 **PlayMode vs EditMode:**
 ```bash
 # PlayMode tests (with automatic completion detection)
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_test.py all -p play --wait
+python PerSpec/scripts/test.py all -p play --wait
 
 # EditMode tests (faster, no Play mode)
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_test.py all -p edit --wait
+python PerSpec/scripts/test.py all -p edit --wait
 
 # Specific class
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_test.py class MyTestClass -p edit --wait
+python PerSpec/scripts/test.py class MyTestClass -p edit --wait
 ```
 
 **Monitor Execution:**
 ```bash
 # Real-time monitoring
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_logs.py monitor -l error
+python PerSpec/scripts/logs.py monitor -l error
 
 # Check test status
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_test.py status <request_id>
+python PerSpec/scripts/test.py status <request_id>
 ```
 
 ## Troubleshooting
@@ -988,7 +988,7 @@ python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick
 1. Ensure UniTask is installed correctly
 2. Check assembly references include UniTask
 3. Verify using `UniTask.ToCoroutine()` for [UnityTest] methods
-4. Check for compilation errors using: `python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_logs.py errors`
+4. Check for compilation errors using: `python PerSpec/scripts/logs.py errors`
 
 ### Memory Leaks
 1. Always dispose CancellationTokenSource

@@ -44,13 +44,13 @@ coordinator.print_summary(request_id)
 ### Quick Commands
 ```bash
 # Run all PlayMode tests
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_test.py all -p play --wait
+python PerSpec/scripts/test.py all -p play --wait
 
 # Check status
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_test.py status
+python PerSpec/scripts/test.py status
 
 # Run specific test class
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_test.py class MyTestClass -p edit
+python PerSpec/scripts/test.py class MyTestClass -p edit
 ```
 
 ## Unity Components
@@ -193,10 +193,10 @@ stack_trace TEXT
 
 ```bash
 # 1. Initialize database (if needed)
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/db_initializer.py
+python PerSpec/scripts/init_db.py
 
 # 2. Submit test request
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_test.py all -p play --wait
+python PerSpec/scripts/test.py all -p play --wait
 
 # 3. Unity automatically:
 #    - Picks up request
@@ -204,16 +204,16 @@ python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick
 #    - Updates status on completion
 
 # 4. Check results
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_test.py status 1
+python PerSpec/scripts/test.py status 1
 ```
 
 ## Related Files
 
-- `Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/test_coordinator.py` - Python interface
+- `PerSpec/scripts/test.py` - Python test interface (wrapper script)
 - `Packages/com.perspec.framework/Editor/Coordination/Windows/TestCoordinatorEditor.cs` - Unity polling
 - `Packages/com.perspec.framework/Editor/Coordination/Core/TestExecutor.cs` - Test execution
 - `Packages/com.perspec.framework/Editor/Coordination/TestExecution/PlayModeTestCompletionChecker.cs` - PlayMode detection
 - `Packages/com.perspec.framework/Editor/Coordination/Core/SQLiteManager.cs` - Database operations
 - `Packages/com.perspec.framework/Editor/Coordination/Core/BackgroundPoller.cs` - **Background processing (NEW)**
 - `Packages/com.perspec.framework/Editor/Coordination/AssetManagement/AssetRefreshCoordinator.cs` - Asset refresh handling
-- `Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/asset_refresh_coordinator.py` - Python refresh interface
+- `PerSpec/scripts/refresh.py` - Python refresh interface (wrapper script)

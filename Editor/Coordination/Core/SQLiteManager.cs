@@ -225,7 +225,7 @@ namespace PerSpec.Editor.Coordination
                 _connection.BusyTimeout = TimeSpan.FromSeconds(5);
                 _isInitialized = true;
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 _isInitialized = false;
                 // Silent failure - database might be locked or not ready

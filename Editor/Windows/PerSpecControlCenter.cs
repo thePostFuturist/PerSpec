@@ -40,6 +40,10 @@ namespace PerSpec.Editor.Windows
         private GUIStyle sectionStyle;
         private GUIStyle statusStyle;
         
+        // BuildProfile management
+        private BuildProfileHelper.BuildProfileInfo[] scannedProfiles;
+        private bool showProfilesList = false;
+        
         #endregion
         
         #region Unity Menu
@@ -173,6 +177,9 @@ namespace PerSpec.Editor.Windows
                 
                 DrawStatusRow("Console Capture", ConsoleService.CaptureStatus,
                     ConsoleService.IsCaptureEnabled ? Color.green : Color.gray);
+                
+                DrawStatusRow("Compiler Directives", BuildProfileHelper.ConfigurationMode,
+                    BuildProfileHelper.HasActiveBuildProfile ? Color.cyan : Color.white);
             });
             
             EditorGUILayout.Space(10);
@@ -205,6 +212,7 @@ namespace PerSpec.Editor.Windows
             // Statistics
             DrawSection("Statistics", () =>
             {
+                EditorGUILayout.LabelField("Unity Version:", Application.unityVersion);
                 EditorGUILayout.LabelField("Database Size:", 
                     $"{InitializationService.DatabaseSize / 1024f:F1} KB");
                 EditorGUILayout.LabelField("Console Logs:", 
@@ -311,6 +319,18 @@ namespace PerSpec.Editor.Windows
                 GUI.color = color;
                 EditorGUILayout.LabelField(status, statusStyle);
                 GUI.color = Color.white;
+                
+                EditorGUILayout.Space(5);
+                EditorGUILayout.LabelField("Configuration Mode:", BuildProfileHelper.ConfigurationMode);
+                
+                if (BuildProfileHelper.AreBuildProfilesSupported && !BuildProfileHelper.HasActiveBuildProfile)
+                {
+                    EditorGUILayout.HelpBox(
+                        "No active BuildProfile detected. Using PlayerSettings fallback. " +
+                        "Create and activate a BuildProfile in Unity 6 for better integration.",
+                        MessageType.Info
+                    );
+                }
             });
             
             EditorGUILayout.Space(10);
@@ -342,6 +362,86 @@ namespace PerSpec.Editor.Windows
             });
             
             EditorGUILayout.Space(10);
+            
+            // BuildProfile Management (Unity 6+)
+            if (BuildProfileHelper.AreBuildProfilesSupported)
+            {
+                DrawSection("BuildProfile Management", () =>
+                {
+                    EditorGUILayout.HelpBox(
+                        "Scan for BuildProfiles in your project and manage which one is active. " +
+                        "BuildProfiles control platform-specific settings and compiler directives.",
+                        MessageType.Info
+                    );
+                    
+                    EditorGUILayout.Space(5);
+                    
+                    EditorGUILayout.BeginHorizontal();
+                    
+                    if (GUILayout.Button("Scan for Build Profiles", GUILayout.Height(30)))
+                    {
+                        scannedProfiles = BuildProfileHelper.ScanForBuildProfiles();
+                        showProfilesList = scannedProfiles != null && scannedProfiles.Length > 0;
+                        
+                        if (scannedProfiles == null || scannedProfiles.Length == 0)
+                        {
+                            ShowNotification(new GUIContent("No BuildProfiles found in project"));
+                        }
+                        else
+                        {
+                            ShowNotification(new GUIContent($"Found {scannedProfiles.Length} BuildProfile(s)"));
+                        }
+                    }
+                    
+                    if (showProfilesList && scannedProfiles != null && scannedProfiles.Length > 0)
+                    {
+                        if (GUILayout.Button("Hide Profiles", GUILayout.Height(30)))
+                        {
+                            showProfilesList = false;
+                        }
+                    }
+                    
+                    EditorGUILayout.EndHorizontal();
+                    
+                    // Display found profiles
+                    if (showProfilesList && scannedProfiles != null && scannedProfiles.Length > 0)
+                    {
+                        EditorGUILayout.Space(10);
+                        EditorGUILayout.LabelField("Found BuildProfiles:", EditorStyles.boldLabel);
+                        
+                        foreach (var profile in scannedProfiles)
+                        {
+                            EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
+                            
+                            // Profile name
+                            string displayName = profile.IsActive ? $"● {profile.Name} (Active)" : profile.Name;
+                            EditorGUILayout.LabelField(displayName, profile.IsActive ? EditorStyles.boldLabel : EditorStyles.label);
+                            
+                            // Activate button
+                            if (!profile.IsActive)
+                            {
+                                if (GUILayout.Button("Activate", GUILayout.Width(80)))
+                                {
+                                    if (BuildProfileHelper.SetActiveBuildProfile(profile.Path))
+                                    {
+                                        ShowNotification(new GUIContent($"Activated: {profile.Name}"));
+                                        // Rescan to update active status
+                                        scannedProfiles = BuildProfileHelper.ScanForBuildProfiles();
+                                    }
+                                    else
+                                    {
+                                        ShowNotification(new GUIContent($"Failed to activate: {profile.Name}"));
+                                    }
+                                }
+                            }
+                            
+                            EditorGUILayout.EndHorizontal();
+                        }
+                    }
+                });
+                
+                EditorGUILayout.Space(10);
+            }
             
             // Usage Example
             DrawSection("Usage Example", () =>
@@ -645,23 +745,47 @@ Supported LLMs:
                 string llmContent = GetLLMContent();
                 string existingContent = File.ReadAllText(configPath);
                 
-                // Check if content already exists
-                if (existingContent.Contains("PerSpec Testing Framework") || 
-                    existingContent.Contains("TDD Development Workflow"))
+                // Check for existing block markers
+                string startMarker = GetStartMarker(configPath);
+                string endMarker = GetEndMarker(configPath);
+                
+                if (existingContent.Contains(startMarker) && existingContent.Contains(endMarker))
                 {
-                    EditorUtility.DisplayDialog("Already Updated",
-                        "This configuration already contains PerSpec instructions.",
+                    // Replace existing content between markers
+                    string updatedContent = ReplaceContentBetweenMarkers(
+                        existingContent, 
+                        llmContent, 
+                        startMarker, 
+                        endMarker
+                    );
+                    
+                    File.WriteAllText(configPath, updatedContent);
+                    
+                    EditorUtility.DisplayDialog("Success",
+                        $"Updated {Path.GetFileName(configPath)} with latest PerSpec instructions.",
+                        "OK");
+                }
+                else if (existingContent.Contains("PerSpec Testing Framework") || 
+                         existingContent.Contains("TDD Development Workflow"))
+                {
+                    // Legacy content exists without markers
+                    EditorUtility.DisplayDialog("Manual Update Required",
+                        "This configuration contains PerSpec instructions without block markers.\n" +
+                        "Please remove the old content manually and update again.",
                         "OK");
                     return;
                 }
-                
-                // Append with separator
-                string separator = "\n\n# ==================== PerSpec TDD Instructions ====================\n\n";
-                File.AppendAllText(configPath, separator + llmContent);
-                
-                EditorUtility.DisplayDialog("Success",
-                    $"Updated {Path.GetFileName(configPath)} with PerSpec instructions.",
-                    "OK");
+                else
+                {
+                    // Append new content with markers
+                    string separator = "\n\n";
+                    string contentWithMarkers = $"{separator}{startMarker}\n{llmContent}\n{endMarker}";
+                    File.AppendAllText(configPath, contentWithMarkers);
+                    
+                    EditorUtility.DisplayDialog("Success",
+                        $"Added PerSpec instructions to {Path.GetFileName(configPath)}.",
+                        "OK");
+                }
                 
                 AssetDatabase.Refresh();
             }
@@ -766,17 +890,39 @@ Supported LLMs:
                 // Create target directory
                 Directory.CreateDirectory(targetDir);
                 
+                // Track copied and updated files
+                int copiedCount = 0;
+                int updatedCount = 0;
+                List<string> existingFiles = new List<string>();
+                
                 // Copy all agent files
                 foreach (string file in Directory.GetFiles(sourceDir, "*.md"))
                 {
                     string fileName = Path.GetFileName(file);
                     string targetPath = Path.Combine(targetDir, fileName);
+                    
+                    if (File.Exists(targetPath))
+                    {
+                        existingFiles.Add(fileName);
+                        updatedCount++;
+                    }
+                    else
+                    {
+                        copiedCount++;
+                    }
+                    
                     File.Copy(file, targetPath, true);
                 }
                 
-                EditorUtility.DisplayDialog("Success",
-                    $"Copied agent definitions to:\n{targetDir}",
-                    "OK");
+                // Build result message
+                string message = "Agent definitions synchronized:\n";
+                if (copiedCount > 0)
+                    message += $"• {copiedCount} new agent(s) copied\n";
+                if (updatedCount > 0)
+                    message += $"• {updatedCount} existing agent(s) updated\n";
+                message += $"\nLocation: {targetDir}";
+                
+                EditorUtility.DisplayDialog("Success", message, "OK");
                 
                 AssetDatabase.Refresh();
             }
@@ -879,6 +1025,58 @@ Note: Use the convenience scripts in PerSpec/Scripts/ or run from package locati
             GUI.color = oldColor;
             
             EditorGUILayout.EndHorizontal();
+        }
+        
+        #endregion
+        
+        #region Block Marker Helpers
+        
+        private string GetStartMarker(string configPath)
+        {
+            string fileName = Path.GetFileName(configPath);
+            
+            // Use appropriate comment syntax based on file type
+            if (fileName.EndsWith(".md"))
+                return "<!-- PERSPEC_CONFIG_START -->";
+            else if (fileName.EndsWith(".yml") || fileName.EndsWith(".yaml"))
+                return "# PERSPEC_CONFIG_START";
+            else
+                return "# PERSPEC_CONFIG_START";
+        }
+        
+        private string GetEndMarker(string configPath)
+        {
+            string fileName = Path.GetFileName(configPath);
+            
+            // Use appropriate comment syntax based on file type
+            if (fileName.EndsWith(".md"))
+                return "<!-- PERSPEC_CONFIG_END -->";
+            else if (fileName.EndsWith(".yml") || fileName.EndsWith(".yaml"))
+                return "# PERSPEC_CONFIG_END";
+            else
+                return "# PERSPEC_CONFIG_END";
+        }
+        
+        private string ReplaceContentBetweenMarkers(string content, string newContent, string startMarker, string endMarker)
+        {
+            int startIndex = content.IndexOf(startMarker);
+            int endIndex = content.IndexOf(endMarker);
+            
+            if (startIndex == -1 || endIndex == -1 || endIndex <= startIndex)
+            {
+                throw new InvalidOperationException("Invalid marker positions in content");
+            }
+            
+            // Find the end of the end marker line
+            int endMarkerEnd = content.IndexOf('\n', endIndex);
+            if (endMarkerEnd == -1)
+                endMarkerEnd = content.Length;
+            
+            // Build the new content
+            string beforeMarkers = content.Substring(0, startIndex);
+            string afterMarkers = content.Substring(endMarkerEnd);
+            
+            return $"{beforeMarkers}{startMarker}\n{newContent}\n{endMarker}{afterMarkers}";
         }
         
         #endregion

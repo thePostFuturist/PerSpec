@@ -50,7 +50,7 @@ namespace PerSpec.Editor.Coordination
                     return;
                 }
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 // Silent failure
                 return;
@@ -160,18 +160,18 @@ namespace PerSpec.Editor.Coordination
                                 CompilationPipeline.RequestScriptCompilation();
                             }
                         }
-                        catch (Exception e)
+                        catch (Exception ex)
                         {
-                            Debug.LogError($"[BackgroundPoller-MainThread] Error processing requests: {e.Message}");
+                            Debug.LogError($"[BackgroundPoller-MainThread] Error processing requests: {ex.Message}");
                         }
                     }, null);
                 }
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
                 // Log errors but don't crash the background thread
                 // Note: Debug.Log might not work from background thread
-                UnityEngine.Debug.LogError($"[BackgroundPoller-Thread] Error in background poll: {e.Message}");
+                UnityEngine.Debug.LogError($"[BackgroundPoller-Thread] Error in background poll: {ex.Message}");
             }
             finally
             {
@@ -241,9 +241,9 @@ namespace PerSpec.Editor.Coordination
                         "Test request triggered via background polling");
                 }
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                Debug.LogError($"[BackgroundPoller] Error processing test request: {e.Message}");
+                Debug.LogError($"[BackgroundPoller] Error processing test request: {ex.Message}");
             }
         }
         
@@ -311,9 +311,9 @@ namespace PerSpec.Editor.Coordination
                         "Refresh request triggered via background polling");
                 }
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                Debug.LogError($"[BackgroundPoller] Error processing refresh request: {e.Message}");
+                Debug.LogError($"[BackgroundPoller] Error processing refresh request: {ex.Message}");
             }
         }
         

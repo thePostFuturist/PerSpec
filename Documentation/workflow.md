@@ -31,7 +31,7 @@ public class FeatureTests : UniTaskTestBase
 Force Unity to recompile and refresh assets:
 
 ```bash
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_refresh.py full --wait
+python PerSpec/scripts/refresh.py full --wait
 ```
 
 **Options:**
@@ -44,7 +44,7 @@ python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick
 Verify no compilation errors exist:
 
 ```bash
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_logs.py errors
+python PerSpec/scripts/logs.py errors
 ```
 
 **Must see:** "No error logs found" before proceeding.
@@ -54,7 +54,7 @@ python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick
 Execute your tests:
 
 ```bash
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_test.py all -p edit --wait
+python PerSpec/scripts/test.py all -p edit --wait
 ```
 
 **Options:**
@@ -70,13 +70,13 @@ python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick
 ```bash
 # 1. Write your feature code
 # 2. Refresh Unity
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_refresh.py full --wait
+python PerSpec/scripts/refresh.py full --wait
 
 # 3. Check for errors (MUST be clean)
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_logs.py errors
+python PerSpec/scripts/logs.py errors
 
 # 4. Run tests
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_test.py all -p edit --wait
+python PerSpec/scripts/test.py all -p edit --wait
 ```
 
 ## Error Resolution
@@ -87,7 +87,7 @@ If Step 3 shows errors:
 
 1. Read error details:
    ```bash
-   python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_logs.py errors -v
+   python PerSpec/scripts/logs.py errors -v
    ```
 
 2. Fix the errors in your code
@@ -115,10 +115,10 @@ PerSpec continues working when Unity loses focus:
 
 ```bash
 # Watch for new logs
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_logs.py monitor -l error
+python PerSpec/scripts/logs.py monitor -l error
 
 # Watch test execution
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_test.py all -p edit --monitor
+python PerSpec/scripts/test.py all -p edit --monitor
 ```
 
 ### Status Checks
@@ -143,17 +143,17 @@ Create a batch script for the workflow:
 # perspec-test.sh
 
 echo "Step 2: Refreshing Unity..."
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_refresh.py full --wait
+python PerSpec/scripts/refresh.py full --wait
 
 echo "Step 3: Checking errors..."
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_logs.py errors
+python PerSpec/scripts/logs.py errors
 if [ $? -ne 0 ]; then
     echo "Errors found! Fix them first."
     exit 1
 fi
 
 echo "Step 4: Running tests..."
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_test.py all -p both --wait
+python PerSpec/scripts/test.py all -p both --wait
 ```
 
 ## Troubleshooting
@@ -162,7 +162,7 @@ python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick
 
 ```bash
 # Check database
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_logs.py sessions
+python PerSpec/scripts/logs.py sessions
 
 # Reset coordination
 Tools > PerSpec > Debug > Force Reinitialize
@@ -172,10 +172,10 @@ Tools > PerSpec > Debug > Force Reinitialize
 
 ```bash
 # Use targeted refresh
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_refresh.py scripts --wait
+python PerSpec/scripts/refresh.py scripts --wait
 
 # Run specific tests
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_test.py class MyTests -p edit
+python PerSpec/scripts/test.py class MyTests -p edit
 ```
 
 ## Summary

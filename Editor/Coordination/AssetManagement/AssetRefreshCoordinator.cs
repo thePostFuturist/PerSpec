@@ -62,7 +62,7 @@ namespace PerSpec.Editor.Coordination
                     SetupBackgroundFallback();
                 }
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 // Silent failure
                 return;
@@ -115,10 +115,10 @@ namespace PerSpec.Editor.Coordination
                     }, null);
                 }
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
                 // Log but don't crash the background thread
-                UnityEngine.Debug.LogError($"[AssetRefreshCoordinator-BG] Error: {e.Message}");
+                UnityEngine.Debug.LogError($"[AssetRefreshCoordinator-BG] Error: {ex.Message}");
             }
         }
         
@@ -151,9 +151,9 @@ namespace PerSpec.Editor.Coordination
                     ProcessRefreshRequest(request);
                 }
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                Debug.LogError($"[AssetRefreshCoordinator] Error checking for requests: {e.Message}");
+                Debug.LogError($"[AssetRefreshCoordinator] Error checking for requests: {ex.Message}");
             }
         }
         
@@ -204,9 +204,9 @@ namespace PerSpec.Editor.Coordination
                             }
                         }
                     }
-                    catch (Exception e)
+                    catch (Exception ex)
                     {
-                        Debug.LogError($"[AssetRefreshCoordinator] Error parsing paths: {e.Message}");
+                        Debug.LogError($"[AssetRefreshCoordinator] Error parsing paths: {ex.Message}");
                         AssetDatabase.Refresh(importOptions);
                     }
                 }
@@ -240,12 +240,12 @@ namespace PerSpec.Editor.Coordination
                 }
                 
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                Debug.LogError($"[AssetRefreshCoordinator] Error processing refresh request: {e.Message}");
-                _dbManager.UpdateRefreshRequestStatus(request.Id, "failed", null, e.Message);
+                Debug.LogError($"[AssetRefreshCoordinator] Error processing refresh request: {ex.Message}");
+                _dbManager.UpdateRefreshRequestStatus(request.Id, "failed", null, ex.Message);
                 _dbManager.LogExecution(request.Id, "ERROR", "AssetRefreshCoordinator", 
-                    $"Failed to process refresh: {e.Message}");
+                    $"Failed to process refresh: {ex.Message}");
                 _isRefreshing = false;
                 _currentRequestId = -1;
             }
@@ -265,9 +265,9 @@ namespace PerSpec.Editor.Coordination
                 _dbManager.UpdateRefreshRequestStatus(_currentRequestId, "completed", message);
                 _dbManager.LogExecution(_currentRequestId, "INFO", "AssetRefreshCoordinator", message);
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                Debug.LogError($"[AssetRefreshCoordinator] Error marking request as complete: {e.Message}");
+                Debug.LogError($"[AssetRefreshCoordinator] Error marking request as complete: {ex.Message}");
             }
             finally
             {

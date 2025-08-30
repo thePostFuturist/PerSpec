@@ -1,3 +1,4 @@
+<!-- PERSPEC_CONFIG_START -->
 # CLAUDE.md
 
 > **Purpose**: Comprehensive guidance for Claude Code (claude.ai/code) for Test-Driven Development in Unity projects using the PerSpec framework.
@@ -21,13 +22,13 @@
 ```bash
 # Step 1: Write code and tests with TDD
 # Step 2: Refresh Unity
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_refresh.py full --wait
+python PerSpec/scripts/refresh.py full --wait
 
 # Step 3: Check for compilation errors (MUST be clean)
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_logs.py errors
+python PerSpec/scripts/logs.py errors
 
 # Step 4: Run tests
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_test.py all -p edit --wait
+python PerSpec/scripts/test.py all -p edit --wait
 ```
 
 ### 🔄 TDD Development Cycle
@@ -94,19 +95,19 @@ public class DataProcessor : MonoBehaviour {
 
 **B. Refresh Unity**
 ```bash
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_refresh.py full --wait
+python PerSpec/scripts/refresh.py full --wait
 # Wait for "Refresh completed" confirmation
 ```
 
 **C. Check Compilation**
 ```bash
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_logs.py errors
+python PerSpec/scripts/logs.py errors
 # Must show "No errors found" before proceeding
 ```
 
 **D. Run Tests**
 ```bash
-python Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/quick_test.py all -p edit --wait
+python PerSpec/scripts/test.py all -p edit --wait
 # If tests fail, return to step A
 # Repeat cycle until all tests pass
 ```
@@ -143,11 +144,11 @@ PerSpecDebug.LogError("[FEATURE-ERROR] Critical error (always log)");
 
 | Error | Fix | Command to Verify |
 |-------|-----|-------------------|
-| CS1626 (yield in try) | Use `UniTask.ToCoroutine()` | `quick_logs.py errors` |
-| UniTask not found | Add to asmdef references | `quick_refresh.py full --wait` |
-| async void | Convert to `UniTask`/`UniTaskVoid` | `quick_logs.py errors` |
-| Thread error | `UniTask.SwitchToMainThread()` | `quick_test.py` |
-| Test timeout | Add timeout attribute or check async | `quick_test.py -v` |
+| CS1626 (yield in try) | Use `UniTask.ToCoroutine()` | `logs.py errors` |
+| UniTask not found | Add to asmdef references | `refresh.py full --wait` |
+| async void | Convert to `UniTask`/`UniTaskVoid` | `logs.py errors` |
+| Thread error | `UniTask.SwitchToMainThread()` | `test.py` |
+| Test timeout | Add timeout attribute or check async | `test.py -v` |
 
 ## 🎯 Project Overview
 
@@ -538,7 +539,7 @@ public IEnumerator TestWithUniTask() => UniTask.ToCoroutine(async () => {
 
 ### 📚 Documentation References
 - Test execution guides in `Packages/com.digitraver.perspec/Documentation/`
-- Coordination tools in `Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/`
+- Coordination tools in `PerSpec/scripts/` (wrapper scripts)
 - PerSpec working directory: `PerSpec/` (project root)
 
 ## 🤖 Agents & Tools
@@ -556,12 +557,12 @@ public IEnumerator TestWithUniTask() => UniTask.ToCoroutine(async () => {
 
 ### Test Coordination System
 
-**PerSpec Coordination** (`Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/`)
+**PerSpec Coordination** (`PerSpec/scripts/`)
 - SQLite database in `PerSpec/test_coordination.db`
 - Python tools for Unity control:
-  - `quick_refresh.py` - Refresh Unity assets
-  - `quick_test.py` - Execute tests
-  - `quick_logs.py` - View Unity console logs
+  - `refresh.py` - Refresh Unity assets
+  - `test.py` - Execute tests
+  - `logs.py` - View Unity console logs
   - `console_log_reader.py` - Read captured logs
 
 **Background Processing** (`Packages/com.perspec.framework/Editor/Coordination/`)
@@ -626,3 +627,4 @@ PerSpecDebug.LogTestError($"Error: {message}");
 > **Error Handling**: Never silence errors. Always log with full context.
 
 > **Test Prefabs**: Create via Editor scripts for TDD (see test guides for patterns).
+<!-- PERSPEC_CONFIG_END -->

@@ -68,7 +68,7 @@ namespace PerSpec.Editor.Coordination
                 // Force Unity to run in background
                 Application.runInBackground = true;
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 // Silent failure
                 return;
@@ -120,10 +120,10 @@ namespace PerSpec.Editor.Coordination
                     }, null);
                 }
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
                 // Log but don't crash the background thread
-                UnityEngine.Debug.LogError($"[TestCoordinator-BG] Error: {e.Message}");
+                UnityEngine.Debug.LogError($"[TestCoordinator-BG] Error: {ex.Message}");
             }
         }
         
@@ -158,9 +158,9 @@ namespace PerSpec.Editor.Coordination
                     ProcessTestRequest(pendingRequest);
                 }
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                Debug.LogError($"[TestCoordinator] Error checking for pending requests: {e.Message}");
+                Debug.LogError($"[TestCoordinator] Error checking for pending requests: {ex.Message}");
             }
         }
         
@@ -186,12 +186,12 @@ namespace PerSpec.Editor.Coordination
                 
                 Debug.Log($"[TestCoordinator] Executing tests for request {request.Id}");
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                Debug.LogError($"[TestCoordinator] Error processing request {request.Id}: {e.Message}");
+                Debug.LogError($"[TestCoordinator] Error processing request {request.Id}: {ex.Message}");
                 
-                _dbManager.UpdateRequestStatus(request.Id, "failed", e.Message);
-                _dbManager.LogExecution(request.Id, "ERROR", "Unity", $"Failed to execute tests: {e.Message}");
+                _dbManager.UpdateRequestStatus(request.Id, "failed", ex.Message);
+                _dbManager.LogExecution(request.Id, "ERROR", "Unity", $"Failed to execute tests: {ex.Message}");
                 
                 _isRunningTests = false;
                 _currentRequestId = -1;
@@ -280,9 +280,9 @@ namespace PerSpec.Editor.Coordination
                     Debug.LogError($"[TestCoordinator] Tests failed for request {request.Id}: {errorMessage}");
                 }
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                Debug.LogError($"[TestCoordinator] Error updating test results: {e.Message}");
+                Debug.LogError($"[TestCoordinator] Error updating test results: {ex.Message}");
             }
             finally
             {
@@ -393,9 +393,9 @@ namespace PerSpec.Editor.Coordination
                         {
                             File.Delete(file);
                         }
-                        catch (Exception e)
+                        catch (Exception ex)
                         {
-                            Debug.LogWarning($"[TestCoordinator] Failed to delete file {file}: {e.Message}");
+                            Debug.LogWarning($"[TestCoordinator] Failed to delete file {file}: {ex.Message}");
                         }
                     }
                     
@@ -409,9 +409,9 @@ namespace PerSpec.Editor.Coordination
                         {
                             Directory.Delete(directories[i], true);
                         }
-                        catch (Exception e)
+                        catch (Exception ex)
                         {
-                            Debug.LogWarning($"[TestCoordinator] Failed to delete directory {directories[i]}: {e.Message}");
+                            Debug.LogWarning($"[TestCoordinator] Failed to delete directory {directories[i]}: {ex.Message}");
                         }
                     }
                     
@@ -424,9 +424,9 @@ namespace PerSpec.Editor.Coordination
                     Debug.Log($"[TestCoordinator] Created TestResults directory");
                 }
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                Debug.LogError($"[TestCoordinator] Error cleaning TestResults directory: {e.Message}");
+                Debug.LogError($"[TestCoordinator] Error cleaning TestResults directory: {ex.Message}");
             }
         }
     }

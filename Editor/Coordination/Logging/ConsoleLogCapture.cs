@@ -84,7 +84,7 @@ namespace PerSpec.Editor.Coordination
                 // Clear old logs on startup (optional, configurable)
                 CleanOldLogs(24); // Keep last 24 hours
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 // Silent failure - don't spam the console
             }
@@ -123,10 +123,10 @@ namespace PerSpec.Editor.Coordination
                     }
                 }
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
                 // Don't log errors about logging to avoid recursion
-                System.Diagnostics.Debug.WriteLine($"[ConsoleLogCapture] Error capturing log: {e.Message}");
+                System.Diagnostics.Debug.WriteLine($"[ConsoleLogCapture] Error capturing log: {ex.Message}");
             }
         }
         
@@ -154,9 +154,9 @@ namespace PerSpec.Editor.Coordination
                         _dbManager.SaveConsoleLog(log);
                     }
                 }
-                catch (Exception e)
+                catch (Exception ex)
                 {
-                    Debug.LogError($"[ConsoleLogCapture] Failed to save logs: {e.Message}");
+                    Debug.LogError($"[ConsoleLogCapture] Failed to save logs: {ex.Message}");
                 }
             }
         }
@@ -314,9 +314,9 @@ namespace PerSpec.Editor.Coordination
                 var cutoffTime = DateTime.Now.AddHours(-hoursToKeep);
                 _dbManager.DeleteOldConsoleLogs(cutoffTime);
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                Debug.LogError($"[ConsoleLogCapture] Failed to clean old logs: {e.Message}");
+                Debug.LogError($"[ConsoleLogCapture] Failed to clean old logs: {ex.Message}");
             }
         }
         
@@ -335,9 +335,9 @@ namespace PerSpec.Editor.Coordination
                 _dbManager.DeleteSessionLogs(SessionId);
                 Debug.Log($"[ConsoleLogCapture] Cleared logs for session: {SessionId}");
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                Debug.LogError($"[ConsoleLogCapture] Failed to clear session: {e.Message}");
+                Debug.LogError($"[ConsoleLogCapture] Failed to clear session: {ex.Message}");
             }
         }
         
@@ -362,9 +362,9 @@ namespace PerSpec.Editor.Coordination
             {
                 throw new Exception("This is a test exception with stack trace");
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                Debug.LogException(e);
+                Debug.LogException(ex);
             }
         }
     }

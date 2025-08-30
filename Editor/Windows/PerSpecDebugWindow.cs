@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Compilation;
+using PerSpec.Editor.Services;
 
 namespace PerSpec.Editor.Windows
 {
@@ -79,6 +80,11 @@ namespace PerSpec.Editor.Windows
             // Current Status
             DrawStatus();
             
+            EditorGUILayout.Space(5);
+            
+            // Configuration Mode
+            DrawConfigurationMode();
+            
             EditorGUILayout.Space(10);
             
             // Toggle Button
@@ -139,6 +145,27 @@ namespace PerSpec.Editor.Windows
             {
                 EditorGUILayout.Space(5);
                 EditorGUILayout.LabelField("⟳ Recompiling scripts...", statusStyle);
+            }
+            
+            EditorGUILayout.EndVertical();
+        }
+        
+        private void DrawConfigurationMode()
+        {
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            
+            EditorGUILayout.LabelField("Configuration Mode", EditorStyles.boldLabel);
+            
+            string modeText = $"Using: <b>{BuildProfileHelper.ConfigurationMode}</b>";
+            EditorGUILayout.LabelField(modeText, statusStyle);
+            
+            if (BuildProfileHelper.AreBuildProfilesSupported && !BuildProfileHelper.HasActiveBuildProfile)
+            {
+                EditorGUILayout.HelpBox(
+                    "No active BuildProfile detected. Using PlayerSettings fallback. " +
+                    "Create and activate a BuildProfile for better integration.",
+                    MessageType.Info
+                );
             }
             
             EditorGUILayout.EndVertical();
@@ -207,85 +234,22 @@ PerSpecDebug.LogTestSetup(""Creating prefab"");";
         
         private void CheckDebugSymbol()
         {
-            var namedTarget = NamedBuildTarget.FromBuildTargetGroup(BuildPipeline.GetBuildTargetGroup(EditorUserBuildSettings.activeBuildTarget));
-            string symbols = PlayerSettings.GetScriptingDefineSymbols(namedTarget);
-            isDebugEnabled = HasSymbol(symbols, PERSPEC_DEBUG_SYMBOL);
+            isDebugEnabled = BuildProfileHelper.HasCompilerDirective(PERSPEC_DEBUG_SYMBOL);
         }
         
         private void ToggleDebugSymbol()
         {
             isDebugEnabled = !isDebugEnabled;
             
-            // Apply to all named build targets
-            var namedTargets = new[]
-            {
-                NamedBuildTarget.Standalone,
-                NamedBuildTarget.iOS,
-                NamedBuildTarget.Android,
-                NamedBuildTarget.WebGL,
-                NamedBuildTarget.WindowsStoreApps,
-                NamedBuildTarget.tvOS,
-                NamedBuildTarget.LinuxHeadlessSimulation,
-                NamedBuildTarget.Server
-            };
+            if (isDebugEnabled)
+                BuildProfileHelper.AddCompilerDirective(PERSPEC_DEBUG_SYMBOL);
+            else
+                BuildProfileHelper.RemoveCompilerDirective(PERSPEC_DEBUG_SYMBOL);
             
-            foreach (var target in namedTargets)
-            {
-                try
-                {
-                    string currentSymbols = PlayerSettings.GetScriptingDefineSymbols(target);
-                    string newSymbols = isDebugEnabled 
-                        ? AddSymbol(currentSymbols, PERSPEC_DEBUG_SYMBOL)
-                        : RemoveSymbol(currentSymbols, PERSPEC_DEBUG_SYMBOL);
-                    
-                    if (currentSymbols != newSymbols)
-                    {
-                        PlayerSettings.SetScriptingDefineSymbols(target, newSymbols);
-                    }
-                }
-                catch
-                {
-                    // Some build targets might not be available
-                    continue;
-                }
-            }
-            
-            // Force recompilation
-            AssetDatabase.Refresh();
-            CompilationPipeline.RequestScriptCompilation();
-            
-            Debug.Log($"[PerSpec] Debug logging {(isDebugEnabled ? "ENABLED" : "DISABLED")}. Recompiling scripts...");
+            Debug.Log($"[PerSpec] Debug logging {(isDebugEnabled ? "ENABLED" : "DISABLED")} via {BuildProfileHelper.ConfigurationMode}. Recompiling scripts...");
         }
         
-        private bool HasSymbol(string symbols, string symbol)
-        {
-            if (string.IsNullOrEmpty(symbols))
-                return false;
-            
-            var symbolList = symbols.Split(';');
-            return symbolList.Contains(symbol);
-        }
-        
-        private string AddSymbol(string symbols, string symbol)
-        {
-            if (string.IsNullOrEmpty(symbols))
-                return symbol;
-            
-            if (HasSymbol(symbols, symbol))
-                return symbols;
-            
-            return symbols + ";" + symbol;
-        }
-        
-        private string RemoveSymbol(string symbols, string symbol)
-        {
-            if (string.IsNullOrEmpty(symbols))
-                return string.Empty;
-            
-            var symbolList = symbols.Split(';').ToList();
-            symbolList.Remove(symbol);
-            return string.Join(";", symbolList);
-        }
+        // Symbol manipulation methods removed - now handled by BuildProfileHelper
         
         #endregion
         
@@ -331,10 +295,7 @@ PerSpecDebug.LogTestSetup(""Creating prefab"");";
         
         private static bool IsDebugEnabled()
         {
-            var buildTarget = EditorUserBuildSettings.activeBuildTarget;
-            var namedTarget = NamedBuildTarget.FromBuildTargetGroup(BuildPipeline.GetBuildTargetGroup(buildTarget));
-            string symbols = PlayerSettings.GetScriptingDefineSymbols(namedTarget);
-            return symbols.Contains(PERSPEC_DEBUG_SYMBOL);
+            return BuildProfileHelper.HasCompilerDirective(PERSPEC_DEBUG_SYMBOL);
         }
         
         private static void SetDebugEnabled(bool enabled)

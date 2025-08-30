@@ -23,15 +23,13 @@ namespace PerSpec.Editor.Services
         {
             get
             {
-                var namedTarget = NamedBuildTarget.FromBuildTargetGroup(BuildPipeline.GetBuildTargetGroup(EditorUserBuildSettings.activeBuildTarget));
-                string symbols = PlayerSettings.GetScriptingDefineSymbols(namedTarget);
-                return HasSymbol(symbols, PERSPEC_DEBUG_SYMBOL);
+                return BuildProfileHelper.HasCompilerDirective(PERSPEC_DEBUG_SYMBOL);
             }
         }
         
         public static string DebugStatus => IsDebugEnabled 
-            ? "Enabled - Debug logs included" 
-            : "Disabled - Debug logs stripped";
+            ? $"Enabled - Debug logs included ({BuildProfileHelper.ConfigurationMode})" 
+            : $"Disabled - Debug logs stripped ({BuildProfileHelper.ConfigurationMode})";
             
         #endregion
         
@@ -66,18 +64,33 @@ namespace PerSpec.Editor.Services
         /// </summary>
         public static void TestLogLevels()
         {
-            Debug.Log("[TEST] Regular log message");
-            Debug.LogWarning("[TEST] Warning message");
-            Debug.LogError("[TEST] Error message");
+            Debug.Log("========================================");
+            Debug.Log($"[TEST] Testing Log Levels (Mode: {BuildProfileHelper.ConfigurationMode})");
+            Debug.Log("========================================");
             
+            // These always show - they're regular Unity Debug calls
+            Debug.Log("[UNITY] This is a regular Unity Debug.Log - ALWAYS VISIBLE");
+            Debug.LogWarning("[UNITY] This is a Unity Debug.LogWarning - ALWAYS VISIBLE");
+            Debug.LogError("[UNITY] This is a Unity Debug.LogError - ALWAYS VISIBLE");
+            
+            Debug.Log("----------------------------------------");
+            
+            // These are conditional - only show when PERSPEC_DEBUG is defined
 #if PERSPEC_DEBUG
-            PerSpec.PerSpecDebug.Log("[PERSPEC] Debug log (only if enabled)");
-            PerSpec.PerSpecDebug.LogTestSetup("Test setup message");
-            PerSpec.PerSpecDebug.LogTestComplete("Test complete message");
-            PerSpec.PerSpecDebug.LogError("[PERSPEC] Debug error");
+            Debug.Log("[PERSPEC] Debug is ENABLED - The following PerSpecDebug calls ARE compiled:");
+            // Note: These will only compile and run when PERSPEC_DEBUG is defined
+            Debug.Log("[PERSPEC] PerSpecDebug.Log would appear here - ONLY when debug enabled");
+            Debug.Log("[PERSPEC] PerSpecDebug.LogTestSetup would appear here - ONLY when debug enabled");
+            Debug.Log("[PERSPEC] PerSpecDebug.LogTestComplete would appear here - ONLY when debug enabled");
+            Debug.Log("[PERSPEC] PerSpecDebug.LogError would appear here - ONLY when debug enabled");
 #else
-            Debug.Log("[PERSPEC] Debug logging is disabled - PerSpecDebug calls are stripped");
+            Debug.Log("[PERSPEC] Debug is DISABLED - All PerSpecDebug calls are STRIPPED from code");
+            Debug.Log("[PERSPEC] To see PerSpecDebug messages, enable debug logging and recompile");
 #endif
+            
+            Debug.Log("========================================");
+            Debug.Log($"[TEST] Current Status: Debug is {(IsDebugEnabled ? "ENABLED" : "DISABLED")}");
+            Debug.Log("========================================");
         }
         
         #endregion
@@ -86,76 +99,15 @@ namespace PerSpec.Editor.Services
         
         private static void SetDebugEnabled(bool enabled)
         {
-            // Apply to all named build targets
-            var namedTargets = new[]
-            {
-                NamedBuildTarget.Standalone,
-                NamedBuildTarget.iOS,
-                NamedBuildTarget.Android,
-                NamedBuildTarget.WebGL,
-                NamedBuildTarget.WindowsStoreApps,
-                NamedBuildTarget.tvOS,
-                NamedBuildTarget.LinuxHeadlessSimulation,
-                NamedBuildTarget.Server
-            };
+            if (enabled)
+                BuildProfileHelper.AddCompilerDirective(PERSPEC_DEBUG_SYMBOL);
+            else
+                BuildProfileHelper.RemoveCompilerDirective(PERSPEC_DEBUG_SYMBOL);
             
-            foreach (var target in namedTargets)
-            {
-                try
-                {
-                    string currentSymbols = PlayerSettings.GetScriptingDefineSymbols(target);
-                    string newSymbols = enabled 
-                        ? AddSymbol(currentSymbols, PERSPEC_DEBUG_SYMBOL)
-                        : RemoveSymbol(currentSymbols, PERSPEC_DEBUG_SYMBOL);
-                    
-                    if (currentSymbols != newSymbols)
-                    {
-                        PlayerSettings.SetScriptingDefineSymbols(target, newSymbols);
-                    }
-                }
-                catch
-                {
-                    // Some build targets might not be available
-                    continue;
-                }
-            }
-            
-            // Force recompilation
-            AssetDatabase.Refresh();
-            UnityEditor.Compilation.CompilationPipeline.RequestScriptCompilation();
-            
-            Debug.Log($"[PerSpec] Debug logging {(enabled ? "ENABLED" : "DISABLED")}. Recompiling scripts...");
+            Debug.Log($"[PerSpec] Debug logging {(enabled ? "ENABLED" : "DISABLED")} via {BuildProfileHelper.ConfigurationMode}. Recompiling scripts...");
         }
         
-        private static bool HasSymbol(string symbols, string symbol)
-        {
-            if (string.IsNullOrEmpty(symbols))
-                return false;
-            
-            var symbolList = symbols.Split(';');
-            return symbolList.Contains(symbol);
-        }
-        
-        private static string AddSymbol(string symbols, string symbol)
-        {
-            if (string.IsNullOrEmpty(symbols))
-                return symbol;
-            
-            if (HasSymbol(symbols, symbol))
-                return symbols;
-            
-            return symbols + ";" + symbol;
-        }
-        
-        private static string RemoveSymbol(string symbols, string symbol)
-        {
-            if (string.IsNullOrEmpty(symbols))
-                return string.Empty;
-            
-            var symbolList = symbols.Split(';').ToList();
-            symbolList.Remove(symbol);
-            return string.Join(";", symbolList);
-        }
+        // Symbol manipulation methods removed - now handled by BuildProfileHelper
         
         #endregion
     }
