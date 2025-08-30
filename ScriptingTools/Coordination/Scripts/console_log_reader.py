@@ -290,15 +290,15 @@ class ConsoleLogReader:
             print(self.format_log_entry(log, show_stack, colored_output))
     
     def export_logs(self, 
-                   output_file: str,
+                   output_file: str = None,
                    session_id: str = None,
                    log_level: LogLevel = None,
-                   format: str = 'json') -> int:
+                   format: str = 'text') -> int:
         """
         Export logs to file
         
         Args:
-            output_file: Output file path
+            output_file: Output file path (if None, auto-generates in PerSpec/Logs/)
             session_id: Filter by session
             log_level: Filter by level
             format: 'json' or 'text'
@@ -306,6 +306,36 @@ class ConsoleLogReader:
         Returns:
             Number of logs exported
         """
+        # Auto-generate output path if not provided
+        if output_file is None:
+            project_root = get_project_root()
+            logs_dir = project_root / "PerSpec" / "Logs"
+            
+            # Clear existing files in Logs directory (like TestResults does)
+            if logs_dir.exists():
+                import shutil
+                shutil.rmtree(logs_dir)
+            logs_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Generate filename with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            ext = 'json' if format == 'json' else 'txt'
+            output_file = logs_dir / f"ConsoleLogs_{timestamp}.{ext}"
+        else:
+            output_file = Path(output_file)
+            # If just a filename (no path), put it in PerSpec/Logs/
+            if not output_file.parent.exists() and output_file.parent == Path('.'):
+                project_root = get_project_root()
+                logs_dir = project_root / "PerSpec" / "Logs"
+                
+                # Clear existing files in Logs directory
+                if logs_dir.exists():
+                    import shutil
+                    shutil.rmtree(logs_dir)
+                logs_dir.mkdir(parents=True, exist_ok=True)
+                
+                output_file = logs_dir / output_file.name
+        
         logs = self.get_latest_logs(
             limit=10000,  # High limit for export
             log_level=log_level,

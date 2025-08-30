@@ -12,7 +12,7 @@ namespace PerSpec.Editor.Services
     {
         #region Menu Items
         
-        [MenuItem("Tools/PerSpec/Refresh Wrapper Scripts", false, 15)]
+        [MenuItem("Tools/PerSpec/Refresh Coordination Scripts", false, 15)]
         private static void MenuRefreshScripts()
         {
             if (!IsInitialized)
@@ -21,13 +21,13 @@ namespace PerSpec.Editor.Services
                 return;
             }
             
-            if (RefreshWrapperScripts())
+            if (RefreshCoordinationScripts())
             {
-                Debug.Log("[PerSpec] Wrapper scripts refreshed successfully");
+                Debug.Log("[PerSpec] Coordination scripts refreshed successfully");
             }
         }
         
-        [MenuItem("Tools/PerSpec/Refresh Wrapper Scripts", true)]
+        [MenuItem("Tools/PerSpec/Refresh Coordination Scripts", true)]
         private static bool ValidateMenuRefreshScripts()
         {
             return IsInitialized;
@@ -39,7 +39,7 @@ namespace PerSpec.Editor.Services
         
         public static string ProjectPerSpecPath => Path.Combine(Directory.GetParent(Application.dataPath).FullName, "PerSpec");
         public static string DatabasePath => Path.Combine(ProjectPerSpecPath, "test_coordination.db");
-        public static string ScriptsPath => Path.Combine(ProjectPerSpecPath, "Scripts");
+        public static string CoordinationScriptsPath => Path.Combine(ProjectPerSpecPath, "Coordination", "Scripts");
         public static string TestResultsPath => Path.Combine(ProjectPerSpecPath, "TestResults");
         
         public static bool IsInitialized => Directory.Exists(ProjectPerSpecPath);
@@ -82,11 +82,11 @@ namespace PerSpec.Editor.Services
                     Debug.Log($"[PerSpec] Created working directory: {ProjectPerSpecPath}");
                 }
                 
-                // Create Scripts subdirectory
-                if (!Directory.Exists(ScriptsPath))
+                // Create Coordination/Scripts subdirectory and copy scripts
+                if (!Directory.Exists(CoordinationScriptsPath))
                 {
-                    Directory.CreateDirectory(ScriptsPath);
-                    CreateWrapperScripts();
+                    Directory.CreateDirectory(CoordinationScriptsPath);
+                    CopyCoordinationScripts();
                 }
                 
                 // Create TestResults subdirectory
@@ -157,9 +157,9 @@ namespace PerSpec.Editor.Services
         }
         
         /// <summary>
-        /// Refresh wrapper scripts with current package location
+        /// Refresh coordination scripts from package
         /// </summary>
-        public static bool RefreshWrapperScripts()
+        public static bool RefreshCoordinationScripts()
         {
             try
             {
@@ -169,21 +169,57 @@ namespace PerSpec.Editor.Services
                     return false;
                 }
                 
-                // Force package path refresh
-                PackagePathResolver.RefreshPackagePath();
+                // Copy coordination scripts from package
+                CopyCoordinationScripts();
                 
-                // Recreate wrapper scripts
-                CreateWrapperScripts();
-                
-                // Update package location file
+                // Update package location file (still useful for reference)
                 PackageLocationTracker.UpdateLocationFile();
                 
-                Debug.Log($"[PerSpec] Wrapper scripts refreshed. Package location: {PackagePathResolver.GetPackageLocationInfo()}");
+                Debug.Log("[PerSpec] Scripts refreshed with hardcoded paths");
                 return true;
             }
             catch (Exception e)
             {
-                Debug.LogError($"[PerSpec] Failed to refresh wrapper scripts: {e.Message}");
+                Debug.LogError($"[PerSpec] Failed to refresh scripts: {e.Message}");
+                return false;
+            }
+        }
+        
+        /// <summary>
+        /// Force update coordination scripts (delete existing and copy fresh)
+        /// </summary>
+        public static bool ForceUpdateCoordinationScripts()
+        {
+            try
+            {
+                if (!IsInitialized)
+                {
+                    Debug.LogError("[PerSpec] Cannot force update scripts - PerSpec not initialized");
+                    return false;
+                }
+                
+                // Delete existing scripts directory to ensure clean update
+                if (Directory.Exists(CoordinationScriptsPath))
+                {
+                    Directory.Delete(CoordinationScriptsPath, true);
+                    Debug.Log($"[PerSpec] Removed existing scripts from {CoordinationScriptsPath}");
+                }
+                
+                // Recreate directory
+                Directory.CreateDirectory(CoordinationScriptsPath);
+                
+                // Copy fresh scripts from package
+                CopyCoordinationScripts();
+                
+                // Update package location file
+                PackageLocationTracker.UpdateLocationFile();
+                
+                Debug.Log("[PerSpec] Scripts force updated from package");
+                return true;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[PerSpec] Failed to force update scripts: {e.Message}");
                 return false;
             }
         }
@@ -196,120 +232,57 @@ namespace PerSpec.Editor.Services
             if (!IsInitialized)
                 return false;
                 
-            // Check if any wrapper script exists
-            string testScript = Path.Combine(ScriptsPath, "test.py");
-            if (!File.Exists(testScript))
+            // Check if coordination scripts exist
+            if (!Directory.Exists(CoordinationScriptsPath))
                 return true;
                 
-            // Check if it's using the old hardcoded path format
-            try
-            {
-                string content = File.ReadAllText(testScript);
-                // Old scripts have hardcoded paths, new ones have dynamic finding logic
-                return !content.Contains("possible_paths");
-            }
-            catch
-            {
-                return true;
-            }
+            // Check if the test script exists
+            string testScript = Path.Combine(CoordinationScriptsPath, "quick_test.py");
+            return !File.Exists(testScript);
         }
         
         #endregion
         
         #region Private Methods
         
-        private static void CreateWrapperScripts()
+        private static void CopyCoordinationScripts()
         {
-            // Create dynamic Python wrapper scripts that find the package at runtime
-            CreateDynamicWrapperScript("refresh", "quick_refresh.py");
-            CreateDynamicWrapperScript("test", "quick_test.py");
-            CreateDynamicWrapperScript("logs", "quick_logs.py");
-            CreateDynamicWrapperScript("init_db", "db_initializer.py");
-            CreateDynamicWrapperScript("monitor", "db_monitor.py");
-            
-            Debug.Log("[PerSpec] Created dynamic wrapper scripts");
-        }
-        
-        private static void CreateDynamicWrapperScript(string name, string scriptFile)
-        {
-            // Create a Python script that dynamically finds the package
-            string pythonFinder = $@"#!/usr/bin/env python3
-import os
-import sys
-from pathlib import Path
-
-# Prevent Python from creating .pyc files in the package directory
-sys.dont_write_bytecode = True
-os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
-
-# Set Python cache to PerSpec directory instead of package location
-project_root = Path(__file__).parent.parent.parent
-cache_dir = project_root / 'PerSpec' / 'cache'
-cache_dir.mkdir(parents=True, exist_ok=True)
-os.environ['PYTHONPYCACHEPREFIX'] = str(cache_dir)
-
-# Possible locations for the PerSpec package
-possible_paths = [
-    # Development location
-    project_root / 'Packages' / 'com.digitraver.perspec',
-    # Check all PackageCache entries with hash
-    *(project_root / 'Library' / 'PackageCache').glob('com.digitraver.perspec@*') if (project_root / 'Library' / 'PackageCache').exists() else []
-]
-
-# Find the script
-script_found = False
-for package_path in possible_paths:
-    script_path = package_path / 'ScriptingTools' / 'Coordination' / 'Scripts' / '{scriptFile}'
-    if script_path.exists():
-        # Execute the script with all arguments, ensuring no bytecode in package dir
-        import subprocess
-        env = os.environ.copy()
-        env['PYTHONDONTWRITEBYTECODE'] = '1'
-        env['PYTHONPYCACHEPREFIX'] = str(cache_dir)
-        result = subprocess.run([sys.executable, str(script_path)] + sys.argv[1:], 
-                              stdout=sys.stdout, stderr=sys.stderr, env=env)
-        sys.exit(result.returncode)
-        script_found = True
-        break
-
-if not script_found:
-    print(f""[PerSpec] Error: Could not find {scriptFile}"")
-    print(""Please ensure the PerSpec package is properly installed."")
-    print(""Try reinitializing from Unity: Tools > PerSpec > Initialize"")
-    sys.exit(1)
-";
-            
-            // Write Python wrapper
-            string pyPath = Path.Combine(ScriptsPath, $"{name}.py");
-            File.WriteAllText(pyPath, pythonFinder);
-            
-            // Create batch file for Windows (with bytecode prevention)
-            string batScript = $@"@echo off
-set PYTHONDONTWRITEBYTECODE=1
-python ""%~dp0{name}.py"" %*";
-            File.WriteAllText(Path.Combine(ScriptsPath, $"{name}.bat"), batScript);
-            
-            // Create shell script for Unix (with bytecode prevention)
-            string shScript = $@"#!/bin/bash
-export PYTHONDONTWRITEBYTECODE=1
-python ""$(dirname ""$0"")/{name}.py"" ""$@""";
-            File.WriteAllText(Path.Combine(ScriptsPath, $"{name}.sh"), shScript);
-            
-            // Make scripts executable on Unix
-            if (Application.platform == RuntimePlatform.OSXEditor || Application.platform == RuntimePlatform.LinuxEditor)
+            try
             {
-                try
+                // Find the package location
+                string packagePath = PackagePathResolver.PackagePath;
+                if (string.IsNullOrEmpty(packagePath))
                 {
-                    var chmod = new System.Diagnostics.ProcessStartInfo
-                    {
-                        FileName = "chmod",
-                        Arguments = $"+x \"{Path.Combine(ScriptsPath, name + ".sh")}\" \"{Path.Combine(ScriptsPath, name + ".py")}\"",
-                        UseShellExecute = false,
-                        CreateNoWindow = true
-                    };
-                    System.Diagnostics.Process.Start(chmod)?.WaitForExit(1000);
+                    Debug.LogError("[PerSpec] Could not find package path to copy coordination scripts");
+                    return;
                 }
-                catch { /* Ignore chmod errors */ }
+                
+                string sourceScriptsPath = Path.Combine(packagePath, "ScriptingTools", "Coordination", "Scripts");
+                if (!Directory.Exists(sourceScriptsPath))
+                {
+                    Debug.LogError($"[PerSpec] Source scripts directory not found: {sourceScriptsPath}");
+                    return;
+                }
+                
+                // Ensure destination directory exists
+                if (!Directory.Exists(CoordinationScriptsPath))
+                {
+                    Directory.CreateDirectory(CoordinationScriptsPath);
+                }
+                
+                // Copy all Python scripts
+                foreach (string sourceFile in Directory.GetFiles(sourceScriptsPath, "*.py"))
+                {
+                    string fileName = Path.GetFileName(sourceFile);
+                    string destFile = Path.Combine(CoordinationScriptsPath, fileName);
+                    File.Copy(sourceFile, destFile, true);
+                }
+                
+                Debug.Log($"[PerSpec] Copied coordination scripts to {CoordinationScriptsPath}");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[PerSpec] Failed to copy coordination scripts: {e.Message}");
             }
         }
         

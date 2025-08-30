@@ -67,13 +67,13 @@ public class SimpleTests : UniTaskTestBase
 ```bash
 # From project root:
 # Run all tests
-python PerSpec/scripts/test.py all -p edit --wait
+python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait
 
 # Run specific test class
-python PerSpec/scripts/test.py class MyTests -p edit --wait
+python PerSpec/Coordination/Scripts/quick_test.py class MyTests -p edit --wait
 
 # Check for errors
-python PerSpec/scripts/logs.py errors
+python PerSpec/Coordination/Scripts/quick_logs.py errors
 ```
 
 ## The 4-Step Workflow
@@ -83,13 +83,13 @@ Always follow this pattern:
 ```bash
 # 1. Write your code/tests
 # 2. Refresh Unity
-python PerSpec/scripts/refresh.py full --wait
+python PerSpec/Coordination/Scripts/quick_refresh.py full --wait
 
 # 3. Check for compilation errors
-python PerSpec/scripts/logs.py errors
+python PerSpec/Coordination/Scripts/quick_logs.py errors
 
 # 4. Run tests
-python PerSpec/scripts/test.py all -p edit --wait
+python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait
 ```
 
 ## Common Patterns
@@ -133,14 +133,14 @@ public class DOTSTests : DOTSTestBase
 
 Always check errors before running tests:
 ```bash
-python PerSpec/scripts/logs.py errors
+python PerSpec/Coordination/Scripts/quick_logs.py errors
 ```
 
 ### Console Logs
 
 View all Unity logs:
 ```bash
-python PerSpec/scripts/logs.py latest -n 50
+python PerSpec/Coordination/Scripts/quick_logs.py latest -n 50
 ```
 
 ## Next Steps

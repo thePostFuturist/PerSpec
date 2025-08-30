@@ -205,6 +205,24 @@ namespace PerSpec.Editor.Windows
                 }
                 
                 EditorGUILayout.EndHorizontal();
+                
+                EditorGUILayout.Space(5);
+                
+                EditorGUILayout.BeginHorizontal();
+                
+                if (GUILayout.Button("Update Scripts", GUILayout.Height(40)))
+                {
+                    if (InitializationService.RefreshCoordinationScripts())
+                    {
+                        ShowNotification(new GUIContent("Scripts updated from package"));
+                    }
+                    else
+                    {
+                        ShowNotification(new GUIContent("Failed to update scripts"));
+                    }
+                }
+                
+                EditorGUILayout.EndHorizontal();
             });
             
             EditorGUILayout.Space(10);
@@ -648,7 +666,7 @@ PerSpecDebug.LogTestComplete(""Test passed"");";
                     if (GUILayout.Button(needsRefresh ? "Refresh Scripts (Recommended)" : "Refresh Scripts", 
                         GUILayout.Height(30)))
                     {
-                        if (InitializationService.RefreshWrapperScripts())
+                        if (InitializationService.RefreshCoordinationScripts())
                         {
                             ShowNotification(new GUIContent("Scripts refreshed successfully"));
                             Debug.Log($"[PerSpec] Scripts refreshed. Package at: {PackagePathResolver.PackagePath}");
@@ -672,7 +690,7 @@ PerSpecDebug.LogTestComplete(""Test passed"");";
                             Debug.Log($"[PerSpec] Package path changed from: {oldPath} to: {newPath}");
                             
                             // Also refresh scripts after package path change
-                            InitializationService.RefreshWrapperScripts();
+                            InitializationService.RefreshCoordinationScripts();
                         }
                         else
                         {
@@ -744,10 +762,8 @@ PerSpecDebug.LogTestComplete(""Test passed"");";
                 {
                     "Claude (CLAUDE.md)",
                     "Cursor (.cursorrules)",
-                    "GitHub Copilot (.github/copilot-instructions.md)",
-                    "Aider (.aider.conf.yml)",
-                    "Codeium (.codeium/instructions.md)",
-                    "Continue (.continue/context.md)"
+                    "OpenAI Codex (.openai-codex.md)",
+                    "Gemini CLI (.gemini/config.md)"
                 };
                 
                 EditorGUILayout.BeginHorizontal();
@@ -843,10 +859,8 @@ PerSpecDebug.LogTestComplete(""Test passed"");";
 Supported LLMs:
 • Claude Code - CLAUDE.md
 • Cursor - .cursorrules
-• GitHub Copilot - .github/copilot-instructions.md
-• Aider - .aider.conf.yml
-• Codeium - .codeium/instructions.md
-• Continue - .continue/context.md";
+• OpenAI Codex - .openai-codex.md
+• Gemini CLI - .gemini/config.md";
                 
                 EditorGUILayout.TextArea(instructions, GUILayout.Height(180));
             });
@@ -862,10 +876,8 @@ Supported LLMs:
             {
                 { "Claude (CLAUDE.md)", "CLAUDE.md" },
                 { "Cursor (.cursorrules)", ".cursorrules" },
-                { "Copilot", Path.Combine(".github", "copilot-instructions.md") },
-                { "Aider", ".aider.conf.yml" },
-                { "Codeium", Path.Combine(".codeium", "instructions.md") },
-                { "Continue", Path.Combine(".continue", "context.md") }
+                { "OpenAI Codex", ".openai-codex.md" },
+                { "Gemini CLI", Path.Combine(".gemini", "config.md") }
             };
             
             foreach (var file in llmFiles)
@@ -1083,26 +1095,14 @@ Supported LLMs:
                 case 1: // Cursor
                     configPath = Path.Combine(projectPath, ".cursorrules");
                     break;
-                case 2: // Copilot
-                    string githubDir = Path.Combine(projectPath, ".github");
-                    if (!Directory.Exists(githubDir))
-                        Directory.CreateDirectory(githubDir);
-                    configPath = Path.Combine(githubDir, "copilot-instructions.md");
+                case 2: // OpenAI Codex
+                    configPath = Path.Combine(projectPath, ".openai-codex.md");
                     break;
-                case 3: // Aider
-                    configPath = Path.Combine(projectPath, ".aider.conf.yml");
-                    break;
-                case 4: // Codeium
-                    string codeiumDir = Path.Combine(projectPath, ".codeium");
-                    if (!Directory.Exists(codeiumDir))
-                        Directory.CreateDirectory(codeiumDir);
-                    configPath = Path.Combine(codeiumDir, "instructions.md");
-                    break;
-                case 5: // Continue
-                    string continueDir = Path.Combine(projectPath, ".continue");
-                    if (!Directory.Exists(continueDir))
-                        Directory.CreateDirectory(continueDir);
-                    configPath = Path.Combine(continueDir, "context.md");
+                case 3: // Gemini CLI
+                    string geminiDir = Path.Combine(projectPath, ".gemini");
+                    if (!Directory.Exists(geminiDir))
+                        Directory.CreateDirectory(geminiDir);
+                    configPath = Path.Combine(geminiDir, "config.md");
                     break;
             }
             
@@ -1119,14 +1119,6 @@ Supported LLMs:
             try
             {
                 string llmContent = GetLLMContent();
-                
-                // For Aider, we need to wrap in YAML format
-                if (llmIndex == 3)
-                {
-                    llmContent = $"# Aider configuration with PerSpec instructions\n\n" +
-                                $"instructions: |\n" +
-                                string.Join("\n", llmContent.Split('\n').Select(line => "  " + line));
-                }
                 
                 // Add permission block if enabled
                 string providerName = GetProviderFromIndex(llmIndex);
@@ -1393,14 +1385,10 @@ Note: Use the convenience scripts in PerSpec/Scripts/ or run from package locati
                 return "Claude";
             else if (fileName.Contains("cursor"))
                 return "Cursor";
-            else if (configPath.Contains(".github") && fileName.Contains("copilot"))
-                return "Copilot";
-            else if (fileName.Contains("aider"))
-                return "Aider";
-            else if (configPath.Contains(".codeium"))
-                return "Codeium";
-            else if (configPath.Contains(".continue"))
-                return "Continue";
+            else if (fileName.Contains("openai-codex"))
+                return "OpenAI";
+            else if (configPath.Contains(".gemini"))
+                return "Gemini";
             
             return "Unknown";
         }
@@ -1411,10 +1399,8 @@ Note: Use the convenience scripts in PerSpec/Scripts/ or run from package locati
             {
                 case 0: return "Claude";
                 case 1: return "Cursor";
-                case 2: return "Copilot";
-                case 3: return "Aider";
-                case 4: return "Codeium";
-                case 5: return "Continue";
+                case 2: return "OpenAI";
+                case 3: return "Gemini";
                 default: return "Unknown";
             }
         }

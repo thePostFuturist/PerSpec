@@ -565,7 +565,8 @@ namespace PerSpec.Editor.TestExport
         private string GetDefaultOutputPath()
         {
             var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            var directory = Path.Combine(Application.dataPath, "..", "TestResults");
+            // Use PerSpec/TestResults directory for consistency with coordination system
+            var directory = Path.Combine(Application.dataPath, "..", "PerSpec", "TestResults");
             
             if (!Directory.Exists(directory))
             {

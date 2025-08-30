@@ -91,19 +91,19 @@ BackgroundPoller.EnableBackgroundPolling()
 **Quick Commands:**
 ```bash
 # Run all PlayMode tests
-python PerSpec/scripts/test.py all -p play --wait
+python PerSpec/Coordination/Scripts/quick_test.py all -p play --wait
 
 # Check status
-python PerSpec/scripts/test.py status
+python PerSpec/Coordination/Scripts/quick_test.py status
 
 # Run specific test class
-python PerSpec/scripts/test.py class MyTestClass -p edit
+python PerSpec/Coordination/Scripts/quick_test.py class MyTestClass -p edit
 
 # Submit asset refresh
-python PerSpec/scripts/refresh.py full --wait
+python PerSpec/Coordination/Scripts/quick_refresh.py full --wait
 
 # Monitor database
-python PerSpec/scripts/monitor.py
+python PerSpec/Coordination/Scripts/monitor.py
 ```
 
 **Threading Patterns:**
@@ -129,13 +129,13 @@ After coordination setup, validate via **[4-Step Process](../../CLAUDE.md#test-d
 **Test Coordination Commands:**
 ```bash
 # Initialize database
-python PerSpec/scripts/init_db.py
+python PerSpec/Coordination/Scripts/db_initializer.py
 
 # Submit and wait for completion
-python PerSpec/scripts/test.py all -p both --wait
+python PerSpec/Coordination/Scripts/quick_test.py all -p both --wait
 
 # Check specific request
-python PerSpec/scripts/test.py status 1
+python PerSpec/Coordination/Scripts/quick_test.py status 1
 ```
 
 **Debug Menu Items:**
@@ -146,7 +146,7 @@ python PerSpec/scripts/test.py status 1
 - Test Coordination > Background Polling > Force Script Compilation
 
 **Key Files:**
-- `PerSpec/scripts/test.py` - Python test interface (wrapper)
+- `PerSpec/Coordination/Scripts/quick_test.py` - Python test interface
 - `Packages/com.perspec.framework/Editor/Coordination/Windows/TestCoordinatorEditor.cs` - Unity polling
 - `Packages/com.perspec.framework/Editor/Coordination/Core/BackgroundPoller.cs` - Background processing
 - `Packages/com.perspec.framework/Editor/Coordination/Core/TestExecutor.cs` - Test execution

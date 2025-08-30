@@ -171,16 +171,22 @@ def cmd_export(args):
             print(f"Invalid log level: {args.level}")
             return 1
     
-    format = 'json' if args.output.endswith('.json') else 'text'
+    # Determine format
+    if args.json:
+        format = 'json'
+    elif args.output and args.output.endswith('.json'):
+        format = 'json'
+    else:
+        format = 'text'
     
     count = reader.export_logs(
-        output_file=args.output,
+        output_file=args.output,  # Can be None now
         session_id=args.session,
         log_level=log_level,
         format=format
     )
     
-    print(f"Exported {count} logs to {args.output}")
+    # Message already printed by export_logs
     return 0
 
 def cmd_monitor(args):
@@ -263,11 +269,14 @@ def main():
     
     # Export command
     export_parser = subparsers.add_parser('export', help='Export logs to file')
-    export_parser.add_argument('output', help='Output file path (.json or .txt)')
+    export_parser.add_argument('output', nargs='?', default=None,
+                              help='Output file path (optional, defaults to PerSpec/Logs/ConsoleLogs_timestamp.txt)')
     export_parser.add_argument('-s', '--session', type=str,
                               help='Filter by session ID')
     export_parser.add_argument('-l', '--level', type=str,
                               help='Filter by log level')
+    export_parser.add_argument('--json', action='store_true',
+                              help='Export in JSON format instead of text')
     export_parser.set_defaults(func=cmd_export)
     
     # Monitor command

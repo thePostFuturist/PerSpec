@@ -94,7 +94,50 @@ namespace PerSpec.Editor.Coordination
                 }
                 else
                 {
-                    Debug.Log("[PlayModeTestCompletionChecker] No test result files found");
+                    Debug.Log("[PlayModeTestCompletionChecker] No test result files found in PerSpec/TestResults, checking Unity default location...");
+                    
+                    // Check Unity's default location and copy if found
+                    var copiedFile = CopyFromUnityDefaultLocation();
+                    if (!string.IsNullOrEmpty(copiedFile))
+                    {
+                        Debug.Log($"[PlayModeTestCompletionChecker] Copied test results from Unity default location to: {copiedFile}");
+                        
+                        // Parse the copied file
+                        string summaryPath = copiedFile.Replace(".xml", ".summary.txt");
+                        if (File.Exists(summaryPath))
+                        {
+                            var summary = ParseSummaryFile(summaryPath);
+                            
+                            // Update the most recent running request
+                            var requestToUpdate = runningRequests.OrderByDescending(r => r.Id).First();
+                            
+                            Debug.Log($"[PlayModeTestCompletionChecker] Updating request {requestToUpdate.Id} with results from copied file");
+                            
+                            dbManager.UpdateRequestResults(
+                                requestToUpdate.Id,
+                                "completed",
+                                summary.TotalTests,
+                                summary.PassedTests,
+                                summary.FailedTests,
+                                summary.SkippedTests,
+                                summary.Duration
+                            );
+                            
+                            dbManager.LogExecution(requestToUpdate.Id, "INFO", "PlayModeTestCompletionChecker", 
+                                $"Test completed (copied from Unity default): {summary.PassedTests}/{summary.TotalTests} passed");
+                            
+                            Debug.Log($"[PlayModeTestCompletionChecker] Request {requestToUpdate.Id} marked as completed");
+                        }
+                        else
+                        {
+                            // Parse XML file directly if no summary
+                            ParseXmlAndUpdateRequest(copiedFile, runningRequests.OrderByDescending(r => r.Id).First(), dbManager);
+                        }
+                    }
+                    else
+                    {
+                        Debug.LogWarning("[PlayModeTestCompletionChecker] No test results found in any location");
+                    }
                 }
             }
             catch (Exception e)
@@ -153,6 +196,78 @@ namespace PerSpec.Editor.Coordination
             }
             
             return summary;
+        }
+        
+        private static string CopyFromUnityDefaultLocation()
+        {
+            try
+            {
+                string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "Low";
+                string unityTestPath = Path.Combine(appDataPath, "DefaultCompany", "TestFramework");
+                string sourceFile = Path.Combine(unityTestPath, "TestResults.xml");
+                
+                if (!File.Exists(sourceFile))
+                {
+                    Debug.Log($"[PlayModeTestCompletionChecker] No file found at Unity default location: {sourceFile}");
+                    return null;
+                }
+                
+                // Ensure TestResults directory exists
+                if (!Directory.Exists(_testResultsPath))
+                    Directory.CreateDirectory(_testResultsPath);
+                
+                // Copy with timestamp
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string destFile = Path.Combine(_testResultsPath, $"TestResults_{timestamp}.xml");
+                File.Copy(sourceFile, destFile, true);
+                
+                Debug.Log($"[PlayModeTestCompletionChecker] Copied from {sourceFile} to {destFile}");
+                return destFile;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[PlayModeTestCompletionChecker] Error copying from Unity default location: {e.Message}");
+                return null;
+            }
+        }
+        
+        private static void ParseXmlAndUpdateRequest(string xmlPath, TestRequest request, SQLiteManager dbManager)
+        {
+            try
+            {
+                var doc = System.Xml.Linq.XDocument.Load(xmlPath);
+                var testRun = doc.Root;
+                
+                if (testRun != null)
+                {
+                    int totalTests = int.Parse(testRun.Attribute("total")?.Value ?? "0");
+                    int passedTests = int.Parse(testRun.Attribute("passed")?.Value ?? "0");
+                    int failedTests = int.Parse(testRun.Attribute("failed")?.Value ?? "0");
+                    int skippedTests = int.Parse(testRun.Attribute("skipped")?.Value ?? "0");
+                    float duration = float.Parse(testRun.Attribute("duration")?.Value ?? "0");
+                    
+                    Debug.Log($"[PlayModeTestCompletionChecker] Parsed XML - Total: {totalTests}, Passed: {passedTests}, Failed: {failedTests}");
+                    
+                    dbManager.UpdateRequestResults(
+                        request.Id,
+                        "completed",
+                        totalTests,
+                        passedTests,
+                        failedTests,
+                        skippedTests,
+                        duration
+                    );
+                    
+                    dbManager.LogExecution(request.Id, "INFO", "PlayModeTestCompletionChecker", 
+                        $"Test completed (parsed from XML): {passedTests}/{totalTests} passed");
+                    
+                    Debug.Log($"[PlayModeTestCompletionChecker] Request {request.Id} marked as completed from XML");
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[PlayModeTestCompletionChecker] Error parsing XML file: {e.Message}");
+            }
         }
         
         // Integrated into main coordinator - no longer needed as separate menu item

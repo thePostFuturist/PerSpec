@@ -8,6 +8,7 @@ using UnityEngine;
 using UnityEditor;
 using UnityEngine.TestTools;
 using UnityEditor.TestTools.TestRunner.Api;
+using PerSpec.Editor.TestExport;
 
 namespace PerSpec.Editor.Coordination
 {
@@ -20,6 +21,7 @@ namespace PerSpec.Editor.Coordination
         private Dictionary<string, TestResult> _testResults;
         private float _startTime;
         private TestRunnerApi _testApi;
+        private TestResultXMLExporter _xmlExporter;
         
         // File monitoring fields
         private string _testResultsPath;
@@ -56,6 +58,11 @@ namespace PerSpec.Editor.Coordination
             {
                 // Start file monitoring before test execution
                 StartFileMonitoring();
+                
+                // Register XML exporter to save results to PerSpec/TestResults
+                _xmlExporter = new TestResultXMLExporter();
+                _testApi.RegisterCallbacks(_xmlExporter);
+                Debug.Log($"[TestExecutor] XML Exporter registered for path: {_xmlExporter.OutputPath}");
                 
                 // Register callbacks
                 _testApi.RegisterCallbacks(this);
@@ -324,6 +331,13 @@ namespace PerSpec.Editor.Coordination
             if (_testApi != null)
             {
                 _testApi.UnregisterCallbacks(this);
+                
+                // Unregister XML exporter
+                if (_xmlExporter != null)
+                {
+                    _testApi.UnregisterCallbacks(_xmlExporter);
+                    _xmlExporter = null;
+                }
             }
             
             _currentRequest = null;
@@ -439,13 +453,49 @@ namespace PerSpec.Editor.Coordination
         
         private string GetLatestResultFile()
         {
-            if (!Directory.Exists(_testResultsPath)) return null;
+            // First check PerSpec/TestResults directory
+            if (Directory.Exists(_testResultsPath))
+            {
+                var xmlFiles = Directory.GetFiles(_testResultsPath, "*.xml")
+                    .OrderByDescending(f => new FileInfo(f).LastWriteTime)
+                    .FirstOrDefault();
+                
+                if (!string.IsNullOrEmpty(xmlFiles))
+                    return xmlFiles;
+            }
             
-            var xmlFiles = Directory.GetFiles(_testResultsPath, "*.xml")
-                .OrderByDescending(f => new FileInfo(f).LastWriteTime)
-                .FirstOrDefault();
+            // Fallback: Check Unity's default location in user's AppData
+            try
+            {
+                string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                string unityTestPath = Path.Combine(appDataPath, "Low", "DefaultCompany", "TestFramework");
+                
+                if (Directory.Exists(unityTestPath))
+                {
+                    var testResultFile = Path.Combine(unityTestPath, "TestResults.xml");
+                    if (File.Exists(testResultFile))
+                    {
+                        Debug.Log($"[TestExecutor] Found test results in Unity default location: {testResultFile}");
+                        
+                        // Copy to PerSpec/TestResults for consistency
+                        if (!Directory.Exists(_testResultsPath))
+                            Directory.CreateDirectory(_testResultsPath);
+                        
+                        string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                        string destPath = Path.Combine(_testResultsPath, $"TestResults_{timestamp}.xml");
+                        File.Copy(testResultFile, destPath, true);
+                        Debug.Log($"[TestExecutor] Copied test results to: {destPath}");
+                        
+                        return destPath;
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[TestExecutor] Error checking Unity default location: {e.Message}");
+            }
             
-            return xmlFiles;
+            return null;
         }
         
         private void ParseResultsFromFile(string xmlPath)

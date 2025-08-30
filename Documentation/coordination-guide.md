@@ -19,47 +19,47 @@ The database has been created with all required tables including test requests a
 
 ```bash
 # Run all EditMode tests
-python PerSpec/scripts/test.py all -p edit
+python PerSpec/Coordination/Scripts/quick_test.py all -p edit
 
 # Run specific test class
-python PerSpec/scripts/test.py class MyTestClass -p edit
+python PerSpec/Coordination/Scripts/quick_test.py class MyTestClass -p edit
 
 # Run specific test method
-python PerSpec/scripts/test.py method MyTestClass.TestMethod -p edit
+python PerSpec/Coordination/Scripts/quick_test.py method MyTestClass.TestMethod -p edit
 
 # Run tests by category
-python PerSpec/scripts/test.py category Integration -p both
+python PerSpec/Coordination/Scripts/quick_test.py category Integration -p both
 
 # Check status of request
-python PerSpec/scripts/test.py status 1
+python PerSpec/Coordination/Scripts/quick_test.py status 1
 
 # Cancel a request
-python PerSpec/scripts/test.py cancel 1
+python PerSpec/Coordination/Scripts/quick_test.py cancel 1
 ```
 
 ### 3. Submit an asset refresh request from Python
 
 ```bash
 # Full asset refresh
-python PerSpec/scripts/refresh.py full
+python PerSpec/Coordination/Scripts/quick_refresh.py full
 
 # Synchronous refresh (blocks until complete)
-python PerSpec/scripts/refresh.py full -o synchronous --wait
+python PerSpec/Coordination/Scripts/quick_refresh.py full -o synchronous --wait
 
 # Refresh specific paths
-python PerSpec/scripts/refresh.py paths "Assets/Scripts" "Assets/Prefabs" --wait
+python PerSpec/Coordination/Scripts/quick_refresh.py paths "Assets/Scripts" "Assets/Prefabs" --wait
 
 # Force update all assets
-python PerSpec/scripts/refresh.py full -o force_update
+python PerSpec/Coordination/Scripts/quick_refresh.py full -o force_update
 
 # Check status of refresh request
-python PerSpec/scripts/refresh.py status 1
+python PerSpec/Coordination/Scripts/quick_refresh.py status 1
 
 # Cancel a refresh request
-python PerSpec/scripts/refresh.py cancel 1
+python PerSpec/Coordination/Scripts/quick_refresh.py cancel 1
 
 # List all pending refresh requests
-python PerSpec/scripts/refresh.py list
+python PerSpec/Coordination/Scripts/quick_refresh.py list
 ```
 
 ### 4. Unity automatically picks up and executes requests
@@ -204,23 +204,31 @@ refresh_specific_paths(["Assets/Scripts"], ImportOptions.FORCE_UPDATE, wait=True
 ### Quick Commands
 ```bash
 # Get latest logs (all levels)
-python PerSpec/scripts/logs.py latest -n 20
+python PerSpec/Coordination/Scripts/quick_logs.py latest -n 20
 
 # Get only errors/exceptions
-python PerSpec/scripts/logs.py errors
+python PerSpec/Coordination/Scripts/quick_logs.py errors
 
 # Get warnings
-python PerSpec/scripts/logs.py warnings
+python PerSpec/Coordination/Scripts/quick_logs.py warnings
 
 # Get session summary (log counts by level)
-python PerSpec/scripts/logs.py summary
+python PerSpec/Coordination/Scripts/quick_logs.py summary
 
 # Monitor logs in real-time
-python PerSpec/scripts/logs.py monitor
+python PerSpec/Coordination/Scripts/quick_logs.py monitor
 
-# Export logs to file
-python PerSpec/scripts/logs.py export logs.json
+# Export logs to file (auto-saves to PerSpec/Logs/)
+python PerSpec/Coordination/Scripts/quick_logs.py export
+
+# Export as JSON
+python PerSpec/Coordination/Scripts/quick_logs.py export --json
+
+# Export with custom path
+python PerSpec/Coordination/Scripts/quick_logs.py export custom.txt
 ```
+
+> **Note**: Export automatically clears `PerSpec/Logs/` and saves as `ConsoleLogs_YYYYMMDD_HHMMSS.txt`
 
 ### Programmatic Access
 ```python
@@ -323,7 +331,7 @@ Unity stack traces are automatically truncated to minimize context usage:
 
 ### Reset database
 ```bash
-python PerSpec/scripts/init_db.py reset
+python PerSpec/Coordination/Scripts/db_initializer.py reset
 ```
 
 ### Add new table to existing database

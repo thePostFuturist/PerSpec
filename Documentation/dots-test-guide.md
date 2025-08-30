@@ -617,22 +617,22 @@ Follow the **[4-Step Process](../../CLAUDE.md#test-development-workflow)** - REQ
 **After Step 2 (Refresh), check for DOTS errors:**
 ```bash
 # Burst compilation errors
-python PerSpec/scripts/logs.py errors | grep -i burst
+python PerSpec/Coordination/Scripts/quick_logs.py errors | grep -i burst
 
 # Native collection leaks
-python PerSpec/scripts/logs.py latest -n 50 | grep -i "disposed\|leak"
+python PerSpec/Coordination/Scripts/quick_logs.py latest -n 50 | grep -i "disposed\|leak"
 
 # Job System issues
-python PerSpec/scripts/logs.py latest -n 50 | grep -i "job\|scheduled"
+python PerSpec/Coordination/Scripts/quick_logs.py latest -n 50 | grep -i "job\|scheduled"
 ```
 
 **DOTS Test Commands:**
 ```bash
 # Run DOTS category tests
-python PerSpec/scripts/test.py category DOTS -p edit --wait
+python PerSpec/Coordination/Scripts/quick_test.py category DOTS -p edit --wait
 
 # Run specific DOTS class
-python PerSpec/scripts/test.py class DOTSPerformanceTests -p edit --wait
+python PerSpec/Coordination/Scripts/quick_test.py class DOTSPerformanceTests -p edit --wait
 ```
 
 ### Common DOTS Issues
@@ -651,7 +651,7 @@ python PerSpec/scripts/test.py class DOTSPerformanceTests -p edit --wait
 1. Ensure UniTask is installed via Package Manager
 2. Check assembly references include UniTask
 3. Verify `RunAsyncTest` or `UniTask.ToCoroutine` is used
-4. Check for Burst compilation errors: `python PerSpec/scripts/logs.py errors | grep -i burst`
+4. Check for Burst compilation errors: `python PerSpec/Coordination/Scripts/quick_logs.py errors | grep -i burst`
 
 ### Memory Leaks
 1. Always dispose NativeArrays/NativeLists

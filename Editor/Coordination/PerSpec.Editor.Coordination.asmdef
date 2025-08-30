@@ -3,6 +3,7 @@
     "rootNamespace": "PerSpec.Editor.Coordination",
     "references": [
         "PerSpec.Runtime",
+        "PerSpec.Editor.TestExport",
         "Gilzoide.SqliteNet",
         "UniTask",
         "Unity.Collections",

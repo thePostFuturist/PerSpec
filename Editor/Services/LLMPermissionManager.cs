@@ -127,7 +127,7 @@ namespace PerSpec.Editor.Services
             // Check known providers
             string[] knownProviders = new string[] 
             {
-                "Claude", "Cursor", "Copilot", "Aider", "Codeium", "Continue"
+                "Claude", "Cursor", "OpenAI", "Gemini"
             };
             
             foreach (var provider in knownProviders)

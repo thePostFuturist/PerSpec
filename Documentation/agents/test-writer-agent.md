@@ -95,10 +95,10 @@ After writing tests, execute the 4-Step Process documented in project CLAUDE.md.
 **Test-Specific Commands:**
 ```bash
 # Run new test class
-python PerSpec/scripts/test.py class <NewTestClass> -p edit --wait
+python PerSpec/Coordination/Scripts/quick_test.py class <NewTestClass> -p edit --wait
 
 # Run category
-python PerSpec/scripts/test.py category <Category> -p edit --wait
+python PerSpec/Coordination/Scripts/quick_test.py category <Category> -p edit --wait
 ```
 
 **Common Test Errors:** See error table in project CLAUDE.md
