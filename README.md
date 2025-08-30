@@ -280,6 +280,10 @@ private static void BackgroundPollCallback(object state) {
 }
 ```
 
+### Known Limitation: Unity Editor Focus
+
+**Important**: While our System.Threading.Timer continues polling in the background, Unity's main thread operations are throttled when the editor loses focus. If you experience timeouts during test execution or asset refresh, **click on the Unity Editor window to give it focus**. The queued operations will then execute immediately.
+
 ### Why This Architecture Wins
 
 #### 1. **Zero Network Overhead**

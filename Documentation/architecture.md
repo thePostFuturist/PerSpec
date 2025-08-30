@@ -281,6 +281,8 @@ def wait_for_completion(self, request_id, timeout=300):
 
 ### Background Processing Architecture
 
+**Note on Unity Editor Focus**: While System.Threading.Timer continues polling when Unity loses focus, the main thread operations get throttled. If experiencing timeouts, **focus the Unity Editor window** - queued work will execute immediately.
+
 ```csharp
 // BackgroundPoller.cs - Continuous polling
 public static class BackgroundPoller

@@ -72,6 +72,9 @@ ls "Packages/com.digitraver.perspec/Editor/"
   python PerSpec/Coordination/Scripts/quick_refresh.py full --wait
   ```
 
+### ⚠️ Timeout Troubleshooting
+**If commands timeout**: Tell user to **click on the Unity Editor window** to give it focus. Unity throttles main thread execution when not the active window, causing operations to queue until focus returns.
+
 ## 📊 Test Results Location
 
 > **IMPORTANT**: All test results are automatically saved to `PerSpec/TestResults/`
