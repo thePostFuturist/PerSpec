@@ -89,6 +89,13 @@ namespace PerSpec.Editor.Services
                     CreateWrapperScripts();
                 }
                 
+                // Create TestResults subdirectory
+                if (!Directory.Exists(TestResultsPath))
+                {
+                    Directory.CreateDirectory(TestResultsPath);
+                    Debug.Log($"[PerSpec] Created TestResults directory: {TestResultsPath}");
+                }
+                
                 // Create .gitignore
                 CreateGitIgnore();
                 

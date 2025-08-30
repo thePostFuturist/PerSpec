@@ -89,6 +89,39 @@ python "$PACKAGE_PATH/ScriptingTools/Coordination/Scripts/quick_logs.py" errors
   python PerSpec/scripts/refresh.py full --wait
   ```
 
+## 📊 Test Results Location
+
+> **IMPORTANT**: All test results are automatically saved to `PerSpec/TestResults/`
+
+### Finding Test Results
+```bash
+# List all test result files
+ls PerSpec/TestResults/*.xml
+
+# Get the latest test result file
+ls -t PerSpec/TestResults/*.xml 2>/dev/null | head -1
+
+# View test results
+cat PerSpec/TestResults/TestResults_*.xml
+
+# Check if tests passed by examining the XML
+grep -E "passed|failed|errors" PerSpec/TestResults/*.xml
+```
+
+### What's in TestResults Directory
+- **XML Files**: NUnit-format test results with timestamps (e.g., `TestResults_20250829_143022.xml`)
+- **Automatic Cleanup**: Directory is cleared before each new test run
+- **Persistent Storage**: Results persist across Unity restarts until next test run
+- **CI/CD Ready**: XML format compatible with most CI/CD systems
+
+### Natural Language for Test Results
+| User Says | Execute |
+|-----------|----------|
+| "show test result files" | `ls -la PerSpec/TestResults/*.xml` |
+| "view latest test results" | `cat $(ls -t PerSpec/TestResults/*.xml 2>/dev/null \| head -1)` |
+| "check test output" | `ls PerSpec/TestResults/` |
+| "find failed tests" | `grep -l "failed" PerSpec/TestResults/*.xml` |
+
 ## 🚀 TDD Development Workflow
 
 > **THIS IS THE CORE OF DEVELOPMENT** - All features must follow this workflow!
@@ -251,7 +284,10 @@ TestFramework/
 │       └── PerSpec/               # PerSpec test directories (with asmdef)
 ├── PerSpec/                        # Working directory (writable)
 │   ├── test_coordination.db       # SQLite database
-│   └── Scripts/                   # Convenience wrappers
+│   ├── Scripts/                   # Convenience wrappers  
+│   ├── TestResults/               # Test execution results (XML files)
+│   ├── package_location.txt       # Current package path
+│   └── package_info.json          # Package information
 ├── ScriptingTools/
 │   └── Coordination/
 │       └── Scripts/               # Python coordination tools
