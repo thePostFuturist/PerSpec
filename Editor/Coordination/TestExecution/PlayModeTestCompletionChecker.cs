@@ -257,6 +257,32 @@ namespace PerSpec.Editor.Coordination
                 
                 Debug.Log($"[PlayModeTestCompletionChecker] Copied from {sourceFile} to {destFile}");
                 Debug.Log($"[PlayModeTestCompletionChecker] Company: {Application.companyName}, Product: {Application.productName}");
+                
+                // Simple: Just mark the most recent running test as completed
+                try 
+                {
+                    var dbManager = new SQLiteManager();
+                    var runningRequests = dbManager.GetRunningRequests()
+                        .Where(r => r.TestPlatform == "PlayMode")
+                        .OrderByDescending(r => r.Id)
+                        .FirstOrDefault();
+                    
+                    if (runningRequests != null)
+                    {
+                        // Just mark it as completed - we have the results file
+                        dbManager.UpdateRequestStatus(runningRequests.Id, "completed");
+                        Debug.Log($"[PlayModeTestCompletionChecker] Marked request {runningRequests.Id} as completed");
+                    }
+                    else
+                    {
+                        Debug.Log("[PlayModeTestCompletionChecker] No running PlayMode requests to update");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"[PlayModeTestCompletionChecker] Failed to update database: {ex.Message}");
+                }
+                
                 return destFile;
             }
             catch (Exception e)
