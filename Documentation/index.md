@@ -79,7 +79,7 @@ Tools/
 com.perspec.framework/
 ├── Runtime/           # Test base classes
 ├── Editor/           # Coordination & tools
-├── Documentation~/   # This documentation
+├── Documentation/    # This documentation
 └── ScriptingTools/   # Python scripts
 ```
 

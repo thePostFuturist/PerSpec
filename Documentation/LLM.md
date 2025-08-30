@@ -537,7 +537,7 @@ public IEnumerator TestWithUniTask() => UniTask.ToCoroutine(async () => {
 ```
 
 ### 📚 Documentation References
-- Test execution guides in `Packages/com.perspec.framework/Documentation~/`
+- Test execution guides in `Packages/com.digitraver.perspec/Documentation/`
 - Coordination tools in `Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/`
 - PerSpec working directory: `PerSpec/` (project root)
 

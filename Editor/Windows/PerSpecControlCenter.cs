@@ -753,7 +753,7 @@ Supported LLMs:
             {
                 string projectPath = Directory.GetParent(Application.dataPath).FullName;
                 string targetDir = Path.Combine(projectPath, ".claude", "agents");
-                string sourceDir = Path.Combine(PackagePathResolver.PackagePath, "Documentation~", "agents");
+                string sourceDir = Path.Combine(PackagePathResolver.PackagePath, "Documentation", "agents");
                 
                 if (!Directory.Exists(sourceDir))
                 {
@@ -790,7 +790,7 @@ Supported LLMs:
         
         private string GetLLMContent()
         {
-            string llmPath = Path.Combine(PackagePathResolver.PackagePath, "Documentation~", "LLM.md");
+            string llmPath = Path.Combine(PackagePathResolver.PackagePath, "Documentation", "LLM.md");
             
             if (!File.Exists(llmPath))
             {

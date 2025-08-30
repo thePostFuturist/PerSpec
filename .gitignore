@@ -101,7 +101,6 @@ coverage.xml
 
 # Temporary files
 *~
-!Documentation~/   # Exception for Unity package documentation folder
 *.tmp
 *.bak
 *.swp

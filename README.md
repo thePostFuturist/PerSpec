@@ -141,12 +141,12 @@ Copy the LLM instructions to your project:
 
 **For Claude (create `CLAUDE.md` in project root):**
 ```bash
-cp Packages/com.digitraver.perspec/Documentation~/LLM.md ./CLAUDE.md
+cp Packages/com.digitraver.perspec/Documentation/LLM.md ./CLAUDE.md
 ```
 
 **For Cursor (create `.cursorrules` in project root):**
 ```bash
-cp Packages/com.digitraver.perspec/Documentation~/LLM.md ./.cursorrules
+cp Packages/com.digitraver.perspec/Documentation/LLM.md ./.cursorrules
 ```
 
 **For any LLM:** Just copy the contents of `LLM.md` to wherever your LLM reads instructions.
@@ -154,7 +154,7 @@ cp Packages/com.digitraver.perspec/Documentation~/LLM.md ./.cursorrules
 ### 4. Copy Agent Definitions
 
 ```bash
-cp -r Packages/com.digitraver.perspec/Documentation~/agents ./.claude/agents
+cp -r Packages/com.digitraver.perspec/Documentation/agents ./.claude/agents
 ```
 
 ### 5. Start the TDD Workflow
@@ -217,9 +217,9 @@ python ScriptingTools/Coordination/Scripts/quick_test.py all -p edit --wait
 
 ## 📚 Documentation
 
-- **LLM Instructions**: `Packages/com.digitraver.perspec/Documentation~/LLM.md`
-- **Agent Definitions**: `Packages/com.digitraver.perspec/Documentation~/agents/`
-- **API Documentation**: `Packages/com.digitraver.perspec/Documentation~/API.md`
+- **LLM Instructions**: `Packages/com.digitraver.perspec/Documentation/LLM.md`
+- **Agent Definitions**: `Packages/com.digitraver.perspec/Documentation/agents/`
+- **API Documentation**: `Packages/com.digitraver.perspec/Documentation/API.md`
 
 ## 🤝 Contributing
 
