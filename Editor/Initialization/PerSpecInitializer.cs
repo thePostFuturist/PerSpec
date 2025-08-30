@@ -151,12 +151,12 @@ namespace PerSpec.Editor.Initialization
             EditorGUILayout.Space(10);
             
             // Re-initialize option
-            EditorGUILayout.HelpBox("Re-initializing will keep your database but recreate the folder structure and scripts.", MessageType.None);
+            EditorGUILayout.HelpBox("Re-initializing will keep your database but recreate the folder structure and copy fresh scripts from the package.", MessageType.None);
             
             if (GUILayout.Button("Re-Initialize PerSpec"))
             {
                 if (EditorUtility.DisplayDialog("Re-Initialize PerSpec", 
-                    "This will recreate the folder structure and convenience scripts.\n\nYour database and logs will be preserved.\n\nContinue?", 
+                    "This will recreate the folder structure and copy fresh scripts from the package.\n\nYour database and test results will be preserved.\n\nContinue?", 
                     "Yes", "Cancel"))
                 {
                     InitializePerSpec();
@@ -175,8 +175,9 @@ namespace PerSpec.Editor.Initialization
             EditorGUI.indentLevel++;
             GUILayout.Label("• PerSpec/ folder in your project root");
             GUILayout.Label("• SQLite database for test coordination");
-            GUILayout.Label("• Convenience scripts for command-line testing");
-            GUILayout.Label("• Logs directory for console output");
+            GUILayout.Label("• Python coordination scripts in PerSpec/Coordination/Scripts/");
+            GUILayout.Label("• TestResults/ directory for test output");
+            GUILayout.Label("• Logs/ directory for console exports");
             EditorGUI.indentLevel--;
             
             EditorGUILayout.Space(10);
@@ -201,36 +202,36 @@ namespace PerSpec.Editor.Initialization
         {
             try
             {
-                // Create directories
-                Directory.CreateDirectory(ProjectPerSpecPath);
-                Directory.CreateDirectory(Path.Combine(ProjectPerSpecPath, "logs"));
-                Directory.CreateDirectory(Path.Combine(ProjectPerSpecPath, "scripts"));
+                // Use the centralized InitializationService
+                bool success = InitializationService.Initialize();
                 
-                Debug.Log($"[PerSpec] Created directories at: {ProjectPerSpecPath}");
-                
-                // Create convenience scripts
-                CreateConvenienceScripts();
-                
-                // Initialize database via Python if possible
-                InitializePythonDatabase();
-                
-                // Success message
-                EditorUtility.DisplayDialog("Success", 
-                    "PerSpec has been initialized successfully!\n\n" +
-                    "Working directory created at:\n" + ProjectPerSpecPath + "\n\n" +
-                    "You can now:\n" +
-                    "• Use Tools > PerSpec menu items\n" +
-                    "• Run tests from PerSpec/scripts/\n" +
-                    "• Monitor logs in PerSpec/logs/", 
-                    "OK");
-                
-                // Refresh Unity
-                AssetDatabase.Refresh();
-                
-                // Update window
-                Repaint();
-                
-                Debug.Log("[PerSpec] Initialization complete!");
+                if (success)
+                {
+                    // Success message
+                    EditorUtility.DisplayDialog("Success", 
+                        "PerSpec has been initialized successfully!\n\n" +
+                        "Working directory created at:\n" + ProjectPerSpecPath + "\n\n" +
+                        "You can now:\n" +
+                        "• Use Tools > PerSpec menu items\n" +
+                        "• Run tests from PerSpec/Coordination/Scripts/\n" +
+                        "• View test results in PerSpec/TestResults/\n" +
+                        "• Export logs to PerSpec/Logs/", 
+                        "OK");
+                    
+                    // Refresh Unity
+                    AssetDatabase.Refresh();
+                    
+                    // Update window
+                    Repaint();
+                    
+                    Debug.Log("[PerSpec] Initialization complete!");
+                }
+                else
+                {
+                    EditorUtility.DisplayDialog("Error", 
+                        "Failed to initialize PerSpec. Check the console for details.", 
+                        "OK");
+                }
             }
             catch (Exception e)
             {
@@ -238,107 +239,6 @@ namespace PerSpec.Editor.Initialization
                     $"Failed to initialize PerSpec:\n{e.Message}", 
                     "OK");
                 Debug.LogError($"[PerSpec] Initialization failed: {e}");
-            }
-        }
-        
-        private void CreateConvenienceScripts()
-        {
-            string scriptsPath = Path.Combine(ProjectPerSpecPath, "scripts");
-            
-            // Create test scripts using dynamic package path
-            CreateWrapperScript(scriptsPath, "test", "quick_test.py");
-            CreateWrapperScript(scriptsPath, "logs", "quick_logs.py");
-            CreateWrapperScript(scriptsPath, "refresh", "quick_refresh.py");
-            CreateWrapperScript(scriptsPath, "init_db", "db_initializer.py");
-            
-            Debug.Log($"[PerSpec] Created convenience scripts in: {scriptsPath}");
-        }
-        
-        private void CreateWrapperScript(string targetDir, string scriptName, string pythonScript)
-        {
-            // Get the actual path to the Python script
-            string fullScriptPath = PackagePathResolver.GetPythonScriptPath(pythonScript);
-            
-            // Windows batch file
-            string batContent = $@"@echo off
-REM PerSpec wrapper script for {pythonScript}
-python ""{fullScriptPath}"" %*
-if %ERRORLEVEL% NEQ 0 (
-    echo Error running {pythonScript}
-    pause
-)";
-            File.WriteAllText(Path.Combine(targetDir, $"{scriptName}.bat"), batContent);
-            
-            // Unix shell script
-            string shContent = $@"#!/bin/bash
-# PerSpec wrapper script for {pythonScript}
-python ""{fullScriptPath}"" ""$@""";
-            
-            string shPath = Path.Combine(targetDir, $"{scriptName}.sh");
-            File.WriteAllText(shPath, shContent);
-            
-            // Make shell script executable on Unix
-            if (Application.platform == RuntimePlatform.OSXEditor || Application.platform == RuntimePlatform.LinuxEditor)
-            {
-                try
-                {
-                    var chmod = new System.Diagnostics.ProcessStartInfo
-                    {
-                        FileName = "chmod",
-                        Arguments = $"+x \"{shPath}\"",
-                        UseShellExecute = false,
-                        CreateNoWindow = true
-                    };
-                    System.Diagnostics.Process.Start(chmod)?.WaitForExit(1000);
-                }
-                catch { /* Ignore chmod errors */ }
-            }
-        }
-        
-        private void InitializePythonDatabase()
-        {
-            string initScript = PackagePathResolver.GetPythonScriptPath("db_initializer.py");
-            
-            if (!File.Exists(initScript))
-            {
-                Debug.LogWarning($"[PerSpec] Database initializer script not found at: {initScript}");
-                return;
-            }
-            
-            try
-            {
-                var psi = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = "python",
-                    Arguments = $"\"{initScript}\"",
-                    WorkingDirectory = Directory.GetParent(Application.dataPath).FullName,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                };
-                
-                using (var process = System.Diagnostics.Process.Start(psi))
-                {
-                    if (process != null)
-                    {
-                        process.WaitForExit(5000);
-                        string output = process.StandardOutput.ReadToEnd();
-                        string error = process.StandardError.ReadToEnd();
-                        
-                        if (!string.IsNullOrEmpty(output))
-                            Debug.Log($"[PerSpec] Database init output: {output}");
-                        if (!string.IsNullOrEmpty(error))
-                            Debug.LogWarning($"[PerSpec] Database init error: {error}");
-                    }
-                }
-                
-                Debug.Log("[PerSpec] Database initialization attempted");
-            }
-            catch (Exception e)
-            {
-                Debug.LogWarning($"[PerSpec] Could not run Python database initialization: {e.Message}");
-                Debug.Log("[PerSpec] Database will be created on first use");
             }
         }
         
