@@ -33,6 +33,9 @@ namespace PerSpec.Editor.Services
                     {
                         _cachedPackagePath = packageInfo.resolvedPath;
                         UnityEngine.Debug.Log($"[PerSpec] Package path resolved: {_cachedPackagePath}");
+                        
+                        // Update location file whenever path is resolved
+                        PackageLocationTracker.UpdateLocationFile();
                     }
                     else
                     {
@@ -52,6 +55,9 @@ namespace PerSpec.Editor.Services
                                 {
                                     _cachedPackagePath = dirs[0];
                                     UnityEngine.Debug.Log($"[PerSpec] Found package in cache: {_cachedPackagePath}");
+                                    
+                                    // Update location file when found in cache
+                                    PackageLocationTracker.UpdateLocationFile();
                                 }
                             }
                         }

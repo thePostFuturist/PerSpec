@@ -92,6 +92,9 @@ namespace PerSpec.Editor.Services
                 // Create .gitignore
                 CreateGitIgnore();
                 
+                // Create package location file
+                PackageLocationTracker.UpdateLocationFile();
+                
                 return true;
             }
             catch (Exception e)
@@ -164,6 +167,9 @@ namespace PerSpec.Editor.Services
                 
                 // Recreate wrapper scripts
                 CreateWrapperScripts();
+                
+                // Update package location file
+                PackageLocationTracker.UpdateLocationFile();
                 
                 Debug.Log($"[PerSpec] Wrapper scripts refreshed. Package location: {PackagePathResolver.GetPackageLocationInfo()}");
                 return true;

@@ -18,16 +18,28 @@
 
 ## 🔍 Quick Start - Finding PerSpec
 
-> **IMPORTANT**: Always dynamically locate the PerSpec package to handle PackageCache hash changes!
+> **IMPORTANT**: Always read the package location from the tracking file FIRST!
 
 ### Finding the Package Location
 ```bash
-# Find PerSpec package location (use this FIRST when working with PerSpec)
-find Packages Library/PackageCache -name "com.digitraver.perspec*" -type d 2>/dev/null | head -1
+# STEP 1: Read the package location from the tracking file (ALWAYS DO THIS FIRST)
+if [ -f "PerSpec/package_location.txt" ]; then
+    PACKAGE_PATH=$(head -n 1 PerSpec/package_location.txt)
+    echo "Package found at: $PACKAGE_PATH"
+else
+    echo "Location file not found, searching..."
+    # STEP 2: Fallback - Find PerSpec package location dynamically
+    PACKAGE_PATH=$(find Packages Library/PackageCache -name "com.digitraver.perspec*" -type d 2>/dev/null | head -1)
+    echo "Package found at: $PACKAGE_PATH"
+fi
 
-# Alternative: Using ls
-ls -d Packages/com.digitraver.perspec 2>/dev/null || ls -d Library/PackageCache/com.digitraver.perspec@* 2>/dev/null | head -1
+# For one-liner usage:
+PACKAGE_PATH=$(head -n 1 PerSpec/package_location.txt 2>/dev/null || find Packages Library/PackageCache -name "com.digitraver.perspec*" -type d 2>/dev/null | head -1)
 ```
+
+### Package Info Files
+- **`PerSpec/package_location.txt`** - Contains the current package path (first line)
+- **`PerSpec/package_info.json`** - JSON format with full package information
 
 ### Working with PerSpec Scripts
 ```bash
@@ -36,6 +48,17 @@ ls -d Packages/com.digitraver.perspec 2>/dev/null || ls -d Library/PackageCache/
 python PerSpec/scripts/refresh.py full --wait
 python PerSpec/scripts/test.py all -p edit --wait
 python PerSpec/scripts/logs.py errors
+```
+
+### Accessing Package Files Directly
+```bash
+# When you need to read or edit package files, ALWAYS get the path first:
+PACKAGE_PATH=$(head -n 1 PerSpec/package_location.txt 2>/dev/null)
+
+# Then use it to access files:
+cat "$PACKAGE_PATH/Documentation/unity-test-guide.md"
+ls "$PACKAGE_PATH/ScriptingTools/Coordination/Scripts/"
+python "$PACKAGE_PATH/ScriptingTools/Coordination/Scripts/quick_logs.py" errors
 ```
 
 > **Note**: The PerSpec/scripts directory contains wrapper scripts that dynamically locate the actual Python scripts in the package. These wrappers are self-healing and will find the package even after Unity reinstalls with new cache hashes.
