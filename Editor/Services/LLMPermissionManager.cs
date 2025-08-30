@@ -170,9 +170,9 @@ namespace PerSpec.Editor.Services
                 lines.Add("### Allowed PerSpec Commands");
                 lines.Add("```bash");
                 lines.Add("# Unity coordination commands");
-                lines.Add("python PerSpec/scripts/refresh.py [options]");
-                lines.Add("python PerSpec/scripts/test.py [options]");
-                lines.Add("python PerSpec/scripts/logs.py [options]");
+                lines.Add("python PerSpec/Coordination/Scripts/quick_refresh.py [options]");
+                lines.Add("python PerSpec/Coordination/Scripts/quick_test.py [options]");
+                lines.Add("python PerSpec/Coordination/Scripts/quick_logs.py [options]");
                 lines.Add("");
                 lines.Add("# File system navigation");
                 lines.Add("ls, cd, pwd, find");
@@ -199,9 +199,9 @@ namespace PerSpec.Editor.Services
                 lines.Add("");
                 lines.Add("### Allowed PerSpec Scripts");
                 lines.Add("```bash");
-                lines.Add("python PerSpec/scripts/refresh.py [options]");
-                lines.Add("python PerSpec/scripts/test.py [options]");
-                lines.Add("python PerSpec/scripts/logs.py [options]");
+                lines.Add("python PerSpec/Coordination/Scripts/quick_refresh.py [options]");
+                lines.Add("python PerSpec/Coordination/Scripts/quick_test.py [options]");
+                lines.Add("python PerSpec/Coordination/Scripts/quick_logs.py [options]");
                 lines.Add("```");
             }
             
