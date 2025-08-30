@@ -65,16 +65,13 @@ namespace PerSpec.Editor.Coordination
                 {
                     Debug.Log($"[PlayModeTestCompletionChecker] Found result file: {latestResultFile}");
                     
-                    // Simple: Just mark the most recent running request as completed
+                    // Parse the XML file to get test counts
                     var requestToUpdate = runningRequests.OrderByDescending(r => r.Id).FirstOrDefault();
                     
                     if (requestToUpdate != null)
                     {
-                        dbManager.UpdateRequestStatus(requestToUpdate.Id, "completed");
-                        Debug.Log($"[PlayModeTestCompletionChecker] Marked request {requestToUpdate.Id} as completed");
-                        
-                        dbManager.LogExecution(requestToUpdate.Id, "INFO", "PlayModeTestCompletionChecker", 
-                            $"Test completed (result file found after Play mode exit)");
+                        // Parse XML and update with actual results
+                        ParseXmlAndUpdateRequest(latestResultFile, requestToUpdate, dbManager);
                     }
                 }
                 else
@@ -243,7 +240,7 @@ namespace PerSpec.Editor.Coordination
                 Debug.Log($"[PlayModeTestCompletionChecker] Copied from {sourceFile} to {destFile}");
                 Debug.Log($"[PlayModeTestCompletionChecker] Company: {Application.companyName}, Product: {Application.productName}");
                 
-                // Simple: Just mark the most recent running test as completed
+                // Parse the copied XML file and update database with results
                 try 
                 {
                     var dbManager = new SQLiteManager();
@@ -254,9 +251,8 @@ namespace PerSpec.Editor.Coordination
                     
                     if (runningRequests != null)
                     {
-                        // Just mark it as completed - we have the results file
-                        dbManager.UpdateRequestStatus(runningRequests.Id, "completed");
-                        Debug.Log($"[PlayModeTestCompletionChecker] Marked request {runningRequests.Id} as completed");
+                        // Parse XML and update with actual results
+                        ParseXmlAndUpdateRequest(destFile, runningRequests, dbManager);
                     }
                     else
                     {
