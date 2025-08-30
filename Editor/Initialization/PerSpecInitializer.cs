@@ -48,16 +48,35 @@ namespace PerSpec.Editor.Initialization
         [MenuItem("Tools/PerSpec/Documentation", priority = 600)]
         public static void OpenDocumentation()
         {
-            Application.OpenURL("https://github.com/yourusername/perspec/wiki");
+            Application.OpenURL("https://github.com/thePostFuturist/PerSpec");
             Debug.Log("[PerSpec] Opening documentation in browser...");
         }
         
         private void OnGUI()
         {
-            // Header
+            // Header with logo
             EditorGUILayout.Space(10);
-            GUILayout.Label("PerSpec Testing Framework", EditorStyles.largeLabel);
-            GUILayout.Label("Professional Unity TDD with UniTask and SQLite coordination", EditorStyles.miniLabel);
+            
+            // Try to load and display logo
+            var logo = Resources.Load<Texture2D>("Icons/digitraver");
+            if (logo != null)
+            {
+                var rect = GUILayoutUtility.GetRect(48, 48, GUILayout.ExpandWidth(false));
+                rect.x = (position.width - 48) / 2;
+                GUI.DrawTexture(rect, logo, ScaleMode.ScaleToFit);
+                EditorGUILayout.Space(5);
+            }
+            
+            var centeredStyle = new GUIStyle(EditorStyles.largeLabel);
+            centeredStyle.alignment = TextAnchor.MiddleCenter;
+            var miniCenteredStyle = new GUIStyle(EditorStyles.miniLabel);
+            miniCenteredStyle.alignment = TextAnchor.MiddleCenter;
+            
+            GUILayout.Label("PerSpec Testing Framework", centeredStyle);
+            GUILayout.Label("Professional Unity TDD with UniTask and SQLite coordination", miniCenteredStyle);
+            
+            EditorGUILayout.Space(5);
+            GUILayout.Label("Made in San Francisco by Valentin Burov", miniCenteredStyle);
             EditorGUILayout.Space(10);
             
             // Draw separator
@@ -80,13 +99,17 @@ namespace PerSpec.Editor.Initialization
             DrawUILine(Color.gray);
             
             EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("Open Documentation"))
+            if (GUILayout.Button("Documentation"))
             {
-                Application.OpenURL("https://github.com/yourusername/perspec/wiki");
+                Application.OpenURL("https://github.com/thePostFuturist/PerSpec");
             }
-            if (GUILayout.Button("View on GitHub"))
+            if (GUILayout.Button("Fork on GitHub"))
             {
-                Application.OpenURL("https://github.com/yourusername/perspec");
+                Application.OpenURL("https://github.com/thePostFuturist/PerSpec");
+            }
+            if (GUILayout.Button("digitRaver.com"))
+            {
+                Application.OpenURL("https://digitRaver.com");
             }
             EditorGUILayout.EndHorizontal();
         }

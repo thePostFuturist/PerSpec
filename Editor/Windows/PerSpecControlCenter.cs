@@ -1231,6 +1231,25 @@ Supported LLMs:
         {
             DrawSection("About PerSpec", () =>
             {
+                // Try to load the logo
+                var logo = Resources.Load<Texture2D>("Icons/digitraver");
+                if (logo != null)
+                {
+                    var rect = GUILayoutUtility.GetRect(64, 64, GUILayout.ExpandWidth(false));
+                    rect.x = (EditorGUIUtility.currentViewWidth - 64) / 2 - 10;
+                    GUI.DrawTexture(rect, logo, ScaleMode.ScaleToFit);
+                    EditorGUILayout.Space(10);
+                }
+                
+                // Center-aligned text
+                var centeredStyle = new GUIStyle(EditorStyles.boldLabel);
+                centeredStyle.alignment = TextAnchor.MiddleCenter;
+                
+                EditorGUILayout.LabelField("Made in San Francisco", centeredStyle);
+                EditorGUILayout.LabelField("By Valentin Burov", centeredStyle);
+                
+                EditorGUILayout.Space(10);
+                
                 EditorGUILayout.LabelField("Version:", "1.0.0");
                 EditorGUILayout.LabelField("Unity:", Application.unityVersion);
                 
@@ -1243,14 +1262,24 @@ Supported LLMs:
                     
                 EditorGUILayout.Space(10);
                 
+                if (GUILayout.Button("Fork & Contribute on GitHub"))
+                {
+                    Application.OpenURL("https://github.com/thePostFuturist/PerSpec");
+                }
+                
+                if (GUILayout.Button("Join us at digitRaver.com"))
+                {
+                    Application.OpenURL("https://digitRaver.com");
+                }
+                
                 if (GUILayout.Button("View Documentation"))
                 {
-                    Application.OpenURL("https://github.com/yourusername/perspec/wiki");
+                    Application.OpenURL("https://github.com/thePostFuturist/PerSpec");
                 }
                 
                 if (GUILayout.Button("Report Issue"))
                 {
-                    Application.OpenURL("https://github.com/yourusername/perspec/issues");
+                    Application.OpenURL("https://github.com/thePostFuturist/PerSpec/issues");
                 }
             });
             

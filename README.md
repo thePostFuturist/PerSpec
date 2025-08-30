@@ -217,9 +217,19 @@ python ScriptingTools/Coordination/Scripts/quick_test.py all -p edit --wait
 
 ## 📚 Documentation
 
-- **LLM Instructions**: `Packages/com.digitraver.perspec/Documentation/LLM.md`
-- **Agent Definitions**: `Packages/com.digitraver.perspec/Documentation/agents/`
-- **API Documentation**: `Packages/com.digitraver.perspec/Documentation/API.md`
+See the full documentation at [https://github.com/thePostFuturist/PerSpec](https://github.com/thePostFuturist/PerSpec)
+
+## 🏢 About
+
+<div align="center">
+  <img src="Editor/Resources/Icons/digitraver.png" width="64" height="64" alt="DigitRaver"/>
+  
+  **Made in San Francisco**  
+  By Valentin Burov
+  
+  Fork & contribute at [https://github.com/thePostFuturist/PerSpec](https://github.com/thePostFuturist/PerSpec)  
+  Join us at [https://digitRaver.com](https://digitRaver.com)
+</div>
 
 ## 🤝 Contributing
 
