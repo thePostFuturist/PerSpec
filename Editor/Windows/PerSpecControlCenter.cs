@@ -702,13 +702,13 @@ PerSpecDebug.LogTestComplete(""Test passed"");";
         
         private void DrawLLMSetupTab()
         {
+            // Detect existing LLM configurations (moved outside to be accessible by both sections)
+            var detectedConfigs = DetectLLMConfigurations();
+            
             DrawSection("LLM Configuration Management", () =>
             {
                 EditorGUILayout.HelpBox("Configure your AI coding assistant with PerSpec's TDD instructions.", MessageType.Info);
                 EditorGUILayout.Space(10);
-                
-                // Detect existing LLM configurations
-                var detectedConfigs = DetectLLMConfigurations();
                 
                 if (detectedConfigs.Count > 0)
                 {
@@ -768,6 +768,71 @@ PerSpecDebug.LogTestComplete(""Test passed"");";
                 }
             });
             
+            EditorGUILayout.Space(10);
+            
+            // Command Permissions Section
+            DrawSection("Command Execution Permissions", () =>
+            {
+                // Warning message
+                EditorGUILayout.HelpBox(
+                    "⚠️ WARNING: Enabling command execution allows AI assistants to run system commands.\n" +
+                    "• Only enable for trusted AI providers\n" +
+                    "• Commands can modify files and execute scripts\n" +
+                    "• You can revoke permissions at any time",
+                    MessageType.Warning);
+                
+                EditorGUILayout.Space(10);
+                
+                if (detectedConfigs.Count > 0)
+                {
+                    EditorGUILayout.LabelField("Configure Permissions per Provider:", EditorStyles.boldLabel);
+                    EditorGUILayout.Space(5);
+                    
+                    foreach (var config in detectedConfigs)
+                    {
+                        DrawProviderPermissions(config.Key);
+                        EditorGUILayout.Space(5);
+                    }
+                }
+                else
+                {
+                    EditorGUILayout.LabelField("No LLM providers detected. Create a configuration first.", EditorStyles.centeredGreyMiniLabel);
+                }
+                
+                EditorGUILayout.Space(10);
+                
+                // Show providers with active permissions
+                var providersWithPermissions = LLMPermissionManager.GetProvidersWithPermissions();
+                if (providersWithPermissions.Count > 0)
+                {
+                    EditorGUILayout.LabelField("Active Permissions:", EditorStyles.boldLabel);
+                    foreach (var provider in providersWithPermissions)
+                    {
+                        var state = LLMPermissionManager.GetPermissions(provider);
+                        string perms = "";
+                        if (state.BashEnabled) perms += "Bash ";
+                        if (state.PythonEnabled) perms += "Python";
+                        
+                        EditorGUILayout.BeginHorizontal();
+                        GUI.color = Color.yellow;
+                        EditorGUILayout.LabelField($"⚠️ {provider}: {perms}", EditorStyles.boldLabel);
+                        GUI.color = Color.white;
+                        
+                        if (GUILayout.Button("Revoke All", GUILayout.Width(80)))
+                        {
+                            if (EditorUtility.DisplayDialog("Revoke Permissions",
+                                $"Revoke all command execution permissions for {provider}?",
+                                "Revoke", "Cancel"))
+                            {
+                                LLMPermissionManager.ClearPermissions(provider);
+                                ShowNotification(new GUIContent($"Revoked permissions for {provider}"));
+                            }
+                        }
+                        EditorGUILayout.EndHorizontal();
+                    }
+                }
+            });
+            
             DrawSection("Instructions", () =>
             {
                 string instructions = @"1. Detect: Scans your project for existing LLM configuration files
@@ -815,12 +880,146 @@ Supported LLMs:
             return configs;
         }
         
+        private void DrawProviderPermissions(string providerDisplay)
+        {
+            // Extract clean provider name from display string
+            string provider = providerDisplay.Split('(')[0].Trim();
+            var permissions = LLMPermissionManager.GetPermissions(provider);
+            
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            EditorGUILayout.BeginHorizontal();
+            
+            // Provider name
+            EditorGUILayout.LabelField(providerDisplay, GUILayout.Width(200));
+            
+            // Bash permission toggle
+            bool newBash = permissions.BashEnabled;
+            GUI.backgroundColor = newBash ? Color.red : Color.green;
+            string bashLabel = newBash ? "Bash ✓" : "Bash ✗";
+            
+            if (GUILayout.Button(bashLabel, GUILayout.Width(70)))
+            {
+                newBash = !newBash;
+                
+                if (newBash && !permissions.BashEnabled)
+                {
+                    if (EditorUtility.DisplayDialog("Enable Bash Commands",
+                        $"Allow {provider} to execute bash/shell commands?\n\n" +
+                        "This includes:\n" +
+                        "• File system operations (ls, cd, find)\n" +
+                        "• Git commands\n" +
+                        "• System utilities\n\n" +
+                        "Only enable if you trust this AI provider.",
+                        "Enable", "Cancel"))
+                    {
+                        LLMPermissionManager.SetBashPermission(provider, true);
+                        UpdateLLMConfigurationPermissions(provider);
+                        ShowNotification(new GUIContent($"Bash enabled for {provider}"));
+                    }
+                }
+                else if (!newBash && permissions.BashEnabled)
+                {
+                    LLMPermissionManager.SetBashPermission(provider, false);
+                    UpdateLLMConfigurationPermissions(provider);
+                    ShowNotification(new GUIContent($"Bash disabled for {provider}"));
+                }
+            }
+            
+            // Python permission toggle
+            bool newPython = permissions.PythonEnabled;
+            GUI.backgroundColor = newPython ? Color.red : Color.green;
+            string pythonLabel = newPython ? "Python ✓" : "Python ✗";
+            
+            if (GUILayout.Button(pythonLabel, GUILayout.Width(70)))
+            {
+                newPython = !newPython;
+                
+                if (newPython && !permissions.PythonEnabled)
+                {
+                    if (EditorUtility.DisplayDialog("Enable Python Execution",
+                        $"Allow {provider} to execute Python scripts?\n\n" +
+                        "This includes:\n" +
+                        "• PerSpec coordination scripts\n" +
+                        "• Python script execution\n" +
+                        "• Package management (pip)\n\n" +
+                        "Only enable if you trust this AI provider.",
+                        "Enable", "Cancel"))
+                    {
+                        LLMPermissionManager.SetPythonPermission(provider, true);
+                        UpdateLLMConfigurationPermissions(provider);
+                        ShowNotification(new GUIContent($"Python enabled for {provider}"));
+                    }
+                }
+                else if (!newPython && permissions.PythonEnabled)
+                {
+                    LLMPermissionManager.SetPythonPermission(provider, false);
+                    UpdateLLMConfigurationPermissions(provider);
+                    ShowNotification(new GUIContent($"Python disabled for {provider}"));
+                }
+            }
+            
+            GUI.backgroundColor = Color.white;
+            
+            // Status indicator
+            if (permissions.HasAnyPermission)
+            {
+                GUI.color = Color.yellow;
+                EditorGUILayout.LabelField("⚠️ Active", GUILayout.Width(60));
+                GUI.color = Color.white;
+            }
+            else
+            {
+                EditorGUILayout.LabelField("Disabled", GUILayout.Width(60));
+            }
+            
+            EditorGUILayout.EndHorizontal();
+            EditorGUILayout.EndVertical();
+        }
+        
+        private void UpdateLLMConfigurationPermissions(string provider)
+        {
+            // Find the config file for this provider
+            var configs = DetectLLMConfigurations();
+            string configPath = null;
+            
+            foreach (var config in configs)
+            {
+                if (config.Key.StartsWith(provider))
+                {
+                    configPath = config.Value;
+                    break;
+                }
+            }
+            
+            if (!string.IsNullOrEmpty(configPath) && File.Exists(configPath))
+            {
+                try
+                {
+                    string content = File.ReadAllText(configPath);
+                    string updatedContent = LLMPermissionManager.UpdatePermissionBlock(content, provider);
+                    
+                    if (content != updatedContent)
+                    {
+                        File.WriteAllText(configPath, updatedContent);
+                        Debug.Log($"[PerSpec] Updated permissions in {Path.GetFileName(configPath)} for {provider}");
+                    }
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError($"[PerSpec] Failed to update permissions in config: {e.Message}");
+                }
+            }
+        }
+        
         private void UpdateLLMConfiguration(string configPath)
         {
             try
             {
                 string llmContent = GetLLMContent();
                 string existingContent = File.ReadAllText(configPath);
+                
+                // Determine provider from config path
+                string provider = GetProviderFromPath(configPath);
                 
                 // Check for existing block markers
                 string startMarker = GetStartMarker(configPath);
@@ -836,6 +1035,9 @@ Supported LLMs:
                         endMarker
                     );
                     
+                    // Add permission block if enabled
+                    updatedContent = LLMPermissionManager.UpdatePermissionBlock(updatedContent, provider);
+                    
                     File.WriteAllText(configPath, updatedContent);
                     
                     EditorUtility.DisplayDialog("Success",
@@ -847,7 +1049,11 @@ Supported LLMs:
                     // No markers found - just append with markers at the end
                     string separator = "\n\n";
                     string contentWithMarkers = $"{separator}{startMarker}\n{llmContent}\n{endMarker}";
-                    File.AppendAllText(configPath, contentWithMarkers);
+                    // Add permission block if enabled
+                    string fullContent = existingContent + contentWithMarkers;
+                    fullContent = LLMPermissionManager.UpdatePermissionBlock(fullContent, provider);
+                    
+                    File.WriteAllText(configPath, fullContent);
                     
                     EditorUtility.DisplayDialog("Success",
                         $"Added PerSpec instructions to {Path.GetFileName(configPath)}.",
@@ -921,6 +1127,10 @@ Supported LLMs:
                                 $"instructions: |\n" +
                                 string.Join("\n", llmContent.Split('\n').Select(line => "  " + line));
                 }
+                
+                // Add permission block if enabled
+                string providerName = GetProviderFromIndex(llmIndex);
+                llmContent = LLMPermissionManager.UpdatePermissionBlock(llmContent, providerName);
                 
                 File.WriteAllText(configPath, llmContent);
                 
@@ -1144,6 +1354,40 @@ Note: Use the convenience scripts in PerSpec/Scripts/ or run from package locati
             string afterMarkers = content.Substring(endMarkerEnd);
             
             return $"{beforeMarkers}{startMarker}\n{newContent}\n{endMarker}{afterMarkers}";
+        }
+        
+        private string GetProviderFromPath(string configPath)
+        {
+            string fileName = Path.GetFileName(configPath);
+            
+            if (fileName.Contains("CLAUDE") || fileName.Contains("claude"))
+                return "Claude";
+            else if (fileName.Contains("cursor"))
+                return "Cursor";
+            else if (configPath.Contains(".github") && fileName.Contains("copilot"))
+                return "Copilot";
+            else if (fileName.Contains("aider"))
+                return "Aider";
+            else if (configPath.Contains(".codeium"))
+                return "Codeium";
+            else if (configPath.Contains(".continue"))
+                return "Continue";
+            
+            return "Unknown";
+        }
+        
+        private string GetProviderFromIndex(int index)
+        {
+            switch (index)
+            {
+                case 0: return "Claude";
+                case 1: return "Cursor";
+                case 2: return "Copilot";
+                case 3: return "Aider";
+                case 4: return "Codeium";
+                case 5: return "Continue";
+                default: return "Unknown";
+            }
         }
         
         #endregion
