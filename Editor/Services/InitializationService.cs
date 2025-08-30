@@ -10,6 +10,31 @@ namespace PerSpec.Editor.Services
     /// </summary>
     public static class InitializationService
     {
+        #region Menu Items
+        
+        [MenuItem("Tools/PerSpec/Refresh Wrapper Scripts", false, 15)]
+        private static void MenuRefreshScripts()
+        {
+            if (!IsInitialized)
+            {
+                Debug.LogError("[PerSpec] Cannot refresh scripts - PerSpec not initialized. Use Tools > PerSpec > Initialize first.");
+                return;
+            }
+            
+            if (RefreshWrapperScripts())
+            {
+                Debug.Log("[PerSpec] Wrapper scripts refreshed successfully");
+            }
+        }
+        
+        [MenuItem("Tools/PerSpec/Refresh Wrapper Scripts", true)]
+        private static bool ValidateMenuRefreshScripts()
+        {
+            return IsInitialized;
+        }
+        
+        #endregion
+        
         #region Properties
         
         public static string ProjectPerSpecPath => Path.Combine(Directory.GetParent(Application.dataPath).FullName, "PerSpec");
@@ -121,43 +146,131 @@ namespace PerSpec.Editor.Services
             return $"Initialized • DB: {dbSize:F1} KB • Created: {InitializedDate:yyyy-MM-dd}";
         }
         
+        /// <summary>
+        /// Refresh wrapper scripts with current package location
+        /// </summary>
+        public static bool RefreshWrapperScripts()
+        {
+            try
+            {
+                if (!IsInitialized)
+                {
+                    Debug.LogError("[PerSpec] Cannot refresh scripts - PerSpec not initialized");
+                    return false;
+                }
+                
+                // Force package path refresh
+                PackagePathResolver.RefreshPackagePath();
+                
+                // Recreate wrapper scripts
+                CreateWrapperScripts();
+                
+                Debug.Log($"[PerSpec] Wrapper scripts refreshed. Package location: {PackagePathResolver.GetPackageLocationInfo()}");
+                return true;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[PerSpec] Failed to refresh wrapper scripts: {e.Message}");
+                return false;
+            }
+        }
+        
+        /// <summary>
+        /// Check if wrapper scripts need refreshing
+        /// </summary>
+        public static bool ScriptsNeedRefresh()
+        {
+            if (!IsInitialized)
+                return false;
+                
+            // Check if any wrapper script exists
+            string testScript = Path.Combine(ScriptsPath, "test.py");
+            if (!File.Exists(testScript))
+                return true;
+                
+            // Check if it's using the old hardcoded path format
+            try
+            {
+                string content = File.ReadAllText(testScript);
+                // Old scripts have hardcoded paths, new ones have dynamic finding logic
+                return !content.Contains("possible_paths");
+            }
+            catch
+            {
+                return true;
+            }
+        }
+        
         #endregion
         
         #region Private Methods
         
         private static void CreateWrapperScripts()
         {
-            // Create convenience wrapper scripts with dynamic paths
-            string refreshPath = PackagePathResolver.GetPythonScriptPath("quick_refresh.py");
-            string testPath = PackagePathResolver.GetPythonScriptPath("quick_test.py");
-            string logsPath = PackagePathResolver.GetPythonScriptPath("quick_logs.py");
+            // Create dynamic Python wrapper scripts that find the package at runtime
+            CreateDynamicWrapperScript("refresh", "quick_refresh.py");
+            CreateDynamicWrapperScript("test", "quick_test.py");
+            CreateDynamicWrapperScript("logs", "quick_logs.py");
+            CreateDynamicWrapperScript("init_db", "db_initializer.py");
+            CreateDynamicWrapperScript("monitor", "db_monitor.py");
             
-            string refreshScript = $@"@echo off
-python ""{refreshPath}"" %*";
+            Debug.Log("[PerSpec] Created dynamic wrapper scripts");
+        }
+        
+        private static void CreateDynamicWrapperScript(string name, string scriptFile)
+        {
+            // Create a Python script that dynamically finds the package
+            string pythonFinder = $@"#!/usr/bin/env python3
+import os
+import sys
+from pathlib import Path
+
+# Get the project root (parent of Assets folder)
+project_root = Path(__file__).parent.parent.parent
+
+# Possible locations for the PerSpec package
+possible_paths = [
+    # Development location
+    project_root / 'Packages' / 'com.digitraver.perspec',
+    # Check all PackageCache entries with hash
+    *(project_root / 'Library' / 'PackageCache').glob('com.digitraver.perspec@*') if (project_root / 'Library' / 'PackageCache').exists() else []
+]
+
+# Find the script
+script_found = False
+for package_path in possible_paths:
+    script_path = package_path / 'ScriptingTools' / 'Coordination' / 'Scripts' / '{scriptFile}'
+    if script_path.exists():
+        # Execute the script with all arguments
+        import subprocess
+        result = subprocess.run([sys.executable, str(script_path)] + sys.argv[1:], 
+                              stdout=sys.stdout, stderr=sys.stderr)
+        sys.exit(result.returncode)
+        script_found = True
+        break
+
+if not script_found:
+    print(f""[PerSpec] Error: Could not find {scriptFile}"")
+    print(""Please ensure the PerSpec package is properly installed."")
+    print(""Try reinitializing from Unity: Tools > PerSpec > Initialize"")
+    sys.exit(1)
+";
             
-            string testScript = $@"@echo off
-python ""{testPath}"" %*";
+            // Write Python wrapper
+            string pyPath = Path.Combine(ScriptsPath, $"{name}.py");
+            File.WriteAllText(pyPath, pythonFinder);
             
-            string logsScript = $@"@echo off
-python ""{logsPath}"" %*";
+            // Create batch file for Windows
+            string batScript = $@"@echo off
+python ""%~dp0{name}.py"" %*";
+            File.WriteAllText(Path.Combine(ScriptsPath, $"{name}.bat"), batScript);
             
-            File.WriteAllText(Path.Combine(ScriptsPath, "refresh.bat"), refreshScript);
-            File.WriteAllText(Path.Combine(ScriptsPath, "test.bat"), testScript);
-            File.WriteAllText(Path.Combine(ScriptsPath, "logs.bat"), logsScript);
+            // Create shell script for Unix
+            string shScript = $@"#!/bin/bash
+python ""$(dirname ""$0"")/{name}.py"" ""$@""";
+            File.WriteAllText(Path.Combine(ScriptsPath, $"{name}.sh"), shScript);
             
-            // Create Unix shell scripts too
-            string refreshShScript = $@"#!/bin/bash
-python ""{refreshPath}"" ""$@""";
-            string testShScript = $@"#!/bin/bash
-python ""{testPath}"" ""$@""";
-            string logsShScript = $@"#!/bin/bash
-python ""{logsPath}"" ""$@""";
-            
-            File.WriteAllText(Path.Combine(ScriptsPath, "refresh.sh"), refreshShScript);
-            File.WriteAllText(Path.Combine(ScriptsPath, "test.sh"), testShScript);
-            File.WriteAllText(Path.Combine(ScriptsPath, "logs.sh"), logsShScript);
-            
-            // Make shell scripts executable on Unix
+            // Make scripts executable on Unix
             if (Application.platform == RuntimePlatform.OSXEditor || Application.platform == RuntimePlatform.LinuxEditor)
             {
                 try
@@ -165,7 +278,7 @@ python ""{logsPath}"" ""$@""";
                     var chmod = new System.Diagnostics.ProcessStartInfo
                     {
                         FileName = "chmod",
-                        Arguments = $"+x \"{Path.Combine(ScriptsPath, "*.sh")}\"",
+                        Arguments = $"+x \"{Path.Combine(ScriptsPath, name + ".sh")}\" \"{Path.Combine(ScriptsPath, name + ".py")}\"",
                         UseShellExecute = false,
                         CreateNoWindow = true
                     };
@@ -173,8 +286,6 @@ python ""{logsPath}"" ""$@""";
                 }
                 catch { /* Ignore chmod errors */ }
             }
-            
-            Debug.Log("[PerSpec] Created convenience wrapper scripts");
         }
         
         private static void CreateGitIgnore()

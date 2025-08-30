@@ -13,23 +13,48 @@ namespace PerSpec.Editor.Services
         
         /// <summary>
         /// Gets the actual filesystem path to the PerSpec package
+        /// Auto-refreshes if cached path is invalid
         /// </summary>
         public static string PackagePath
         {
             get
             {
+                // Validate cached path and refresh if needed
+                if (!string.IsNullOrEmpty(_cachedPackagePath) && !Directory.Exists(_cachedPackagePath))
+                {
+                    UnityEngine.Debug.LogWarning($"[PerSpec] Cached package path no longer valid: {_cachedPackagePath}. Refreshing...");
+                    _cachedPackagePath = null;
+                }
+                
                 if (string.IsNullOrEmpty(_cachedPackagePath))
                 {
                     var packageInfo = UnityEditor.PackageManager.PackageInfo.FindForPackageName(PACKAGE_NAME);
                     if (packageInfo != null)
                     {
                         _cachedPackagePath = packageInfo.resolvedPath;
+                        UnityEngine.Debug.Log($"[PerSpec] Package path resolved: {_cachedPackagePath}");
                     }
                     else
                     {
                         // Fallback for development scenario
                         _cachedPackagePath = Path.Combine(Directory.GetParent(UnityEngine.Application.dataPath).FullName, 
                             "Packages", PACKAGE_NAME);
+                        
+                        // If fallback also doesn't exist, try to find in PackageCache
+                        if (!Directory.Exists(_cachedPackagePath))
+                        {
+                            var packageCachePath = Path.Combine(Directory.GetParent(UnityEngine.Application.dataPath).FullName, 
+                                "Library", "PackageCache");
+                            if (Directory.Exists(packageCachePath))
+                            {
+                                var dirs = Directory.GetDirectories(packageCachePath, PACKAGE_NAME + "@*");
+                                if (dirs.Length > 0)
+                                {
+                                    _cachedPackagePath = dirs[0];
+                                    UnityEngine.Debug.Log($"[PerSpec] Found package in cache: {_cachedPackagePath}");
+                                }
+                            }
+                        }
                     }
                 }
                 return _cachedPackagePath;
@@ -73,6 +98,47 @@ namespace PerSpec.Editor.Services
         public static void ClearCache()
         {
             _cachedPackagePath = null;
+        }
+        
+        /// <summary>
+        /// Forces a refresh of the package path and returns the new path
+        /// </summary>
+        public static string RefreshPackagePath()
+        {
+            ClearCache();
+            return PackagePath;
+        }
+        
+        /// <summary>
+        /// Checks if the current package path is valid
+        /// </summary>
+        public static bool IsPackagePathValid()
+        {
+            return !string.IsNullOrEmpty(_cachedPackagePath) && Directory.Exists(_cachedPackagePath);
+        }
+        
+        /// <summary>
+        /// Gets information about the package location for debugging
+        /// </summary>
+        public static string GetPackageLocationInfo()
+        {
+            if (string.IsNullOrEmpty(PackagePath))
+                return "Package not found";
+                
+            if (PackagePath.Contains("PackageCache"))
+            {
+                // Extract hash from path
+                var match = System.Text.RegularExpressions.Regex.Match(PackagePath, @"@([a-f0-9]+)");
+                if (match.Success)
+                    return $"PackageCache (hash: {match.Groups[1].Value})";
+                return "PackageCache";
+            }
+            else if (PackagePath.Contains("Packages"))
+            {
+                return "Local Development";
+            }
+            
+            return "Custom Location";
         }
     }
 }

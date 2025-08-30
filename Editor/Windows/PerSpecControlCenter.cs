@@ -617,6 +617,83 @@ PerSpecDebug.LogTestComplete(""Test passed"");";
                     EditorGUILayout.EndHorizontal();
                 }
             });
+            
+            // Script Management (only show if initialized)
+            if (InitializationService.IsInitialized)
+            {
+                EditorGUILayout.Space(10);
+                
+                DrawSection("Script Management", () =>
+                {
+                    // Package location info
+                    EditorGUILayout.LabelField("Package Location:", 
+                        PackagePathResolver.GetPackageLocationInfo());
+                    
+                    // Check if scripts need refresh
+                    bool needsRefresh = InitializationService.ScriptsNeedRefresh();
+                    if (needsRefresh)
+                    {
+                        EditorGUILayout.HelpBox(
+                            "Wrapper scripts appear to be outdated or using old package paths. " +
+                            "Click 'Refresh Scripts' to update them.",
+                            MessageType.Warning);
+                    }
+                    
+                    EditorGUILayout.Space(5);
+                    
+                    EditorGUILayout.BeginHorizontal();
+                    
+                    // Refresh Scripts button
+                    GUI.backgroundColor = needsRefresh ? Color.yellow : Color.white;
+                    if (GUILayout.Button(needsRefresh ? "Refresh Scripts (Recommended)" : "Refresh Scripts", 
+                        GUILayout.Height(30)))
+                    {
+                        if (InitializationService.RefreshWrapperScripts())
+                        {
+                            ShowNotification(new GUIContent("Scripts refreshed successfully"));
+                            Debug.Log($"[PerSpec] Scripts refreshed. Package at: {PackagePathResolver.PackagePath}");
+                        }
+                        else
+                        {
+                            ShowNotification(new GUIContent("Failed to refresh scripts"));
+                        }
+                    }
+                    GUI.backgroundColor = Color.white;
+                    
+                    // Force Package Refresh button
+                    if (GUILayout.Button("Force Package Refresh", GUILayout.Height(30)))
+                    {
+                        string oldPath = PackagePathResolver.PackagePath;
+                        string newPath = PackagePathResolver.RefreshPackagePath();
+                        
+                        if (oldPath != newPath)
+                        {
+                            ShowNotification(new GUIContent("Package path updated"));
+                            Debug.Log($"[PerSpec] Package path changed from: {oldPath} to: {newPath}");
+                            
+                            // Also refresh scripts after package path change
+                            InitializationService.RefreshWrapperScripts();
+                        }
+                        else
+                        {
+                            ShowNotification(new GUIContent("Package path unchanged"));
+                        }
+                    }
+                    
+                    EditorGUILayout.EndHorizontal();
+                    
+                    EditorGUILayout.Space(5);
+                    
+                    // Info about wrapper scripts
+                    EditorGUILayout.HelpBox(
+                        "Wrapper scripts allow you to run PerSpec commands from the command line:\n" +
+                        "• refresh - Refresh Unity assets\n" +
+                        "• test - Run Unity tests\n" +
+                        "• logs - View Unity console logs\n" +
+                        "• init_db - Initialize database",
+                        MessageType.Info);
+                });
+            }
         }
         
         #endregion
