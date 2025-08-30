@@ -1,7 +1,9 @@
 using System;
 using System.IO;
+using System.Diagnostics;
 using UnityEngine;
 using UnityEditor;
+using Debug = UnityEngine.Debug;
 
 namespace PerSpec.Editor.Services
 {
@@ -31,6 +33,39 @@ namespace PerSpec.Editor.Services
         private static bool ValidateMenuRefreshScripts()
         {
             return IsInitialized;
+        }
+        
+        [MenuItem("Tools/PerSpec/Initialize Database", false, 16)]
+        private static void MenuInitializeDatabase()
+        {
+            if (!IsInitialized)
+            {
+                Debug.LogError("[PerSpec] Cannot initialize database - PerSpec not initialized. Use Tools > PerSpec > Initialize first.");
+                return;
+            }
+            
+            if (File.Exists(DatabasePath))
+            {
+                Debug.Log("[PerSpec] Database already exists at: " + DatabasePath);
+                return;
+            }
+            
+            if (InitializeDatabase())
+            {
+                Debug.Log("[PerSpec] Database initialized successfully");
+                EditorUtility.DisplayDialog("Success", "Database initialized successfully!\n\n" + DatabasePath, "OK");
+            }
+            else
+            {
+                Debug.LogError("[PerSpec] Failed to initialize database");
+                EditorUtility.DisplayDialog("Error", "Failed to initialize database.\n\nCheck the console for details.\n\nYou can manually run:\npython PerSpec/Coordination/Scripts/db_initializer.py", "OK");
+            }
+        }
+        
+        [MenuItem("Tools/PerSpec/Initialize Database", true)]
+        private static bool ValidateMenuInitializeDatabase()
+        {
+            return IsInitialized && !File.Exists(DatabasePath);
         }
         
         #endregion
@@ -101,6 +136,13 @@ namespace PerSpec.Editor.Services
                 
                 // Create package location file
                 PackageLocationTracker.UpdateLocationFile();
+                
+                // Initialize the SQLite database
+                if (!InitializeDatabase())
+                {
+                    Debug.LogWarning("[PerSpec] Directories created but database initialization failed. You may need to run: python PerSpec/Coordination/Scripts/db_initializer.py");
+                    // Still return true as directories were created successfully
+                }
                 
                 return true;
             }
@@ -298,6 +340,92 @@ namespace PerSpec.Editor.Services
 *.log
 *.tmp";
                 File.WriteAllText(gitignorePath, content);
+            }
+        }
+        
+        /// <summary>
+        /// Initialize the SQLite database by running the Python script
+        /// </summary>
+        private static bool InitializeDatabase()
+        {
+            try
+            {
+                // Check if database already exists
+                if (File.Exists(DatabasePath))
+                {
+                    Debug.Log("[PerSpec] Database already exists");
+                    return true;
+                }
+                
+                string pythonScript = Path.Combine(CoordinationScriptsPath, "db_initializer.py");
+                
+                // Check if Python script exists
+                if (!File.Exists(pythonScript))
+                {
+                    Debug.LogError($"[PerSpec] Database initialization script not found: {pythonScript}");
+                    return false;
+                }
+                
+                // Prepare process to run Python script
+                var processInfo = new ProcessStartInfo
+                {
+                    FileName = "python",
+                    Arguments = $"\"{pythonScript}\"",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true,
+                    WorkingDirectory = Directory.GetParent(Application.dataPath).FullName
+                };
+                
+                Debug.Log("[PerSpec] Initializing database...");
+                
+                using (var process = Process.Start(processInfo))
+                {
+                    if (process == null)
+                    {
+                        Debug.LogError("[PerSpec] Failed to start Python process");
+                        return false;
+                    }
+                    
+                    // Wait for process to complete (5 second timeout)
+                    bool completed = process.WaitForExit(5000);
+                    
+                    if (!completed)
+                    {
+                        Debug.LogError("[PerSpec] Database initialization timed out");
+                        try { process.Kill(); } catch { }
+                        return false;
+                    }
+                    
+                    string output = process.StandardOutput.ReadToEnd();
+                    string error = process.StandardError.ReadToEnd();
+                    
+                    if (process.ExitCode == 0)
+                    {
+                        Debug.Log($"[PerSpec] Database initialized successfully: {DatabasePath}");
+                        if (!string.IsNullOrEmpty(output))
+                        {
+                            Debug.Log($"[PerSpec] Output: {output}");
+                        }
+                        return true;
+                    }
+                    else
+                    {
+                        Debug.LogError($"[PerSpec] Database initialization failed with exit code {process.ExitCode}");
+                        if (!string.IsNullOrEmpty(error))
+                        {
+                            Debug.LogError($"[PerSpec] Error: {error}");
+                        }
+                        return false;
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[PerSpec] Failed to initialize database: {e.Message}");
+                Debug.LogError($"[PerSpec] Make sure Python is installed and available in PATH");
+                return false;
             }
         }
         
