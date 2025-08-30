@@ -203,12 +203,46 @@ namespace PerSpec.Editor.Coordination
             try
             {
                 string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "Low";
-                string unityTestPath = Path.Combine(appDataPath, "DefaultCompany", "TestFramework");
-                string sourceFile = Path.Combine(unityTestPath, "TestResults.xml");
                 
-                if (!File.Exists(sourceFile))
+                // Try multiple possible locations in order of likelihood
+                string[] possiblePaths = new string[]
                 {
-                    Debug.Log($"[PlayModeTestCompletionChecker] No file found at Unity default location: {sourceFile}");
+                    // Primary: Use actual company and product names from Unity settings
+                    Path.Combine(appDataPath, Application.companyName, Application.productName),
+                    
+                    // Fallback 1: DefaultCompany with actual product name
+                    Path.Combine(appDataPath, "DefaultCompany", Application.productName),
+                    
+                    // Fallback 2: Hardcoded for TestFramework project (backward compatibility)
+                    Path.Combine(appDataPath, "DefaultCompany", "TestFramework"),
+                    
+                    // Fallback 3: DefaultCompany with project folder name
+                    Path.Combine(appDataPath, "DefaultCompany", Path.GetFileName(Directory.GetParent(Application.dataPath).FullName))
+                };
+                
+                string sourceFile = null;
+                string foundPath = null;
+                
+                // Try each possible path
+                foreach (var testPath in possiblePaths)
+                {
+                    string candidateFile = Path.Combine(testPath, "TestResults.xml");
+                    if (File.Exists(candidateFile))
+                    {
+                        sourceFile = candidateFile;
+                        foundPath = testPath;
+                        Debug.Log($"[PlayModeTestCompletionChecker] Found test results at: {candidateFile}");
+                        break;
+                    }
+                }
+                
+                if (sourceFile == null)
+                {
+                    Debug.Log($"[PlayModeTestCompletionChecker] No test results found. Searched locations:");
+                    foreach (var path in possiblePaths)
+                    {
+                        Debug.Log($"  - {Path.Combine(path, "TestResults.xml")}");
+                    }
                     return null;
                 }
                 
@@ -222,6 +256,7 @@ namespace PerSpec.Editor.Coordination
                 File.Copy(sourceFile, destFile, true);
                 
                 Debug.Log($"[PlayModeTestCompletionChecker] Copied from {sourceFile} to {destFile}");
+                Debug.Log($"[PlayModeTestCompletionChecker] Company: {Application.companyName}, Product: {Application.productName}");
                 return destFile;
             }
             catch (Exception e)

@@ -467,32 +467,58 @@ namespace PerSpec.Editor.Coordination
             // Fallback: Check Unity's default location in user's AppData
             try
             {
-                string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                string unityTestPath = Path.Combine(appDataPath, "Low", "DefaultCompany", "TestFramework");
+                string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "Low";
                 
-                if (Directory.Exists(unityTestPath))
+                // Try multiple possible locations in order of likelihood
+                string[] possiblePaths = new string[]
                 {
-                    var testResultFile = Path.Combine(unityTestPath, "TestResults.xml");
-                    if (File.Exists(testResultFile))
+                    // Primary: Use actual company and product names from Unity settings
+                    Path.Combine(appDataPath, Application.companyName, Application.productName),
+                    
+                    // Fallback 1: DefaultCompany with actual product name
+                    Path.Combine(appDataPath, "DefaultCompany", Application.productName),
+                    
+                    // Fallback 2: Hardcoded for TestFramework project (backward compatibility)
+                    Path.Combine(appDataPath, "DefaultCompany", "TestFramework"),
+                    
+                    // Fallback 3: DefaultCompany with project folder name
+                    Path.Combine(appDataPath, "DefaultCompany", Path.GetFileName(Directory.GetParent(Application.dataPath).FullName))
+                };
+                
+                // Try each possible path
+                foreach (var unityTestPath in possiblePaths)
+                {
+                    if (Directory.Exists(unityTestPath))
                     {
-                        Debug.Log($"[TestExecutor] Found test results in Unity default location: {testResultFile}");
-                        
-                        // Copy to PerSpec/TestResults for consistency
-                        if (!Directory.Exists(_testResultsPath))
-                            Directory.CreateDirectory(_testResultsPath);
-                        
-                        string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                        string destPath = Path.Combine(_testResultsPath, $"TestResults_{timestamp}.xml");
-                        File.Copy(testResultFile, destPath, true);
-                        Debug.Log($"[TestExecutor] Copied test results to: {destPath}");
-                        
-                        return destPath;
+                        var testResultFile = Path.Combine(unityTestPath, "TestResults.xml");
+                        if (File.Exists(testResultFile))
+                        {
+                            Debug.Log($"[TestExecutor] Found test results at: {testResultFile}");
+                            Debug.Log($"[TestExecutor] Company: {Application.companyName}, Product: {Application.productName}");
+                            
+                            // Copy to PerSpec/TestResults for consistency
+                            if (!Directory.Exists(_testResultsPath))
+                                Directory.CreateDirectory(_testResultsPath);
+                            
+                            string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                            string destPath = Path.Combine(_testResultsPath, $"TestResults_{timestamp}.xml");
+                            File.Copy(testResultFile, destPath, true);
+                            Debug.Log($"[TestExecutor] Copied test results to: {destPath}");
+                            
+                            return destPath;
+                        }
                     }
+                }
+                
+                Debug.Log($"[TestExecutor] No test results found in any default locations. Searched:");
+                foreach (var path in possiblePaths)
+                {
+                    Debug.Log($"  - {Path.Combine(path, "TestResults.xml")}");
                 }
             }
             catch (Exception e)
             {
-                Debug.LogWarning($"[TestExecutor] Error checking Unity default location: {e.Message}");
+                Debug.LogWarning($"[TestExecutor] Error checking Unity default locations: {e.Message}");
             }
             
             return null;
