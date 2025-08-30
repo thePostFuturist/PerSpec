@@ -65,31 +65,16 @@ namespace PerSpec.Editor.Coordination
                 {
                     Debug.Log($"[PlayModeTestCompletionChecker] Found result file: {latestResultFile}");
                     
-                    // Parse the summary file if it exists
-                    string summaryPath = latestResultFile.Replace(".xml", ".summary.txt");
-                    if (File.Exists(summaryPath))
+                    // Simple: Just mark the most recent running request as completed
+                    var requestToUpdate = runningRequests.OrderByDescending(r => r.Id).FirstOrDefault();
+                    
+                    if (requestToUpdate != null)
                     {
-                        var summary = ParseSummaryFile(summaryPath);
-                        
-                        // Update the most recent running request
-                        var requestToUpdate = runningRequests.OrderByDescending(r => r.Id).First();
-                        
-                        Debug.Log($"[PlayModeTestCompletionChecker] Updating request {requestToUpdate.Id} with results");
-                        
-                        dbManager.UpdateRequestResults(
-                            requestToUpdate.Id,
-                            "completed",
-                            summary.TotalTests,
-                            summary.PassedTests,
-                            summary.FailedTests,
-                            summary.SkippedTests,
-                            summary.Duration
-                        );
+                        dbManager.UpdateRequestStatus(requestToUpdate.Id, "completed");
+                        Debug.Log($"[PlayModeTestCompletionChecker] Marked request {requestToUpdate.Id} as completed");
                         
                         dbManager.LogExecution(requestToUpdate.Id, "INFO", "PlayModeTestCompletionChecker", 
-                            $"Test completed (detected after Play mode exit): {summary.PassedTests}/{summary.TotalTests} passed");
-                        
-                        Debug.Log($"[PlayModeTestCompletionChecker] Request {requestToUpdate.Id} marked as completed");
+                            $"Test completed (result file found after Play mode exit)");
                     }
                 }
                 else
