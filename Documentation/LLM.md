@@ -130,6 +130,54 @@ grep -E "passed|failed|errors" PerSpec/TestResults/*.xml
 | "check exported logs" | `ls PerSpec/Logs/` |
 | "view exported logs" | `cat PerSpec/Logs/ConsoleLogs_*.txt` |
 
+## 📖 When to Read Additional Documentation
+
+> **PROACTIVE DOCUMENTATION ACCESS**: Read specific guides when these scenarios arise
+
+### Conditional Reading Triggers
+
+| User Request/Scenario | Read This Documentation | Path |
+|----------------------|------------------------|------|
+| **Writing Unity tests** | Unity Test Guide | `Packages/com.digitraver.perspec/Documentation/unity-test-guide.md` |
+| **"How do I test MonoBehaviours?"** | Unity Test Guide | `Packages/com.digitraver.perspec/Documentation/unity-test-guide.md` |
+| **Mentions prefab pattern** | Unity Test Guide | `Packages/com.digitraver.perspec/Documentation/unity-test-guide.md` |
+| **DOTS/ECS work** | DOTS Test Guide | `Packages/com.digitraver.perspec/Documentation/dots-test-guide.md` |
+| **"Entity system testing"** | DOTS Test Guide | `Packages/com.digitraver.perspec/Documentation/dots-test-guide.md` |
+| **Python script issues** | Coordination Guide | `Packages/com.digitraver.perspec/Documentation/coordination-guide.md` |
+| **SQLite database problems** | Coordination Guide | `Packages/com.digitraver.perspec/Documentation/coordination-guide.md` |
+| **Setting up Claude Code** | Claude Integration | `Packages/com.digitraver.perspec/Documentation/claude-integration.md` |
+| **"Use test-writer-agent"** | Test Writer Agent | `Packages/com.digitraver.perspec/Documentation/agents/test-writer-agent.md` |
+| **"Use refactor-agent"** | Refactor Agent | `Packages/com.digitraver.perspec/Documentation/agents/refactor-agent.md` |
+| **Performance analysis** | DOTS Performance Profiler | `Packages/com.digitraver.perspec/Documentation/agents/dots-performance-profiler.md` |
+| **Batch operations** | Batch Refactor Agent | `Packages/com.digitraver.perspec/Documentation/agents/batch-refactor-agent.md` |
+
+### Common Patterns
+
+**When user says:**
+- **"Write comprehensive tests"** → Read `unity-test-guide.md` FIRST
+- **"I need help with testing"** → Read `unity-test-guide.md` for patterns
+- **"Tests are failing"** → Check current approach against `unity-test-guide.md`
+- **"How does coordination work?"** → Read `coordination-guide.md`
+- **"Python script won't run"** → Read `coordination-guide.md` for troubleshooting
+- **"Use an agent for this"** → Read the specific agent documentation before proceeding
+
+### Manual Inclusion Syntax
+
+When user provides context, you can manually include documentation:
+```markdown
+@Packages/com.digitraver.perspec/Documentation/unity-test-guide.md
+"Now help me implement this test pattern"
+```
+
+### Proactive Reading Guidelines
+
+1. **Before writing any Unity test** → Always read `unity-test-guide.md`
+2. **Before using any agent** → Read the specific agent's documentation
+3. **When troubleshooting coordination** → Read `coordination-guide.md`
+4. **When user mentions unfamiliar PerSpec concepts** → Check relevant documentation
+
+> **IMPORTANT**: Don't load all documentation at once. Read only what's needed for the current task to keep context efficient.
+
 ## 🚀 TDD Development Workflow
 
 > **THIS IS THE CORE OF DEVELOPMENT** - All features must follow this workflow!

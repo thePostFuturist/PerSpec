@@ -28,7 +28,7 @@ You end up spending more time untangling AI-generated code than if you'd written
 
 ## 🚀 Why We Don't Use MCP (Model Context Protocol)
 
-**PerSpec deliberately avoids MCP servers** in favor of a bulletproof SQLite + Python approach:
+**PerSpec avoids MCP servers** in favor of a more reliable SQLite + Python approach:
 
 ### The MCP Problem
 MCP servers promise LLM-Unity communication but deliver headaches:
@@ -40,32 +40,47 @@ MCP servers promise LLM-Unity communication but deliver headaches:
 
 ### The PerSpec Solution: SQLite + Python
 
-We use **SQLite database + Python scripts** for rock-solid Unity coordination:
+We use **SQLite database + Python scripts** for more reliable Unity coordination than MCP, though with some Unity-specific limitations:
 
 | Feature | MCP Server | PerSpec SQLite + Python |
 |---------|------------|------------------------|
-| **Reliability** | ❌ Server crashes, disconnects | ✅ Always works, no services to fail |
+| **Reliability** | ❌ Server crashes, disconnects | ✅ No network failures, no services |
 | **Setup** | ❌ Install, configure, maintain | ✅ Single file, zero configuration |
 | **Security** | ❌ Open ports, network exposure | ✅ Local file, no attack surface |
-| **Performance** | ❌ Network latency, timeouts | ✅ Direct file I/O, instant access |
+| **Performance** | ❌ Network latency, timeouts | ⚠️ Fast I/O but 1-second polling delay |
 | **Persistence** | ❌ Memory-based, volatile | ✅ Database survives everything |
-| **Background Work** | ❌ Requires active connection | ✅ Works even when Unity loses focus |
+| **Background Work** | ❌ Requires active connection | ⚠️ Polls but Unity APIs throttled without focus |
 | **Debugging** | ❌ Black box server logs | ✅ SQL queries you can inspect |
 | **Cross-platform** | ❌ Platform-specific servers | ✅ SQLite works everywhere |
+| **Unity Integration** | ❌ External process coordination | ⚠️ Requires editor focus for full speed |
+
+### Important: Unity Focus Limitations
+
+**While our solution avoids MCP's network issues, it still has Unity-specific constraints:**
+
+- **Polling Delay**: Commands are checked every 1 second (not instant like direct API calls)
+- **Focus Throttling**: Unity's main thread operations slow down when the editor loses focus
+- **Queued Execution**: Operations queue up when Unity is minimized and execute when it regains focus
+- **Not Real-Time**: This is a pragmatic workaround, not true real-time coordination
+
+💡 **Tip**: If tests seem stuck or operations are slow, click on the Unity Editor window to give it focus. The queued operations will then execute at full speed.
 
 ### How It Works
 ```python
 # Simple, reliable Python-Unity communication
-db.execute("INSERT INTO commands (type, data) VALUES ('refresh', 'full')")
-# Unity polls database in background (even when not in focus!)
-# No servers, no ports, no problems
+import sqlite3
+conn = sqlite3.connect("test_coordination.db")
+conn.execute("INSERT INTO commands (type, data) VALUES ('refresh', 'full')")
+conn.commit()
+# Unity polls database every second (even when not in focus)
+# Commands queue up and execute when Unity has focus
 ```
 
-The Unity editor uses a background timer to poll the SQLite database, ensuring:
-- **Commands execute even when Unity isn't the active window**
-- **Test results are captured reliably**
-- **No "connection lost" errors ever**
-- **Your workflow never breaks**
+The Unity editor uses a background timer to poll the SQLite database:
+- **Commands are queued** when Unity isn't the active window
+- **Test results are captured** once Unity processes them
+- **No "connection lost" errors** (unlike network-based solutions)
+- **More reliable than MCP** but still subject to Unity's limitations
 
 ## ✨ The PerSpec Solution
 
@@ -221,7 +236,7 @@ See the full documentation at [https://github.com/thePostFuturist/PerSpec](https
 
 ## 🏢 About
 
-<div align="center">
+<div style="text-align: center;">
   <img src="Editor/Resources/Icons/digitraver.png" width="64" height="64" alt="DigitRaver"/>
   
   **Made in San Francisco**  
@@ -280,11 +295,8 @@ private static void BackgroundPollCallback(object state) {
 }
 ```
 
-### Known Limitation: Unity Editor Focus
 
-**Important**: While our System.Threading.Timer continues polling in the background, Unity's main thread operations are throttled when the editor loses focus. If you experience timeouts during test execution or asset refresh, **click on the Unity Editor window to give it focus**. The queued operations will then execute immediately.
-
-### Why This Architecture Wins
+### Why This Architecture Is Better (But Not Perfect)
 
 #### 1. **Zero Network Overhead**
 ```
@@ -296,14 +308,15 @@ Unity Server Listen       Unity → SQLite File
 Execute Command           Execute Command
 ```
 
-#### 2. **Focus-Independent Operation**
+#### 2. **Background Operation Reality**
 
 | Scenario | Server-Based | PerSpec Database |
 |----------|--------------|------------------|
-| Unity in background | ❌ Stops processing | ✅ Keeps polling |
+| Unity in background | ❌ Stops processing | ⚠️ Polls but operations throttled |
 | Unity compiling | ❌ Server unreachable | ✅ Database accessible |
 | Domain reload | ❌ Connection lost | ✅ Auto-reconnects |
 | Unity crash | ❌ Server orphaned | ✅ Database persists |
+| Real-time execution | ❌ Network delays | ⚠️ 1-second polling interval |
 
 #### 3. **Thread-Safe by Design**
 
@@ -340,7 +353,7 @@ SELECT * FROM commands WHERE status = 'pending';
 
 ```python
 # Commands survive everything
-db.execute("INSERT INTO commands ...")  # Written to disk
+conn.execute("INSERT INTO commands ...")  # Written to disk
 # Unity crashes? Command still there when it restarts
 # Python crashes? Database intact
 # Power loss? SQLite's journal recovers on next start
@@ -405,20 +418,20 @@ EditorCoroutines and similar Unity-based polling:
 
 System.Threading.Timer:
 - **Runs on thread pool** - independent of Unity's state
-- **Continues during compilation** - keeps testing flowing
+- **Continues polling during compilation** - though execution waits for Unity
 - **Survives domain reloads** - [InitializeOnLoad] restarts it
-- **Truly asynchronous** - not tied to frame rate or focus
+- **Background polling** - checks database every second
 
 ### The Bottom Line
 
 By choosing **SQLite + Background Threading** over network servers, PerSpec delivers:
-- **100% reliability** - No connection failures, ever
-- **10-100x faster** response times
+- **No network failures** - Database-based, not network-dependent
+- **10-100x faster I/O** than network calls (though with 1-second polling)
 - **Zero configuration** - No ports, URLs, or certificates
-- **Focus-independent** operation - Works when Unity is minimized
-- **Crash recovery** - Automatic, always
+- **Queued operations** - Commands execute when Unity regains focus
+- **Crash recovery** - Database persists through Unity restarts
 
-This isn't just a different approach - it's the **right** approach for Unity tool automation.
+This is a pragmatic compromise that works within Unity's constraints while avoiding the fragility of network-based solutions.
 
 ## 🎯 Zero-Cost Debug Logging with PerSpecDebug
 
