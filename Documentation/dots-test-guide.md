@@ -61,6 +61,7 @@ Your `.asmdef` must reference these assemblies:
     "references": [
         "PerSpec.Runtime.DOTS",
         "PerSpec.Runtime.Unity", 
+        "PerSpec.Runtime.Debug",      // Required for PerSpecDebug logging
         "UniTask",
         "Unity.Entities",
         "Unity.Transforms",

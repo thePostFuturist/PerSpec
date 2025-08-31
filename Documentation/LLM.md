@@ -938,6 +938,7 @@ public class MyDOTSTest : DOTSTestBase  // REQUIRED - NEVER inherit from TestFix
 {
     "references": [
         "PerSpec.Runtime",
+        "PerSpec.Runtime.Debug",      // Required for PerSpecDebug logging
         "UniTask", 
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
@@ -1045,6 +1046,7 @@ Every `.asmdef` file must include these references:
     "rootNamespace": "YourProject.Tests",
     "references": [
         "PerSpec.Runtime.Unity",    // MANDATORY - Base test framework
+        "PerSpec.Runtime.Debug",    // MANDATORY - For PerSpecDebug logging
         "PerSpec.Runtime.DOTS",     // If using DOTS
         "UniTask",                  // MANDATORY - Async testing
         "UnityEngine.TestRunner",   // Unity test framework

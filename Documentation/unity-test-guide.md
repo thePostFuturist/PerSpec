@@ -1170,6 +1170,36 @@ python PerSpec/Coordination/Scripts/quick_logs.py monitor -l error
 python PerSpec/Coordination/Scripts/quick_test.py status <request_id>
 ```
 
+## Assembly Definition Setup
+
+For PerSpecDebug to work properly, your test assembly definition must include these references:
+
+```json
+{
+    "name": "YourProject.Tests",
+    "rootNamespace": "YourProject.Tests",
+    "references": [
+        "PerSpec.Runtime.Unity",
+        "PerSpec.Runtime.Debug",      // Required for PerSpecDebug logging
+        "UniTask",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": ["nunit.framework.dll"],
+    "autoReferenced": false,
+    "defineConstraints": ["UNITY_INCLUDE_TESTS"]
+}
+```
+
+**Key Points:**
+- `using PerSpec;` provides access to PerSpecDebug static methods
+- `PerSpec.Runtime.Debug` assembly reference is mandatory for logging functionality
+- Without the assembly reference, PerSpecDebug calls will result in compilation errors
+
 ## Troubleshooting
 
 ### Tests Not Running

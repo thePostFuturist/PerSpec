@@ -104,6 +104,7 @@ If Step 3 shows errors:
 |-------|----------|
 | CS1626 (yield in try) | Use `UniTask.ToCoroutine()` |
 | UniTask not found | Add to asmdef references |
+| PerSpecDebug not found | Add `PerSpec.Runtime.Debug` to asmdef references |
 | Thread exception | Add `UniTask.SwitchToMainThread()` |
 
 ## Background Processing

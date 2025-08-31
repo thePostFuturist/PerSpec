@@ -112,6 +112,8 @@ packages/
 
 # Build results
 [Dd]ebug/
+# But allow Runtime/Debug directory for PerSpec logging
+!Runtime/Debug/
 [Dd]ebugPublic/
 [Rr]elease/
 [Rr]eleases/
