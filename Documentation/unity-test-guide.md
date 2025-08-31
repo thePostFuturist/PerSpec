@@ -108,6 +108,77 @@ namespace YourProject.Tests.PlayMode  // or .EditMode
 }
 ```
 
+### 🎯 Test Facade Pattern for Production Code
+
+> **IMPORTANT**: Add PUBLIC test methods directly in production classes, wrapped in #if UNITY_EDITOR, to test private functionality.
+
+#### ✅ REQUIRED Pattern:
+```csharp
+// Production MonoBehaviour class
+public class AudioPlayer : MonoBehaviour 
+{
+    // Private production implementation
+    private AudioSource audioSource;
+    private bool isPlaying;
+    private float volume = 1f;
+    
+    private void StartPlayback(AudioClip clip)
+    {
+        audioSource.clip = clip;
+        audioSource.Play();
+        isPlaying = true;
+    }
+    
+    private void StopPlayback()
+    {
+        audioSource.Stop();
+        isPlaying = false;
+    }
+    
+    #if UNITY_EDITOR
+    // Test facade methods - Only exist in Editor builds
+    public void Test_SimulatePlayback(AudioClip testClip)
+    {
+        // Orchestrates private methods for testing
+        StartPlayback(testClip);
+    }
+    
+    public void Test_SetVolume(float testVolume)
+    {
+        volume = testVolume;
+        audioSource.volume = volume;
+    }
+    
+    public bool Test_GetPlayingState() => isPlaying;
+    public float Test_GetVolume() => volume;
+    #endif
+}
+
+// Test using facades
+[UnityTest]
+public IEnumerator Should_PlayAudio_WhenTriggered() => UniTask.ToCoroutine(async () => 
+{
+    var prefab = Resources.Load<GameObject>("TestPrefabs/AudioPlayer");
+    var audioPlayer = Object.Instantiate(prefab).GetComponent<AudioPlayer>();
+    var testClip = Resources.Load<AudioClip>("TestAudio/TestSound");
+    
+    // Use test facade to trigger private behavior
+    audioPlayer.Test_SimulatePlayback(testClip);
+    
+    await UniTask.Delay(100);
+    
+    // Verify using test getters
+    Assert.IsTrue(audioPlayer.Test_GetPlayingState());
+    
+    Object.DestroyImmediate(audioPlayer.gameObject);
+});
+```
+
+#### ❌ FORBIDDEN Patterns:
+- Don't use reflection: `GetField("isPlaying", BindingFlags.NonPublic)`  
+- Don't make private methods public just for testing
+- Don't put #if UNITY_EDITOR directives in test code
+
 ### Why Use PerSpec Runtime Framework?
 
 The `UniTaskTestBase` and `UniTaskTestHelpers` provide:

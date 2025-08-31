@@ -100,6 +100,99 @@ namespace YourProject.Tests.PlayMode.DOTS  // or .EditMode.DOTS
 }
 ```
 
+### 🎯 Test Facade Pattern for DOTS Production Code  
+
+> **IMPORTANT**: Add PUBLIC test methods in DOTS production classes, wrapped in #if UNITY_EDITOR, to test private ECS functionality.
+
+#### ✅ REQUIRED Pattern for DOTS Systems:
+```csharp
+// Production DOTS System
+public partial class MovementSystem : SystemBase
+{
+    // Private production implementation
+    private EntityQuery movableQuery;
+    private float deltaTime;
+    
+    protected override void OnCreate()
+    {
+        movableQuery = GetEntityQuery(typeof(Translation), typeof(MovementData));
+    }
+    
+    protected override void OnUpdate()
+    {
+        deltaTime = Time.DeltaTime;
+        ProcessMovement();
+    }
+    
+    private void ProcessMovement()
+    {
+        Entities
+            .WithEntityQueryOptions(EntityQueryOptions.FilterWriteGroup)
+            .ForEach((ref Translation translation, in MovementData movement) =>
+            {
+                translation.Value += movement.Direction * movement.Speed * deltaTime;
+            }).ScheduleParallel();
+    }
+    
+    private void ValidateEntities()
+    {
+        // Internal validation logic
+        var entityCount = movableQuery.CalculateEntityCount();
+        if (entityCount > 1000)
+            UnityEngine.Debug.LogWarning($"High entity count: {entityCount}");
+    }
+    
+    #if UNITY_EDITOR
+    // Test facade methods - Only exist in Editor builds
+    public void Test_ForceUpdate(float testDeltaTime)
+    {
+        // Orchestrates private system update for testing
+        deltaTime = testDeltaTime;
+        ProcessMovement();
+        ValidateEntities();
+    }
+    
+    public void Test_ProcessSingleFrame()
+    {
+        // Simulates one complete frame update
+        deltaTime = Time.DeltaTime;
+        ProcessMovement();
+        CompleteAllJobs();
+    }
+    
+    public int Test_GetMovableEntityCount() => movableQuery.CalculateEntityCount();
+    public EntityQuery Test_GetMovableQuery() => movableQuery;
+    #endif
+}
+
+// Test using DOTS facades
+[UnityTest]
+public IEnumerator Should_UpdateEntityPositions_WhenSystemRuns() => RunAsyncTest(async () => 
+{
+    // Create test entities
+    var entities = await CreateTestEntitiesAsync(10, typeof(Translation), typeof(MovementData));
+    
+    // Get system instance
+    var movementSystem = testWorld.GetExistingSystem<MovementSystem>();
+    
+    // Use test facade to trigger private system behavior
+    movementSystem.Test_ForceUpdate(0.016f); // 16ms frame
+    
+    await WaitForFramesAsync(1);
+    
+    // Verify system processed entities
+    Assert.AreEqual(10, movementSystem.Test_GetMovableEntityCount());
+    
+    entities.Dispose();
+});
+```
+
+#### ❌ FORBIDDEN DOTS Patterns:
+- Don't use reflection: `GetField("movableQuery", BindingFlags.NonPublic)`
+- Don't expose private system internals as public
+- Don't put #if UNITY_EDITOR in test code
+- Don't modify OnUpdate() signature for testing
+
 ## Overview
 
 This guide provides comprehensive documentation for testing Unity DOTS (Data-Oriented Technology Stack) applications using modern async/await patterns with UniTask. The DOTS test infrastructure extends the Unity Test Framework with specialized support for Entity Component System (ECS) testing, Burst compilation validation, and Job System testing - all with zero-allocation async operations.

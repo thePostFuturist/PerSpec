@@ -390,6 +390,120 @@ python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait
 - **ALWAYS** wait for refresh completion
 - **ALWAYS** check logs before running tests
 
+### 🎯 Testing Production Code - Test Facade Pattern
+
+> **CRITICAL**: Add PUBLIC test methods IN PRODUCTION CLASSES, wrapped in #if UNITY_EDITOR. Tests call these methods directly - NO compiler directives in test code!
+
+#### ✅ CORRECT: Test Facades in Production Code
+```csharp
+// PRODUCTION CLASS - Has test facades inside it
+public class PlayerController : MonoBehaviour 
+{
+    // Private production implementation
+    private float health = 100f;
+    private bool isInvulnerable;
+    private AudioSource audioSource;
+    private ParticleSystem damageEffect;
+    
+    private void PlayDamageSound()
+    {
+        if (audioSource != null)
+            audioSource.Play();
+    }
+    
+    private void ShowDamageEffect()
+    {
+        if (damageEffect != null)
+            damageEffect.Play();
+    }
+    
+    private void ApplyDamage(float amount)
+    {
+        health = Mathf.Max(0, health - amount);
+        PlayDamageSound();
+        ShowDamageEffect();
+    }
+    
+    // Public production API
+    public void TakeDamage(float amount)
+    {
+        if (!isInvulnerable)
+            ApplyDamage(amount);
+    }
+    
+    #if UNITY_EDITOR
+    // TEST FACADES - Only exist in Editor builds
+    public void Test_SimulateCombatDamage(float damage, bool invulnerable = false)
+    {
+        // Orchestrates private methods to simulate real scenario
+        isInvulnerable = invulnerable;
+        PlayDamageSound();
+        ShowDamageEffect();
+        ApplyDamage(damage);
+    }
+    
+    public void Test_SetupCombatState(float startHealth, bool startInvulnerable)
+    {
+        health = startHealth;
+        isInvulnerable = startInvulnerable;
+    }
+    
+    public float Test_GetHealth() => health;
+    public bool Test_GetInvulnerable() => isInvulnerable;
+    #endif
+}
+
+// TEST CODE - No compiler directives needed!
+[UnityTest]
+public IEnumerator Should_ApplyDamageEffects_WhenPlayerHit() => UniTask.ToCoroutine(async () => 
+{
+    // Load prefab
+    var prefab = Resources.Load<GameObject>("TestPrefabs/Player");
+    var player = Object.Instantiate(prefab).GetComponent<PlayerController>();
+    
+    // Call test facades directly - they exist in Editor!
+    player.Test_SetupCombatState(100f, false);
+    player.Test_SimulateCombatDamage(30f);
+    
+    await UniTask.Delay(100);
+    
+    // Verify using test facades
+    Assert.AreEqual(70f, player.Test_GetHealth());
+    
+    Object.DestroyImmediate(player.gameObject);
+});
+```
+
+#### ❌ FORBIDDEN: Wrong Patterns
+```csharp
+// WRONG - Compiler directives in test code
+[UnityTest]
+public IEnumerator BadTest()
+{
+    #if UNITY_EDITOR  // NO! Pointless in test code
+    player.Test_GetHealth();
+    #endif
+}
+
+// WRONG - Using reflection instead of test facades
+var healthField = typeof(PlayerController).GetField("health", BindingFlags.NonPublic);
+healthField.SetValue(player, 100);  // NO!
+
+// WRONG - Making private methods public
+public void ApplyDamage(float amount)  // Was private, now exposed - NO!
+
+// WRONG - Test flags in production methods
+private void ApplyDamage(float amount, bool isTest = false)  // NO!
+```
+
+#### Key Points:
+- Test facades are PUBLIC methods in PRODUCTION classes
+- Always prefix with `Test_` for clarity
+- Wrap ONLY in production code with `#if UNITY_EDITOR`
+- Tests call these methods normally - no directives needed
+- Facades orchestrate private methods to simulate real scenarios
+- Never use reflection or modify production signatures
+
 ### 📝 Logging Standards for TDD
 
 ```csharp
@@ -1115,7 +1229,10 @@ public IEnumerator TestWithUniTask() => UniTask.ToCoroutine(async () => {
 ❌ Use async void (use UniTask/UniTaskVoid)
 ❌ Use Singleton MonoBehaviours
 ❌ Get components at runtime
-❌ Use reflection
+❌ Use reflection to access private members
+❌ Put compiler directives in test code (they go in production)
+❌ Make private methods public for testing
+❌ Add test parameters to production methods
 ❌ Yield in try blocks (use UniTask.ToCoroutine)
 
 ### Logging Standards
