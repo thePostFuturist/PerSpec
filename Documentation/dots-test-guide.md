@@ -1,5 +1,105 @@
 # DOTS Test Execution Guide with UniTask
 
+## 🚨 MANDATORY - DOTSTestBase Inheritance
+
+> **CRITICAL REQUIREMENT**: ALL DOTS tests MUST inherit from `DOTSTestBase`. NEVER create DOTS tests from scratch!
+
+### ✅ REQUIRED Pattern
+```csharp
+using PerSpec.Runtime.DOTS.Core;
+using NUnit.Framework;
+
+[TestFixture]
+public class MyDOTSTest : DOTSTestBase  // MANDATORY - Use PerSpec base class
+{
+    // Your tests here
+}
+```
+
+### ❌ FORBIDDEN Patterns
+```csharp
+// NEVER do this - Missing base class functionality
+[TestFixture]
+public class BadDOTSTest
+{
+    private World testWorld; // Don't create your own!
+    private EntityManager entityManager; // This is provided!
+}
+
+// NEVER do this - Wrong base class
+[TestFixture]
+public class BadDOTSTest : TestFixture
+{
+    // Missing DOTS-specific setup and teardown
+}
+
+// NEVER do this - Manual world management
+[TestFixture] 
+public class BadDOTSTest
+{
+    [SetUp]
+    public void Setup()
+    {
+        // Don't manually create worlds, systems, or managers
+        var world = new World("Test");
+    }
+}
+```
+
+### Why DOTSTestBase is Mandatory
+- **World Management**: Automatically creates isolated test worlds
+- **Entity Manager**: Pre-configured with proper lifecycle
+- **UniTask Integration**: Zero-allocation async testing support
+- **Memory Leak Detection**: Automatic native collection tracking
+- **Cancellation Tokens**: Built-in timeout and cleanup support
+- **Performance Profiling**: DOTS-specific measurement helpers
+
+### Required Assembly References
+Your `.asmdef` must reference these assemblies:
+```json
+{
+    "references": [
+        "PerSpec.Runtime.DOTS",
+        "PerSpec.Runtime.Unity", 
+        "UniTask",
+        "Unity.Entities",
+        "Unity.Transforms",
+        "UnityEngine.TestRunner"
+    ]
+}
+```
+
+### 📝 Required Namespaces and Imports
+
+Every DOTS test file MUST include these using statements:
+
+```csharp
+// MANDATORY for ALL DOTS tests
+using System;
+using System.Collections;
+using UnityEngine;
+using UnityEngine.TestTools;
+using NUnit.Framework;
+using Cysharp.Threading.Tasks;
+using PerSpec;                        // Core PerSpec utilities
+using PerSpec.Runtime.DOTS;           // DOTS testing infrastructure
+using PerSpec.Runtime.DOTS.Core;      // DOTSTestBase
+using PerSpec.Runtime.DOTS.Helpers;   // DOTS test helpers
+using Unity.Entities;                 // Entity, EntityManager, World
+using Unity.Transforms;               // Translation, Rotation, Scale
+using Unity.Mathematics;              // float3, quaternion, etc.
+
+// Standard namespace pattern
+namespace YourProject.Tests.PlayMode.DOTS  // or .EditMode.DOTS
+{
+    [TestFixture]
+    public class YourDOTSTestClass : DOTSTestBase  // MANDATORY
+    {
+        // Tests here
+    }
+}
+```
+
 ## Overview
 
 This guide provides comprehensive documentation for testing Unity DOTS (Data-Oriented Technology Stack) applications using modern async/await patterns with UniTask. The DOTS test infrastructure extends the Unity Test Framework with specialized support for Entity Component System (ECS) testing, Burst compilation validation, and Job System testing - all with zero-allocation async operations.

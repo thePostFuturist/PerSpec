@@ -134,22 +134,35 @@ grep -E "passed|failed|errors" PerSpec/TestResults/*.xml
 
 > **PROACTIVE DOCUMENTATION ACCESS**: Read specific guides when these scenarios arise
 
+### 🔍 Getting Package Location First
+
+**IMPORTANT**: Before reading any documentation, get the package path:
+1. Read `PerSpec/package_location.txt` to get the package base path
+2. Append `/Documentation/[filename].md` to construct the full path
+
+Example:
+```bash
+# Get package location
+cat PerSpec/package_location.txt  # Returns: Packages/com.digitraver.perspec
+# Then read: {package_path}/Documentation/unity-test-guide.md
+```
+
 ### Conditional Reading Triggers
 
-| User Request/Scenario | Read This Documentation | Path |
-|----------------------|------------------------|------|
-| **Writing Unity tests** | Unity Test Guide | `Packages/com.digitraver.perspec/Documentation/unity-test-guide.md` |
-| **"How do I test MonoBehaviours?"** | Unity Test Guide | `Packages/com.digitraver.perspec/Documentation/unity-test-guide.md` |
-| **Mentions prefab pattern** | Unity Test Guide | `Packages/com.digitraver.perspec/Documentation/unity-test-guide.md` |
-| **DOTS/ECS work** | DOTS Test Guide | `Packages/com.digitraver.perspec/Documentation/dots-test-guide.md` |
-| **"Entity system testing"** | DOTS Test Guide | `Packages/com.digitraver.perspec/Documentation/dots-test-guide.md` |
-| **Python script issues** | Coordination Guide | `Packages/com.digitraver.perspec/Documentation/coordination-guide.md` |
-| **SQLite database problems** | Coordination Guide | `Packages/com.digitraver.perspec/Documentation/coordination-guide.md` |
-| **Setting up Claude Code** | Claude Integration | `Packages/com.digitraver.perspec/Documentation/claude-integration.md` |
-| **"Use test-writer-agent"** | Test Writer Agent | `Packages/com.digitraver.perspec/Documentation/agents/test-writer-agent.md` |
-| **"Use refactor-agent"** | Refactor Agent | `Packages/com.digitraver.perspec/Documentation/agents/refactor-agent.md` |
-| **Performance analysis** | DOTS Performance Profiler | `Packages/com.digitraver.perspec/Documentation/agents/dots-performance-profiler.md` |
-| **Batch operations** | Batch Refactor Agent | `Packages/com.digitraver.perspec/Documentation/agents/batch-refactor-agent.md` |
+| User Request/Scenario | Read This Documentation | Construct Path As |
+|----------------------|------------------------|--------------------|
+| **Writing Unity tests** | Unity Test Guide | `{package_path}/Documentation/unity-test-guide.md` |
+| **"How do I test MonoBehaviours?"** | Unity Test Guide | `{package_path}/Documentation/unity-test-guide.md` |
+| **Mentions prefab pattern** | Unity Test Guide | `{package_path}/Documentation/unity-test-guide.md` |
+| **DOTS/ECS work** | DOTS Test Guide | `{package_path}/Documentation/dots-test-guide.md` |
+| **"Entity system testing"** | DOTS Test Guide | `{package_path}/Documentation/dots-test-guide.md` |
+| **Python script issues** | Coordination Guide | `{package_path}/Documentation/coordination-guide.md` |
+| **SQLite database problems** | Coordination Guide | `{package_path}/Documentation/coordination-guide.md` |
+| **Setting up Claude Code** | Claude Integration | `{package_path}/Documentation/claude-integration.md` |
+| **"Use test-writer-agent"** | Test Writer Agent | `{package_path}/Documentation/agents/test-writer-agent.md` |
+| **"Use refactor-agent"** | Refactor Agent | `{package_path}/Documentation/agents/refactor-agent.md` |
+| **Performance analysis** | DOTS Performance Profiler | `{package_path}/Documentation/agents/dots-performance-profiler.md` |
+| **Batch operations** | Batch Refactor Agent | `{package_path}/Documentation/agents/batch-refactor-agent.md` |
 
 ### Common Patterns
 
@@ -165,18 +178,34 @@ grep -E "passed|failed|errors" PerSpec/TestResults/*.xml
 
 When user provides context, you can manually include documentation:
 ```markdown
-@Packages/com.digitraver.perspec/Documentation/unity-test-guide.md
+# First get package path
+@PerSpec/package_location.txt
+# Then construct and read documentation
+@{package_path}/Documentation/unity-test-guide.md
 "Now help me implement this test pattern"
 ```
 
 ### Proactive Reading Guidelines
 
-1. **Before writing any Unity test** → Always read `unity-test-guide.md`
-2. **Before using any agent** → Read the specific agent's documentation
-3. **When troubleshooting coordination** → Read `coordination-guide.md`
-4. **When user mentions unfamiliar PerSpec concepts** → Check relevant documentation
+1. **Before writing any Unity test** → Get package path, then read `{package_path}/Documentation/unity-test-guide.md`
+2. **Before using any agent** → Get package path, then read the specific agent's documentation
+3. **When troubleshooting coordination** → Get package path, then read `{package_path}/Documentation/coordination-guide.md`
+4. **When user mentions unfamiliar PerSpec concepts** → Get package path, then check relevant documentation
 
-> **IMPORTANT**: Don't load all documentation at once. Read only what's needed for the current task to keep context efficient.
+### Step-by-Step Process
+
+```bash
+# Step 1: Always start here when documentation is needed
+cat PerSpec/package_location.txt
+
+# Step 2: Use the returned path to construct documentation paths
+# If package_location.txt returns "Packages/com.digitraver.perspec", then read:
+# - Packages/com.digitraver.perspec/Documentation/unity-test-guide.md
+# - Packages/com.digitraver.perspec/Documentation/agents/test-writer-agent.md
+# etc.
+```
+
+> **IMPORTANT**: Don't load all documentation at once. Read only what's needed for the current task to keep context efficient. Always check package location first.
 
 ## 🚀 TDD Development Workflow
 
@@ -758,6 +787,178 @@ public async Task<ProcessResult> ProcessBatchAsync(byte[] data, int retryCount =
 ```
 
 ## 🧪 Test Framework Details
+
+### 🚨 CRITICAL REQUIREMENTS: USE PERSPEC RUNTIME FRAMEWORKS
+
+> **MANDATORY**: ALL tests MUST use the provided PerSpec runtime frameworks. NEVER create custom test infrastructure!
+
+#### Required Base Classes (NON-NEGOTIABLE)
+
+**For Unity Tests:**
+```csharp
+using PerSpec.Runtime.Unity;
+using PerSpec.Runtime.Unity.Helpers;
+
+[TestFixture]
+public class MyUnityTest : UniTaskTestBase  // REQUIRED - NEVER inherit from TestFixture directly
+{
+    // Your tests here
+}
+```
+
+**For DOTS Tests:**
+```csharp
+using PerSpec.Runtime.DOTS;
+using PerSpec.Runtime.DOTS.Core;
+using PerSpec.Runtime.DOTS.Helpers;
+
+[TestFixture] 
+public class MyDOTSTest : DOTSTestBase  // REQUIRED - NEVER inherit from TestFixture directly
+{
+    // Your tests here  
+}
+```
+
+#### Assembly References Required
+```json
+{
+    "references": [
+        "PerSpec.Runtime",
+        "UniTask", 
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ]
+}
+```
+
+#### ❌ FORBIDDEN: Never Do This
+```csharp
+// ❌ DO NOT create custom base classes
+public class MyCustomTestBase : MonoBehaviour { } // NO!
+
+// ❌ DO NOT inherit directly from TestFixture 
+[TestFixture]
+public class BadTest { } // NO!
+
+// ❌ DO NOT reimplement async helpers
+public static class MyTestHelpers { } // NO!
+```
+
+#### ✅ ALWAYS Use Provided Infrastructure
+
+**Unity Test Infrastructure Location:**
+- `{package_path}/Runtime/Unity/Core/UniTaskTestBase.cs` 
+- `{package_path}/Runtime/Unity/Helpers/UniTaskTestHelpers.cs`
+- `{package_path}/Runtime/Unity/Helpers/UniTaskRunner.cs`
+
+**DOTS Test Infrastructure Location:**  
+- `{package_path}/Runtime/DOTS/Core/DOTSTestBase.cs`
+- `{package_path}/Runtime/DOTS/Helpers/DOTSTestFactory.cs`
+- `{package_path}/Runtime/DOTS/Helpers/DOTSTestConfiguration.cs`
+
+**Debug Infrastructure:**
+- `{package_path}/Runtime/Debug/PerSpecDebug.cs`
+- `{package_path}/Runtime/Debug/PerSpecDebugSettings.cs`
+
+> **WHY**: The Runtime frameworks provide zero-allocation async testing, proper cancellation support, thread safety, memory leak detection, and performance profiling. Custom implementations will be slower, buggier, and incompatible with PerSpec tooling.
+
+### 📝 MANDATORY NAMESPACES AND IMPORTS
+
+> **CRITICAL**: All PerSpec code must use proper namespaces and import statements. These are REQUIRED, not optional!
+
+#### Standard Test File Template
+```csharp
+// REQUIRED using statements for ANY PerSpec test
+using System;
+using System.Collections;
+using System.Threading;
+using UnityEngine;
+using UnityEngine.TestTools;
+using NUnit.Framework;
+using Cysharp.Threading.Tasks;
+using PerSpec;  // Core PerSpec utilities and debug logging
+
+// For Unity tests - ADD THESE
+using PerSpec.Runtime.Unity;           // UniTaskTestBase
+using PerSpec.Runtime.Unity.Helpers;  // UniTaskTestHelpers
+
+// For DOTS tests - ADD THESE  
+using PerSpec.Runtime.DOTS;            // DOTS testing infrastructure
+using PerSpec.Runtime.DOTS.Core;      // DOTSTestBase
+using PerSpec.Runtime.DOTS.Helpers;   // DOTS test helpers
+using Unity.Entities;                 // Entity, EntityManager
+using Unity.Transforms;               // Translation, Rotation, etc.
+
+// Standard namespace pattern
+namespace YourProject.Tests.PlayMode  // or .EditMode
+{
+    [TestFixture]
+    public class YourTestClass : UniTaskTestBase  // or DOTSTestBase
+    {
+        // Tests here
+    }
+}
+```
+
+#### Production Code Namespace Template
+```csharp
+// REQUIRED using statements for production components
+using System;
+using UnityEngine;
+using Cysharp.Threading.Tasks;
+using PerSpec;  // For PerSpecDebug logging
+
+// For DOTS components - ADD THESE
+using Unity.Entities;
+using Unity.Mathematics;
+using Unity.Transforms;
+
+// Use meaningful namespaces
+namespace YourProject.Gameplay.Player
+{
+    public class PlayerController : MonoBehaviour
+    {
+        // Component implementation
+    }
+}
+```
+
+#### Required Assembly References
+Every `.asmdef` file must include these references:
+```json
+{
+    "name": "YourProject.Tests",
+    "rootNamespace": "YourProject.Tests",
+    "references": [
+        "PerSpec.Runtime.Unity",    // MANDATORY - Base test framework
+        "PerSpec.Runtime.DOTS",     // If using DOTS
+        "UniTask",                  // MANDATORY - Async testing
+        "UnityEngine.TestRunner",   // Unity test framework
+        "UnityEditor.TestRunner"    // Editor test support
+    ],
+    "defineConstraints": ["UNITY_INCLUDE_TESTS"]
+}
+```
+
+#### Common Import Mistakes to Avoid
+```csharp
+// ❌ NEVER import these for PerSpec tests
+using UnityEngine.TestTools.TestRunner;  // Wrong test runner
+using Unity.PerformanceTesting;          // Use PerSpec profiling instead
+using System.Threading.Tasks;            // Use UniTask instead
+
+// ❌ NEVER create custom test base classes
+public class MyCustomTestBase { }        // Use UniTaskTestBase/DOTSTestBase
+
+// ❌ NEVER skip PerSpec namespace
+Debug.Log("message");                    // Use PerSpecDebug.Log instead
+```
+
+#### Namespace Naming Conventions
+- **Tests**: `YourProject.Tests.PlayMode` / `YourProject.Tests.EditMode`
+- **Production**: `YourProject.Feature.SubFeature`
+- **Editor Tools**: `YourProject.Editor.Tools`
+- **Test Factories**: `YourProject.Tests.Editor.Factories`
 
 ### Prefab Pattern (Default for 99% of Tests)
 

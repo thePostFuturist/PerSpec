@@ -10,9 +10,22 @@
 
 ## Unity Alternative to MCP via SQLite and Code Generation Framework
 
-> **Transform your LLM from a code chaos generator into a precision TDD machine**
+> **Organize your LLM's code chaos generator into testable, maintainable chunks**
 > 
 > 🚫 **NO MCP SERVERS REQUIRED** - Uses rock-solid SQLite + Python instead!
+
+## 👥 Who This Is For
+
+**PerSpec is for intermediate-to-advanced developers** who want to make AI-generated Unity code more manageable:
+
+- ✅ **You understand** that frontier models still produce buggy, inefficient code
+- ✅ **You can review** and fix AI-generated code when it goes wrong  
+- ✅ **You know** basic TDD principles and Unity patterns
+- ✅ **You want** AI code organized into testable, maintainable chunks
+- ❌ **NOT for** unsupervised "vibe coding" - you still need to guide and review
+- ❌ **NOT a magic fix** - frontier models remain the bottleneck
+
+**Bottom line**: PerSpec doesn't fix AI's coding abilities. It just makes the inevitable mess more organized and testable.
 
 ## 🎯 The Problem with LLMs
 
@@ -25,6 +38,8 @@ Recognize any of these characters during your vibe code?
 - **Context confusion** - Mixing MonoBehaviour patterns, async patterns, and Unity APIs incorrectly
 
 You end up spending more time untangling AI-generated code than if you'd written it yourself.
+
+**Reality check**: These problems exist because frontier models aren't great coders yet. PerSpec doesn't fix the AI - it just organizes the output into smaller, testable pieces you can actually debug and maintain.
 
 ## 🚀 Why We Don't Use MCP (Model Context Protocol)
 
@@ -44,6 +59,10 @@ We use **SQLite database + Python scripts** for more reliable Unity coordination
 
 | Feature | MCP Server | PerSpec SQLite + Python |
 |---------|------------|------------------------|
+| **AI Quality** | ❌ Still limited by frontier models | ❌ Still limited by frontier models |
+| **Target Audience** | ⚠️ Intermediate+ developers required | ⚠️ Intermediate+ developers required |
+| **Supervision Required** | ✅ Always - AI still makes mistakes | ✅ Always - AI still makes mistakes |
+| **Code Organization** | ❌ No structure enforcement | ✅ TDD patterns, testable chunks |
 | **Reliability** | ❌ Server crashes, disconnects | ✅ No network failures, no services |
 | **Setup** | ❌ Install, configure, maintain | ✅ Single file, zero configuration |
 | **Security** | ❌ Open ports, network exposure | ✅ Local file, no attack surface |

@@ -4,6 +4,123 @@
 
 This guide provides comprehensive documentation for using the Unity Test Framework with UniTask for zero-allocation async/await testing. The framework provides modern async patterns, helper utilities, and best practices for Unity testing.
 
+## 🚨 MANDATORY: Use PerSpec Unity Runtime Framework
+
+> **CRITICAL**: ALL Unity tests MUST inherit from `UniTaskTestBase` from the PerSpec Runtime framework. NEVER create custom test base classes!
+
+### Required Inheritance Pattern
+
+```csharp
+using PerSpec.Runtime.Unity;           // REQUIRED
+using PerSpec.Runtime.Unity.Helpers;   // REQUIRED  
+using PerSpec;                         // REQUIRED for PerSpecDebug
+using UnityEngine;
+using UnityEngine.TestTools;
+using NUnit.Framework;
+using System.Collections;
+using Cysharp.Threading.Tasks;
+
+[TestFixture]
+public class MyUnityTest : UniTaskTestBase  // MANDATORY inheritance
+{
+    [SetUp]
+    public override void Setup()
+    {
+        base.Setup(); // REQUIRED - Initializes cancellation token
+    }
+    
+    [TearDown] 
+    public override void TearDown()
+    {
+        base.TearDown(); // REQUIRED - Cleans up cancellation token
+    }
+    
+    [UnityTest]
+    public IEnumerator MyTest() => UniTask.ToCoroutine(async () =>
+    {
+        // Your test code here - full async/await support
+    });
+}
+```
+
+### ❌ FORBIDDEN Patterns
+
+```csharp
+// ❌ DO NOT inherit directly from TestFixture
+[TestFixture]  
+public class BadTest { } // WRONG!
+
+// ❌ DO NOT create custom base classes
+public class CustomTestBase : MonoBehaviour { } // WRONG!
+
+// ❌ DO NOT reimplement async helpers
+public static class MyAsyncHelpers { } // WRONG!
+
+// ❌ DO NOT use coroutines for async tests  
+[UnityTest]
+public IEnumerator BadTest()
+{
+    yield return new WaitForSeconds(1); // WRONG - use UniTask!
+}
+```
+
+### ✅ REQUIRED Assembly References
+
+Your test assembly definition MUST include these references:
+
+```json
+{
+    "name": "YourProject.Tests",
+    "references": [
+        "PerSpec.Runtime",        // REQUIRED
+        "UniTask",               // REQUIRED
+        "UnityEngine.TestRunner", // REQUIRED  
+        "UnityEditor.TestRunner" // REQUIRED for EditMode tests
+    ],
+    "defineConstraints": ["UNITY_INCLUDE_TESTS"]
+}
+```
+
+### 📝 Required Namespaces and Imports
+
+Every Unity test file MUST include these using statements:
+
+```csharp
+// MANDATORY for ALL Unity tests
+using System;
+using System.Collections;
+using UnityEngine;
+using UnityEngine.TestTools;
+using NUnit.Framework;
+using Cysharp.Threading.Tasks;
+using PerSpec;                        // Core PerSpec utilities
+using PerSpec.Runtime.Unity;          // UniTaskTestBase
+using PerSpec.Runtime.Unity.Helpers;  // UniTaskTestHelpers
+
+// Standard namespace pattern
+namespace YourProject.Tests.PlayMode  // or .EditMode
+{
+    [TestFixture]
+    public class YourTestClass : UniTaskTestBase  // MANDATORY
+    {
+        // Tests here
+    }
+}
+```
+
+### Why Use PerSpec Runtime Framework?
+
+The `UniTaskTestBase` and `UniTaskTestHelpers` provide:
+- ✅ **Zero-allocation async/await** - No GC pressure during tests
+- ✅ **Automatic cancellation token management** - Prevents hanging tests
+- ✅ **Thread safety** - Proper main thread marshalling
+- ✅ **Performance profiling** - Built-in benchmarking tools  
+- ✅ **Memory leak detection** - Automatic resource cleanup
+- ✅ **Retry logic** - Exponential backoff for flaky operations
+- ✅ **Parallel execution** - Run multiple operations concurrently
+
+**Custom implementations will be slower, less reliable, and incompatible with PerSpec tooling.**
+
 ## Testing Approach: Prefab Pattern (Default)
 
 > **IMPORTANT**: Use the Prefab Pattern for ALL tests except atomic utility functions. This is the standard approach for Unity testing.
