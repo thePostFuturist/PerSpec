@@ -30,7 +30,8 @@ namespace PerSpec.Editor.Coordination
         private double _monitorStartTime;
         private double _lastFileCheckTime;
         private const double FILE_CHECK_INTERVAL = 2.0; // Check every 2 seconds
-        private const double MAX_WAIT_TIME = 300.0; // 5 minute timeout
+        private const double MAX_WAIT_TIME = 300.0; // 5 minute timeout for batch tests
+        private const double MAX_WAIT_TIME_INDIVIDUAL = 600.0; // 10 minute timeout for individual tests
         private bool _isMonitoring;
         private bool _hasCompletedViaCallback;
         
@@ -399,10 +400,14 @@ namespace PerSpec.Editor.Coordination
             
             double currentTime = EditorApplication.timeSinceStartup;
             
-            // Check for timeout
-            if (currentTime - _monitorStartTime > MAX_WAIT_TIME)
+            // Check for timeout - use longer timeout for individual tests
+            double timeoutValue = (_currentRequest != null && _currentRequest.RequestType == "method") 
+                ? MAX_WAIT_TIME_INDIVIDUAL 
+                : MAX_WAIT_TIME;
+            
+            if (currentTime - _monitorStartTime > timeoutValue)
             {
-                Debug.LogError($"[TestExecutor-FM] Test execution timed out after {MAX_WAIT_TIME} seconds");
+                Debug.LogError($"[TestExecutor-FM] Test execution timed out after {timeoutValue} seconds");
                 HandleTestTimeout();
                 return;
             }
@@ -705,9 +710,47 @@ namespace PerSpec.Editor.Coordination
             if (_currentRequest != null && _onComplete != null && !_hasCompletedViaCallback)
             {
                 _hasCompletedViaCallback = true;
+                
+                // Determine which timeout value was used
+                double timeoutValue = (_currentRequest.RequestType == "method") 
+                    ? MAX_WAIT_TIME_INDIVIDUAL 
+                    : MAX_WAIT_TIME;
+                
+                // Generate timeout XML for individual tests
+                if (_currentRequest.RequestType == "method")
+                {
+                    try
+                    {
+                        string xmlPath = TestExport.SingleTestXMLGenerator.GenerateTestXML(
+                            _currentRequest.TestFilter,
+                            false,  // Test did not pass
+                            _currentRequest.TestPlatform,
+                            "Test execution timed out",
+                            $"The test did not complete within {timeoutValue} seconds. This may indicate the test is stuck or taking longer than expected.",
+                            (float)timeoutValue
+                        );
+                        Debug.Log($"[TestExecutor] Generated timeout XML for individual test at: {xmlPath}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError($"[TestExecutor] Failed to generate timeout XML: {ex.Message}");
+                    }
+                }
+                
+                // Update database with timeout status
+                _dbManager.UpdateRequestResults(
+                    _currentRequest.Id,
+                    "timeout",  // Use "timeout" status instead of "failed"
+                    1,          // Assume 1 test for individual tests
+                    0,          // No passed tests
+                    1,          // Mark as failed due to timeout
+                    0,          // No skipped tests
+                    (float)timeoutValue
+                );
+                
                 _dbManager.LogExecution(_currentRequest.Id, "ERROR", "TestExecutor", 
-                    $"Test execution timed out after {MAX_WAIT_TIME} seconds");
-                _onComplete(_currentRequest, false, $"Test execution timed out after {MAX_WAIT_TIME} seconds", null);
+                    $"Test execution timed out after {timeoutValue} seconds");
+                _onComplete(_currentRequest, false, $"Test execution timed out after {timeoutValue} seconds", null);
             }
         }
         
