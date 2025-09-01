@@ -281,15 +281,23 @@ public IEnumerator TestName() => UniTask.ToCoroutine(async () => {
 ```csharp
 using PerSpec;
 
-// Test logs
-PerSpecDebug.LogTest("message");
-PerSpecDebug.LogTestSetup("setup");
-PerSpecDebug.LogTestError("error");
+// Test-specific logs
+PerSpecDebug.LogTestSetup("setup phase");
+PerSpecDebug.LogTestAction("action phase");
+PerSpecDebug.LogTestAssert("assertion phase");
+PerSpecDebug.LogTestComplete("test completed");
+PerSpecDebug.LogTestError("test failed");
 
-// Production logs
-[SerializeField] private bool debugLogs = true;
-if (debugLogs) PerSpecDebug.Log("[FEATURE] message");
-PerSpecDebug.LogError("[ERROR] always log errors");
+// Feature-specific logs (two parameters: feature name, message)
+PerSpecDebug.LogFeatureStart("AUTH", "Starting authentication");
+PerSpecDebug.LogFeatureProgress("AUTH", "Validating token");
+PerSpecDebug.LogFeatureComplete("AUTH", "Login successful");
+PerSpecDebug.LogFeatureError("AUTH", "Invalid credentials");
+
+// General logs
+PerSpecDebug.Log("general message");
+PerSpecDebug.LogWarning("warning message");
+PerSpecDebug.LogError("error message - always important");
 ```
 
 ## 🚨 Important Rules
