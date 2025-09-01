@@ -783,6 +783,43 @@ PerSpecDebug.LogTestComplete(""Test passed"");";
                 {
                     CopyAgentDefinitions();
                 }
+                
+                EditorGUILayout.Space(5);
+                
+                // Copy Python scripts option
+                if (GUILayout.Button(new GUIContent(
+                    "Copy Python Scripts to PerSpec Root", 
+                    "Copies all Python coordination scripts from the package to PerSpec/Coordination/Scripts/ for easy command-line access"),
+                    GUILayout.Height(30)))
+                {
+                    if (!InitializationService.IsInitialized)
+                    {
+                        EditorUtility.DisplayDialog("Not Initialized",
+                            "PerSpec must be initialized first.\n\nUse Tools > PerSpec > Initialize or the Initialization tab.",
+                            "OK");
+                    }
+                    else if (InitializationService.RefreshCoordinationScripts())
+                    {
+                        ShowNotification(new GUIContent($"Python scripts copied to PerSpec/Coordination/Scripts/"));
+                        Debug.Log($"[PerSpec] Python scripts copied to: {InitializationService.CoordinationScriptsPath}");
+                        
+                        // Show success dialog with path info
+                        EditorUtility.DisplayDialog("Scripts Copied Successfully",
+                            $"Python coordination scripts have been copied to:\n\n{InitializationService.CoordinationScriptsPath}\n\n" +
+                            "You can now run commands like:\n" +
+                            "• python PerSpec/Coordination/Scripts/quick_test.py\n" +
+                            "• python PerSpec/Coordination/Scripts/quick_logs.py\n" +
+                            "• python PerSpec/Coordination/Scripts/quick_refresh.py",
+                            "OK");
+                    }
+                    else
+                    {
+                        ShowNotification(new GUIContent("Failed to copy Python scripts"));
+                        EditorUtility.DisplayDialog("Copy Failed",
+                            "Failed to copy Python scripts.\n\nCheck the console for error details.",
+                            "OK");
+                    }
+                }
             });
             
             EditorGUILayout.Space(10);
