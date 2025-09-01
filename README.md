@@ -13,6 +13,8 @@
 > **Organize your LLM's code chaos generator into testable, maintainable chunks**
 > 
 > 🚫 **NO MCP SERVERS REQUIRED** - Uses rock-solid SQLite + Python instead!
+>
+> ⚔️ **BATTLE-TESTED** - Powering production Unity development at [DigitRaver](https://digitraver.com)
 
 ## 👥 Who This Is For
 
@@ -72,6 +74,7 @@ We use **SQLite database + Python scripts** for more reliable Unity coordination
 | **Debugging** | ❌ Black box server logs | ✅ SQL queries you can inspect |
 | **Cross-platform** | ❌ Platform-specific servers | ✅ SQLite works everywhere |
 | **Unity Integration** | ❌ External process coordination | ⚠️ Requires editor focus for full speed |
+| **Vendor Lock-in** | ⚠️ Depends on specific MCP server implementation | ✅ Works with Claude, Cursor, OpenAI, Gemini, OpenRouter |
 
 ### Important: Unity Focus Limitations
 
@@ -239,6 +242,25 @@ python ScriptingTools/Coordination/Scripts/quick_test.py all -p edit --wait
 - **Continuous validation** - know immediately when something breaks
 - **Refactor fearlessly** - tests have your back
 - **Document through tests** - tests show how to use your code
+
+### No Vendor Lock-in
+- **Works with ANY AI assistant** - Claude, Cursor, OpenAI, Gemini, OpenRouter
+- **Universal instruction format** - Same TDD workflow for all providers
+- **Easy provider switching** - Change AI providers without changing your workflow
+- **Multi-provider support** - Use different AIs for different tasks simultaneously
+
+#### Supported AI Providers
+Configure PerSpec to work with your preferred AI assistant:
+
+| Provider | Config File | Purpose |
+|----------|------------|---------|
+| **Claude Code** | `CLAUDE.md` | Anthropic's coding assistant |
+| **Cursor IDE** | `.cursorrules` | AI-powered IDE |
+| **OpenAI Codex** | `.openai-codex.md` | GPT-based coding |
+| **Gemini CLI** | `.gemini/config.md` | Google's AI assistant |
+| **OpenRouter/Buddy** | `.buddyrules` | Access 100+ models via unified API |
+
+All providers receive the same PerSpec TDD instructions - no rewriting needed when switching!
 
 ## 🛠️ Requirements
 
@@ -490,7 +512,7 @@ PerSpecDebug.LogFeatureStart("PHYSICS", "Calculating collisions");
 PerSpecDebug.LogTestAssert($"Expected {expected}, got {actual}");
 
 // In PerSpecDebug.cs
-[Conditional("PERSPEC_DEBUG"), Conditional("UNITY_EDITOR")]
+[Conditional("PERSPEC_DEBUG")]  // Controlled by PERSPEC_DEBUG symbol only
 public static void Log(object message) {
     UnityEngine.Debug.Log(message);
 }
@@ -498,13 +520,13 @@ public static void Log(object message) {
 
 ### What Actually Happens
 
-**During Development (UNITY_EDITOR defined):**
+**When PERSPEC_DEBUG symbol is defined (editor or builds):**
 ```csharp
 // Your code compiles to:
-PerSpecDebug.Log($"Processing {items.Count} items");  // ✅ Executes
+PerSpecDebug.Log($"Processing {items.Count} items");  // ✅ Executes and shows in console
 ```
 
-**In Production Builds (no symbols defined):**
+**When PERSPEC_DEBUG symbol is NOT defined:**
 ```csharp
 // Your code compiles to:
 // [NOTHING - The entire line is removed by the C# compiler]

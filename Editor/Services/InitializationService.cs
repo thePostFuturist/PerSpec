@@ -144,6 +144,10 @@ namespace PerSpec.Editor.Services
                     // Still return true as directories were created successfully
                 }
                 
+                // Enable PerSpecDebug by default
+                BuildProfileHelper.AddCompilerDirective("PERSPEC_DEBUG");
+                Debug.Log("[PerSpec] PERSPEC_DEBUG symbol added - debug logging enabled");
+                
                 return true;
             }
             catch (Exception e)

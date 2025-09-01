@@ -5,7 +5,8 @@ namespace PerSpec
 {
     /// <summary>
     /// Debug logging wrapper for PerSpec framework.
-    /// All methods are stripped from builds when PERSPEC_DEBUG is not defined.
+    /// All methods are stripped when PERSPEC_DEBUG symbol is not defined.
+    /// Controlled by PERSPEC_DEBUG symbol only - works in editor and builds.
     /// Enable/disable via Tools > PerSpec > Debug Settings in Unity Editor.
     /// </summary>
     public static class PerSpecDebug
@@ -15,7 +16,7 @@ namespace PerSpec
         /// <summary>
         /// Logs a message to the Unity Console (stripped in production)
         /// </summary>
-        [Conditional("PERSPEC_DEBUG"), Conditional("UNITY_EDITOR")]
+        [Conditional("PERSPEC_DEBUG")]
         public static void Log(object message)
         {
             UnityEngine.Debug.Log(message);
@@ -24,7 +25,7 @@ namespace PerSpec
         /// <summary>
         /// Logs a message with context to the Unity Console (stripped in production)
         /// </summary>
-        [Conditional("PERSPEC_DEBUG"), Conditional("UNITY_EDITOR")]
+        [Conditional("PERSPEC_DEBUG")]
         public static void Log(object message, Object context)
         {
             UnityEngine.Debug.Log(message, context);
@@ -33,7 +34,7 @@ namespace PerSpec
         /// <summary>
         /// Logs a formatted message to the Unity Console (stripped in production)
         /// </summary>
-        [Conditional("PERSPEC_DEBUG"), Conditional("UNITY_EDITOR")]
+        [Conditional("PERSPEC_DEBUG")]
         public static void LogFormat(string format, params object[] args)
         {
             UnityEngine.Debug.LogFormat(format, args);
@@ -42,7 +43,7 @@ namespace PerSpec
         /// <summary>
         /// Logs a formatted message with context to the Unity Console (stripped in production)
         /// </summary>
-        [Conditional("PERSPEC_DEBUG"), Conditional("UNITY_EDITOR")]
+        [Conditional("PERSPEC_DEBUG")]
         public static void LogFormat(Object context, string format, params object[] args)
         {
             UnityEngine.Debug.LogFormat(context, format, args);
@@ -55,7 +56,7 @@ namespace PerSpec
         /// <summary>
         /// Logs an error message to the Unity Console (stripped in production)
         /// </summary>
-        [Conditional("PERSPEC_DEBUG"), Conditional("UNITY_EDITOR")]
+        [Conditional("PERSPEC_DEBUG")]
         public static void LogError(object message)
         {
             UnityEngine.Debug.LogError(message);
@@ -64,7 +65,7 @@ namespace PerSpec
         /// <summary>
         /// Logs an error message with context to the Unity Console (stripped in production)
         /// </summary>
-        [Conditional("PERSPEC_DEBUG"), Conditional("UNITY_EDITOR")]
+        [Conditional("PERSPEC_DEBUG")]
         public static void LogError(object message, Object context)
         {
             UnityEngine.Debug.LogError(message, context);
@@ -73,7 +74,7 @@ namespace PerSpec
         /// <summary>
         /// Logs a formatted error message to the Unity Console (stripped in production)
         /// </summary>
-        [Conditional("PERSPEC_DEBUG"), Conditional("UNITY_EDITOR")]
+        [Conditional("PERSPEC_DEBUG")]
         public static void LogErrorFormat(string format, params object[] args)
         {
             UnityEngine.Debug.LogErrorFormat(format, args);
@@ -82,7 +83,7 @@ namespace PerSpec
         /// <summary>
         /// Logs a formatted error message with context to the Unity Console (stripped in production)
         /// </summary>
-        [Conditional("PERSPEC_DEBUG"), Conditional("UNITY_EDITOR")]
+        [Conditional("PERSPEC_DEBUG")]
         public static void LogErrorFormat(Object context, string format, params object[] args)
         {
             UnityEngine.Debug.LogErrorFormat(context, format, args);
@@ -95,7 +96,7 @@ namespace PerSpec
         /// <summary>
         /// Logs a warning message to the Unity Console (stripped in production)
         /// </summary>
-        [Conditional("PERSPEC_DEBUG"), Conditional("UNITY_EDITOR")]
+        [Conditional("PERSPEC_DEBUG")]
         public static void LogWarning(object message)
         {
             UnityEngine.Debug.LogWarning(message);
@@ -104,7 +105,7 @@ namespace PerSpec
         /// <summary>
         /// Logs a warning message with context to the Unity Console (stripped in production)
         /// </summary>
-        [Conditional("PERSPEC_DEBUG"), Conditional("UNITY_EDITOR")]
+        [Conditional("PERSPEC_DEBUG")]
         public static void LogWarning(object message, Object context)
         {
             UnityEngine.Debug.LogWarning(message, context);
@@ -117,7 +118,7 @@ namespace PerSpec
         /// <summary>
         /// Logs a test setup message (stripped in production)
         /// </summary>
-        [Conditional("PERSPEC_DEBUG"), Conditional("UNITY_EDITOR")]
+        [Conditional("PERSPEC_DEBUG")]
         public static void LogTestSetup(string message)
         {
             UnityEngine.Debug.Log($"[TEST-SETUP] {message}");
@@ -126,7 +127,7 @@ namespace PerSpec
         /// <summary>
         /// Logs a test action message (stripped in production)
         /// </summary>
-        [Conditional("PERSPEC_DEBUG"), Conditional("UNITY_EDITOR")]
+        [Conditional("PERSPEC_DEBUG")]
         public static void LogTestAction(string message)
         {
             UnityEngine.Debug.Log($"[TEST-ACT] {message}");
@@ -135,7 +136,7 @@ namespace PerSpec
         /// <summary>
         /// Logs a test assertion message (stripped in production)
         /// </summary>
-        [Conditional("PERSPEC_DEBUG"), Conditional("UNITY_EDITOR")]
+        [Conditional("PERSPEC_DEBUG")]
         public static void LogTestAssert(string message)
         {
             UnityEngine.Debug.Log($"[TEST-ASSERT] {message}");
@@ -144,7 +145,7 @@ namespace PerSpec
         /// <summary>
         /// Logs a test completion message (stripped in production)
         /// </summary>
-        [Conditional("PERSPEC_DEBUG"), Conditional("UNITY_EDITOR")]
+        [Conditional("PERSPEC_DEBUG")]
         public static void LogTestComplete(string message)
         {
             UnityEngine.Debug.Log($"[TEST-COMPLETE] {message}");
@@ -153,7 +154,7 @@ namespace PerSpec
         /// <summary>
         /// Logs a test error message (stripped in production)
         /// </summary>
-        [Conditional("PERSPEC_DEBUG"), Conditional("UNITY_EDITOR")]
+        [Conditional("PERSPEC_DEBUG")]
         public static void LogTestError(string message)
         {
             UnityEngine.Debug.LogError($"[TEST-ERROR] {message}");
@@ -166,7 +167,7 @@ namespace PerSpec
         /// <summary>
         /// Logs a feature start message (stripped in production)
         /// </summary>
-        [Conditional("PERSPEC_DEBUG"), Conditional("UNITY_EDITOR")]
+        [Conditional("PERSPEC_DEBUG")]
         public static void LogFeatureStart(string feature, string message)
         {
             UnityEngine.Debug.Log($"[{feature.ToUpper()}-START] {message}");
@@ -175,7 +176,7 @@ namespace PerSpec
         /// <summary>
         /// Logs a feature progress message (stripped in production)
         /// </summary>
-        [Conditional("PERSPEC_DEBUG"), Conditional("UNITY_EDITOR")]
+        [Conditional("PERSPEC_DEBUG")]
         public static void LogFeatureProgress(string feature, string message)
         {
             UnityEngine.Debug.Log($"[{feature.ToUpper()}-PROGRESS] {message}");
@@ -184,7 +185,7 @@ namespace PerSpec
         /// <summary>
         /// Logs a feature completion message (stripped in production)
         /// </summary>
-        [Conditional("PERSPEC_DEBUG"), Conditional("UNITY_EDITOR")]
+        [Conditional("PERSPEC_DEBUG")]
         public static void LogFeatureComplete(string feature, string message)
         {
             UnityEngine.Debug.Log($"[{feature.ToUpper()}-COMPLETE] {message}");
@@ -193,7 +194,7 @@ namespace PerSpec
         /// <summary>
         /// Logs a feature error message (stripped in production)
         /// </summary>
-        [Conditional("PERSPEC_DEBUG"), Conditional("UNITY_EDITOR")]
+        [Conditional("PERSPEC_DEBUG")]
         public static void LogFeatureError(string feature, string message)
         {
             UnityEngine.Debug.LogError($"[{feature.ToUpper()}-ERROR] {message}");
@@ -206,7 +207,7 @@ namespace PerSpec
         /// <summary>
         /// Assert a condition in debug builds (stripped in production)
         /// </summary>
-        [Conditional("PERSPEC_DEBUG"), Conditional("UNITY_EDITOR")]
+        [Conditional("PERSPEC_DEBUG")]
         public static void Assert(bool condition, string message = null)
         {
             if (!condition)
@@ -219,7 +220,7 @@ namespace PerSpec
         /// <summary>
         /// Assert a condition with formatted message (stripped in production)
         /// </summary>
-        [Conditional("PERSPEC_DEBUG"), Conditional("UNITY_EDITOR")]
+        [Conditional("PERSPEC_DEBUG")]
         public static void AssertFormat(bool condition, string format, params object[] args)
         {
             if (!condition)

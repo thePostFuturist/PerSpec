@@ -763,7 +763,8 @@ PerSpecDebug.LogTestComplete(""Test passed"");";
                     "Claude (CLAUDE.md)",
                     "Cursor (.cursorrules)",
                     "OpenAI Codex (.openai-codex.md)",
-                    "Gemini CLI (.gemini/config.md)"
+                    "Gemini CLI (.gemini/config.md)",
+                    "OpenRouter/Buddy (.buddyrules)"
                 };
                 
                 EditorGUILayout.BeginHorizontal();
@@ -877,7 +878,8 @@ Supported LLMs:
                 { "Claude (CLAUDE.md)", "CLAUDE.md" },
                 { "Cursor (.cursorrules)", ".cursorrules" },
                 { "OpenAI Codex", ".openai-codex.md" },
-                { "Gemini CLI", Path.Combine(".gemini", "config.md") }
+                { "Gemini CLI", Path.Combine(".gemini", "config.md") },
+                { "OpenRouter/Buddy", ".buddyrules" }
             };
             
             foreach (var file in llmFiles)
@@ -1103,6 +1105,9 @@ Supported LLMs:
                     if (!Directory.Exists(geminiDir))
                         Directory.CreateDirectory(geminiDir);
                     configPath = Path.Combine(geminiDir, "config.md");
+                    break;
+                case 4: // OpenRouter/Buddy
+                    configPath = Path.Combine(projectPath, ".buddyrules");
                     break;
             }
             
@@ -1389,6 +1394,8 @@ Note: Use the convenience scripts in PerSpec/Scripts/ or run from package locati
                 return "OpenAI";
             else if (configPath.Contains(".gemini"))
                 return "Gemini";
+            else if (fileName.Contains("buddy"))
+                return "OpenRouter";
             
             return "Unknown";
         }
@@ -1401,6 +1408,7 @@ Note: Use the convenience scripts in PerSpec/Scripts/ or run from package locati
                 case 1: return "Cursor";
                 case 2: return "OpenAI";
                 case 3: return "Gemini";
+                case 4: return "OpenRouter";
                 default: return "Unknown";
             }
         }

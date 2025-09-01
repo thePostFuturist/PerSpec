@@ -129,3 +129,6 @@ node_modules/
 .local/
 *.local
 *.private
+
+# Marketing materials (internal use only)
+Marketing/
