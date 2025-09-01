@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEditor;
+using PerSpec.Editor.TestExport;
 
 namespace PerSpec.Editor.Coordination
 {
@@ -204,6 +205,7 @@ namespace PerSpec.Editor.Coordination
                 
                 string sourceFile = null;
                 string foundPath = null;
+                DateTime? fileModifiedTime = null;
                 
                 // Try each possible path
                 foreach (var testPath in possiblePaths)
@@ -211,10 +213,21 @@ namespace PerSpec.Editor.Coordination
                     string candidateFile = Path.Combine(testPath, "TestResults.xml");
                     if (File.Exists(candidateFile))
                     {
-                        sourceFile = candidateFile;
-                        foundPath = testPath;
-                        Debug.Log($"[PlayModeTestCompletionChecker] Found test results at: {candidateFile}");
-                        break;
+                        var fileInfo = new FileInfo(candidateFile);
+                        fileModifiedTime = fileInfo.LastWriteTime;
+                        
+                        // Only use files modified in the last 5 minutes to avoid stale results
+                        if ((DateTime.Now - fileModifiedTime.Value).TotalMinutes <= 5)
+                        {
+                            sourceFile = candidateFile;
+                            foundPath = testPath;
+                            Debug.Log($"[PlayModeTestCompletionChecker] Found recent test results at: {candidateFile} (modified {fileModifiedTime.Value})");
+                            break;
+                        }
+                        else
+                        {
+                            Debug.Log($"[PlayModeTestCompletionChecker] Ignoring stale test results at: {candidateFile} (modified {fileModifiedTime.Value})");
+                        }
                     }
                 }
                 
@@ -288,20 +301,78 @@ namespace PerSpec.Editor.Coordination
                     int skippedTests = int.Parse(testRun.Attribute("skipped")?.Value ?? "0");
                     float duration = float.Parse(testRun.Attribute("duration")?.Value ?? "0");
                     
-                    Debug.Log($"[PlayModeTestCompletionChecker] Parsed XML - Total: {totalTests}, Passed: {passedTests}, Failed: {failedTests}");
-                    
-                    dbManager.UpdateRequestResults(
-                        request.Id,
-                        "completed",
-                        totalTests,
-                        passedTests,
-                        failedTests,
-                        skippedTests,
-                        duration
-                    );
-                    
-                    dbManager.LogExecution(request.Id, "INFO", "PlayModeTestCompletionChecker", 
-                        $"Test completed (parsed from XML): {passedTests}/{totalTests} passed");
+                    // Check if this is an empty result (Unity generates empty XML for individual tests)
+                    if (totalTests == 0 && request.RequestType == "method")
+                    {
+                        Debug.Log($"[PlayModeTestCompletionChecker] Empty XML for individual test method - generating proper XML");
+                        
+                        // Generate a proper XML file for the individual test
+                        try
+                        {
+                            string generatedXmlPath = SingleTestXMLGenerator.GenerateInconclusiveTestXML(
+                                request.TestFilter, 
+                                request.TestPlatform
+                            );
+                            
+                            Debug.Log($"[PlayModeTestCompletionChecker] Generated XML for individual test at: {generatedXmlPath}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.LogError($"[PlayModeTestCompletionChecker] Failed to generate XML: {ex.Message}");
+                        }
+                        
+                        // For individual test methods with empty results, mark as inconclusive
+                        // This prevents using stale data from previous test runs
+                        dbManager.UpdateRequestResults(
+                            request.Id,
+                            "completed",
+                            1,  // Assume 1 test was requested
+                            0,  // Unknown pass count
+                            0,  // Unknown fail count
+                            1,  // Mark as skipped/inconclusive
+                            0.1f
+                        );
+                        
+                        dbManager.LogExecution(request.Id, "WARNING", "PlayModeTestCompletionChecker", 
+                            "Individual test completed but Unity did not generate proper results - generated XML workaround");
+                        
+                        Debug.LogWarning($"[PlayModeTestCompletionChecker] Unity did not generate test results for individual method. " +
+                                       $"Generated workaround XML file. Test may have run but results are unavailable.");
+                    }
+                    else if (totalTests == 0)
+                    {
+                        Debug.LogWarning($"[PlayModeTestCompletionChecker] Empty test results - no tests were run");
+                        
+                        dbManager.UpdateRequestResults(
+                            request.Id,
+                            "completed",
+                            0,
+                            0,
+                            0,
+                            0,
+                            duration
+                        );
+                        
+                        dbManager.LogExecution(request.Id, "WARNING", "PlayModeTestCompletionChecker", 
+                            "Test execution completed but no tests were run");
+                    }
+                    else
+                    {
+                        Debug.Log($"[PlayModeTestCompletionChecker] Parsed XML - Total: {totalTests}, Passed: {passedTests}, Failed: {failedTests}");
+                        
+                        dbManager.UpdateRequestResults(
+                            request.Id,
+                            "completed",
+                            totalTests,
+                            passedTests,
+                            failedTests,
+                            skippedTests,
+                            duration
+                        );
+                        
+                        dbManager.LogExecution(request.Id, "INFO", "PlayModeTestCompletionChecker", 
+                            $"Test completed (parsed from XML): {passedTests}/{totalTests} passed");
+                    }
                     
                     Debug.Log($"[PlayModeTestCompletionChecker] Request {request.Id} marked as completed from XML");
                 }

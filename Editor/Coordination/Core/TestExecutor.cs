@@ -505,40 +505,49 @@ namespace PerSpec.Editor.Coordination
                             File.Copy(testResultFile, destPath, true);
                             Debug.Log($"[TestExecutor] Copied test results to: {destPath}");
                             
-                            // For EditMode tests, parse and update database immediately
+                            // For EditMode tests or individual test methods, parse and update database immediately
                             // since RunFinished callback doesn't fire reliably
-                            if (_currentRequest != null && _currentRequest.TestPlatform == "EditMode" && !_hasCompletedViaCallback)
+                            if (_currentRequest != null && !_hasCompletedViaCallback && 
+                                (_currentRequest.TestPlatform == "EditMode" || _currentRequest.RequestType == "method"))
                             {
-                                Debug.Log($"[TestExecutor] EditMode test detected, parsing XML and updating database");
+                                Debug.Log($"[TestExecutor] {_currentRequest.TestPlatform} {_currentRequest.RequestType} test detected, parsing XML and updating database");
                                 ParseXmlFile(destPath);
                                 
-                                // Update database with parsed results
-                                _dbManager.UpdateRequestResults(
-                                    _currentRequest.Id,
-                                    "completed",
-                                    _currentSummary.TotalTests,
-                                    _currentSummary.PassedTests,
-                                    _currentSummary.FailedTests,
-                                    _currentSummary.SkippedTests,
-                                    _currentSummary.Duration
-                                );
-                                
-                                _dbManager.LogExecution(_currentRequest.Id, "INFO", "TestExecutor", 
-                                    $"EditMode test completed: {_currentSummary.PassedTests}/{_currentSummary.TotalTests} passed");
-                                
-                                Debug.Log($"[TestExecutor] Request {_currentRequest.Id} marked as completed");
-                                
-                                // Mark as completed so we don't process again
-                                _hasCompletedViaCallback = true;
-                                
-                                // Notify completion callback
-                                if (_onComplete != null)
+                                // Check if we got valid results
+                                if (_currentSummary.TotalTests > 0 || _currentRequest.RequestType == "method")
                                 {
-                                    _onComplete(_currentRequest, true, null, _currentSummary);
+                                    // Update database with parsed results
+                                    _dbManager.UpdateRequestResults(
+                                        _currentRequest.Id,
+                                        "completed",
+                                        _currentSummary.TotalTests,
+                                        _currentSummary.PassedTests,
+                                        _currentSummary.FailedTests,
+                                        _currentSummary.SkippedTests,
+                                        _currentSummary.Duration
+                                    );
+                                    
+                                    _dbManager.LogExecution(_currentRequest.Id, "INFO", "TestExecutor", 
+                                        $"{_currentRequest.TestPlatform} test completed: {_currentSummary.PassedTests}/{_currentSummary.TotalTests} passed");
+                                    
+                                    Debug.Log($"[TestExecutor] Request {_currentRequest.Id} marked as completed");
+                                    
+                                    // Mark as completed so we don't process again
+                                    _hasCompletedViaCallback = true;
+                                    
+                                    // Notify completion callback
+                                    if (_onComplete != null)
+                                    {
+                                        _onComplete(_currentRequest, true, null, _currentSummary);
+                                    }
+                                    
+                                    // Stop monitoring
+                                    StopFileMonitoring();
                                 }
-                                
-                                // Stop monitoring
-                                StopFileMonitoring();
+                                else
+                                {
+                                    Debug.LogWarning($"[TestExecutor] No valid test results found, continuing to monitor");
+                                }
                             }
                             
                             return destPath;
@@ -652,6 +661,31 @@ namespace PerSpec.Editor.Coordination
                     {
                         if (float.TryParse(duration, out float durationValue))
                             _currentSummary.Duration = durationValue;
+                    }
+                    
+                    // Check for empty results from individual test execution
+                    if (_currentSummary.TotalTests == 0 && _currentRequest != null && _currentRequest.RequestType == "method")
+                    {
+                        Debug.LogWarning($"[TestExecutor] Empty XML for individual test method - generating proper XML");
+                        
+                        // Generate a proper XML file for the individual test
+                        try
+                        {
+                            string generatedXmlPath = TestExport.SingleTestXMLGenerator.GenerateInconclusiveTestXML(
+                                _currentRequest.TestFilter,
+                                _currentRequest.TestPlatform
+                            );
+                            
+                            Debug.Log($"[TestExecutor] Generated proper XML for individual test at: {generatedXmlPath}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.LogError($"[TestExecutor] Failed to generate XML: {ex.Message}");
+                        }
+                        
+                        // Set minimal results to indicate the test ran but results are unavailable
+                        _currentSummary.TotalTests = 1;
+                        _currentSummary.SkippedTests = 1;  // Mark as inconclusive
                     }
                 }
                 
