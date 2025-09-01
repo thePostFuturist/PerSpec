@@ -29,7 +29,7 @@ def main():
     parser.add_argument('--timeout', type=int, default=60,
                        help='Timeout in seconds (default: 60)')
     parser.add_argument('--focus', action='store_true',
-                       help='Focus Unity window after submitting request')
+                       help='Focus Unity window before submitting request (Windows only)')
     
     args = parser.parse_args()
     
@@ -89,21 +89,26 @@ def main():
                 print("No pending asset refresh requests")
         
         elif args.action == 'full':
+            # Focus Unity BEFORE submitting request for immediate processing
+            if args.focus:
+                try:
+                    import unity_focus
+                    print("Focusing Unity window...")
+                    if unity_focus.focus_unity():
+                        print("Unity window focused")
+                    else:
+                        print("Could not focus Unity window")
+                except ImportError:
+                    print("Warning: unity_focus module not found")
+                except Exception as e:
+                    print(f"Could not focus Unity: {e}")
+            
             # Submit full refresh request
             request_id = coordinator.submit_refresh_request(
                 RefreshType.FULL,
                 import_options=import_options,
                 priority=args.priority
             )
-            
-            # Focus Unity if requested
-            if args.focus:
-                try:
-                    import unity_focus
-                    print("Focusing Unity window...")
-                    unity_focus.focus_after_delay(1)
-                except Exception as e:
-                    print(f"Could not focus Unity: {e}")
             
             # Wait if requested
             if args.wait:
@@ -118,6 +123,20 @@ def main():
                 print("Error: At least one path required for selective refresh")
                 sys.exit(1)
             
+            # Focus Unity BEFORE submitting request for immediate processing
+            if args.focus:
+                try:
+                    import unity_focus
+                    print("Focusing Unity window...")
+                    if unity_focus.focus_unity():
+                        print("Unity window focused")
+                    else:
+                        print("Could not focus Unity window")
+                except ImportError:
+                    print("Warning: unity_focus module not found")
+                except Exception as e:
+                    print(f"Could not focus Unity: {e}")
+            
             # Submit selective refresh request
             request_id = coordinator.submit_refresh_request(
                 RefreshType.SELECTIVE,
@@ -125,15 +144,6 @@ def main():
                 import_options=import_options,
                 priority=args.priority
             )
-            
-            # Focus Unity if requested
-            if args.focus:
-                try:
-                    import unity_focus
-                    print("Focusing Unity window...")
-                    unity_focus.focus_after_delay(1)
-                except Exception as e:
-                    print(f"Could not focus Unity: {e}")
             
             # Wait if requested
             if args.wait:

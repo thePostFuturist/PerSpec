@@ -85,7 +85,7 @@ Unity Editor polls the database every second and will:
 ### Basic Usage
 
 ```python
-from Packages.com.perspec.framework.ScriptingTools.Coordination.Scripts.test_coordinator import TestCoordinator, TestPlatform, TestRequestType
+from test_coordinator import TestCoordinator, TestPlatform, TestRequestType  # Located in PerSpec/Coordination/Scripts/
 
 coordinator = TestCoordinator()
 
@@ -106,7 +106,7 @@ coordinator.print_summary(request_id)
 ### Quick Functions
 
 ```python
-from Packages.com.perspec.framework.ScriptingTools.Coordination.Scripts.test_coordinator import run_all_tests, run_test_class
+from test_coordinator import run_all_tests, run_test_class  # Located in PerSpec/Coordination/Scripts/
 
 # Quick test execution
 request_id = run_all_tests(TestPlatform.BOTH)
@@ -116,7 +116,7 @@ request_id = run_test_class("MyTestClass", TestPlatform.EDIT_MODE)
 ### Asset Refresh API
 
 ```python
-from Packages.com.perspec.framework.ScriptingTools.Coordination.Scripts.asset_refresh_coordinator import (
+from asset_refresh_coordinator import (  # Located in PerSpec/Coordination/Scripts/
     AssetRefreshCoordinator, RefreshType, ImportOptions,
     refresh_all_assets, refresh_specific_paths
 )
@@ -232,7 +232,7 @@ python PerSpec/Coordination/Scripts/quick_logs.py export custom.txt
 
 ### Programmatic Access
 ```python
-from Packages.com.perspec.framework.ScriptingTools.Coordination.Scripts.console_log_reader import ConsoleLogReader, LogLevel
+from console_log_reader import ConsoleLogReader, LogLevel  # Located in PerSpec/Coordination/Scripts/
 
 reader = ConsoleLogReader()
 

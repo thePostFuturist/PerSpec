@@ -43,7 +43,7 @@ assistant: "I'll use the test-coordination-agent to coordinate asset refresh via
 
 ### Python Interface
 ```python
-from Packages.com.perspec.framework.ScriptingTools.Coordination.Scripts.test_coordinator import TestCoordinator, TestPlatform, TestRequestType
+from test_coordinator import TestCoordinator, TestPlatform, TestRequestType  # Located in PerSpec/Coordination/Scripts/
 
 coordinator = TestCoordinator()
 request_id = coordinator.submit_test_request(

@@ -22,6 +22,15 @@ namespace PerSpec.Runtime.DOTS
         protected string testName;
         protected CancellationTokenSource testCancellationTokenSource;
         
+        // Operation tracking for graceful shutdown
+        private readonly System.Collections.Generic.HashSet<string> runningOperations = new System.Collections.Generic.HashSet<string>();
+        private readonly object operationLock = new object();
+        
+        // Configuration
+        protected virtual int GracefulShutdownTimeoutMs => 5000;
+        protected virtual bool EnableOperationTracking => true;
+        protected virtual bool LogOperationLifecycle => false;
+        
         #endregion
         
         #region Setup and Teardown
@@ -46,13 +55,125 @@ namespace PerSpec.Runtime.DOTS
         {
             Debug.Log($"[DOTS-TEST] {testName} completed");
             
-            // Cancel any running async operations
+            // Graceful shutdown: wait for operations to complete
+            if (EnableOperationTracking)
+            {
+                WaitForOperationsToComplete();
+            }
+            
+            // Now cancel any remaining operations
             testCancellationTokenSource?.Cancel();
             testCancellationTokenSource?.Dispose();
             
             if (testWorld != null && testWorld.IsCreated)
             {
                 testWorld.Dispose();
+            }
+        }
+        
+        #endregion
+        
+        #region Operation Tracking
+        
+        /// <summary>
+        /// Waits for all running operations to complete or timeout
+        /// </summary>
+        private void WaitForOperationsToComplete()
+        {
+            var startTime = DateTime.Now;
+            var timeout = TimeSpan.FromMilliseconds(GracefulShutdownTimeoutMs);
+            
+            while (true)
+            {
+                lock (operationLock)
+                {
+                    if (runningOperations.Count == 0)
+                    {
+                        Debug.Log($"[DOTS-TEST] All operations completed gracefully");
+                        return;
+                    }
+                    
+                    if (DateTime.Now - startTime > timeout)
+                    {
+                        Debug.LogWarning($"[DOTS-TEST] Timeout waiting for {runningOperations.Count} operations to complete: {string.Join(", ", runningOperations)}");
+                        return;
+                    }
+                }
+                
+                // Small delay to avoid busy waiting
+                System.Threading.Thread.Sleep(10);
+            }
+        }
+        
+        /// <summary>
+        /// Registers an operation as running
+        /// </summary>
+        protected string BeginOperation(string operationName)
+        {
+            if (!EnableOperationTracking) return operationName;
+            
+            var operationId = $"{operationName}_{Guid.NewGuid():N}";
+            lock (operationLock)
+            {
+                runningOperations.Add(operationId);
+                if (LogOperationLifecycle)
+                {
+                    Debug.Log($"[DOTS-OPERATION] Started: {operationId}");
+                }
+            }
+            return operationId;
+        }
+        
+        /// <summary>
+        /// Marks an operation as completed
+        /// </summary>
+        protected void EndOperation(string operationId)
+        {
+            if (!EnableOperationTracking) return;
+            
+            lock (operationLock)
+            {
+                if (runningOperations.Remove(operationId))
+                {
+                    if (LogOperationLifecycle)
+                    {
+                        Debug.Log($"[DOTS-OPERATION] Completed: {operationId}");
+                    }
+                }
+            }
+        }
+        
+        /// <summary>
+        /// Runs an operation with automatic tracking
+        /// </summary>
+        protected async UniTask<T> RunTrackedOperationAsync<T>(string operationName, Func<CancellationToken, UniTask<T>> operation, CancellationToken cancellationToken = default)
+        {
+            var operationId = BeginOperation(operationName);
+            try
+            {
+                var token = cancellationToken == default ? testCancellationTokenSource.Token : cancellationToken;
+                return await operation(token);
+            }
+            finally
+            {
+                EndOperation(operationId);
+            }
+        }
+        
+        /// <summary>
+        /// Runs an operation with automatic tracking (void version)
+        /// </summary>
+        protected async UniTask RunTrackedOperationAsync(string operationName, Func<CancellationToken, UniTask> operation, CancellationToken cancellationToken = default)
+        {
+            var operationId = BeginOperation(operationName);
+            try
+            {
+                var token = cancellationToken == default ? testCancellationTokenSource.Token : cancellationToken;
+                await operation(token);
+            }
+            finally
+            {
+                EndOperation(operationId);
             }
         }
         
@@ -135,24 +256,27 @@ namespace PerSpec.Runtime.DOTS
         }
         
         /// <summary>
-        /// Profiles memory allocation during DOTS operation
+        /// Profiles memory allocation during DOTS operation with tracking
         /// </summary>
         protected async UniTask<long> ProfileDOTSMemoryAsync(Func<UniTask> operation)
         {
-            await UniTask.SwitchToMainThread();
-            
-            System.GC.Collect();
-            System.GC.WaitForPendingFinalizers();
-            System.GC.Collect();
-            
-            var startMemory = System.GC.GetTotalMemory(false);
-            await operation();
-            var endMemory = System.GC.GetTotalMemory(false);
-            
-            var allocated = endMemory - startMemory;
-            Debug.Log($"[DOTS-MEMORY] Allocated: {allocated:N0} bytes");
-            
-            return allocated;
+            return await RunTrackedOperationAsync("ProfileMemory", async (token) =>
+            {
+                await UniTask.SwitchToMainThread(token);
+                
+                System.GC.Collect();
+                System.GC.WaitForPendingFinalizers();
+                System.GC.Collect();
+                
+                var startMemory = System.GC.GetTotalMemory(false);
+                await operation();
+                var endMemory = System.GC.GetTotalMemory(false);
+                
+                var allocated = endMemory - startMemory;
+                Debug.Log($"[DOTS-MEMORY] Allocated: {allocated:N0} bytes");
+                
+                return allocated;
+            });
         }
         
         #endregion
@@ -164,49 +288,59 @@ namespace PerSpec.Runtime.DOTS
         #region Async Wait Methods
         
         /// <summary>
-        /// Waits for specified frames using UniTask
+        /// Waits for specified frames using UniTask with operation tracking
         /// </summary>
         protected async UniTask WaitForFramesAsync(int frameCount, CancellationToken cancellationToken = default)
         {
-            var token = cancellationToken == default ? testCancellationTokenSource.Token : cancellationToken;
-            
-            for (int i = 0; i < frameCount; i++)
+            await RunTrackedOperationAsync($"WaitForFrames_{frameCount}", async (token) =>
             {
-                await UniTask.Yield(token);
-            }
+                for (int i = 0; i < frameCount; i++)
+                {
+                    token.ThrowIfCancellationRequested();
+                    await UniTask.Yield(token);
+                }
+            }, cancellationToken);
         }
         
         /// <summary>
-        /// Waits for a job to complete asynchronously
+        /// Waits for a job to complete asynchronously with operation tracking
         /// </summary>
         protected async UniTask WaitForJobAsync(JobHandle jobHandle, CancellationToken cancellationToken = default)
         {
-            var token = cancellationToken == default ? testCancellationTokenSource.Token : cancellationToken;
-            
-            while (!jobHandle.IsCompleted)
+            await RunTrackedOperationAsync("WaitForJob", async (token) =>
             {
-                await UniTask.Yield(token);
-            }
-            
-            jobHandle.Complete();
+                while (!jobHandle.IsCompleted)
+                {
+                    token.ThrowIfCancellationRequested();
+                    await UniTask.Yield(token);
+                }
+                
+                jobHandle.Complete();
+            }, cancellationToken);
         }
         
         /// <summary>
-        /// Waits for system update asynchronously
+        /// Waits for system update asynchronously with operation tracking
         /// </summary>
         protected async UniTask WaitForSystemUpdateAsync<T>(CancellationToken cancellationToken = default) where T : SystemBase
         {
-            var token = cancellationToken == default ? testCancellationTokenSource.Token : cancellationToken;
-            var systemHandle = testWorld.GetExistingSystem<T>();
-            
-            if (systemHandle == SystemHandle.Null)
+            await RunTrackedOperationAsync($"WaitForSystem_{typeof(T).Name}", async (token) =>
             {
-                throw new InvalidOperationException($"System {typeof(T).Name} not found in test world");
-            }
-            
-            await UniTask.Yield(token);
-            systemHandle.Update(testWorld.Unmanaged);
-            await UniTask.Yield(token);
+                var systemHandle = testWorld.GetExistingSystem<T>();
+                
+                if (systemHandle == SystemHandle.Null)
+                {
+                    throw new InvalidOperationException($"System {typeof(T).Name} not found in test world");
+                }
+                
+                token.ThrowIfCancellationRequested();
+                await UniTask.Yield(token);
+                
+                systemHandle.Update(testWorld.Unmanaged);
+                
+                token.ThrowIfCancellationRequested();
+                await UniTask.Yield(token);
+            }, cancellationToken);
         }
         
         #endregion
@@ -223,16 +357,19 @@ namespace PerSpec.Runtime.DOTS
         }
         
         /// <summary>
-        /// Runs a DOTS operation with performance timing
+        /// Runs a DOTS operation with performance timing and tracking
         /// </summary>
         protected async UniTask<float> MeasureDOTSOperationAsync(Func<UniTask> operation, string operationName)
         {
-            var startTime = Time.realtimeSinceStartup;
-            await operation();
-            var elapsed = Time.realtimeSinceStartup - startTime;
-            
-            Debug.Log($"[DOTS-TIMING] {operationName}: {elapsed * 1000:F2}ms");
-            return elapsed;
+            return await RunTrackedOperationAsync($"DOTSMeasure_{operationName}", async (token) =>
+            {
+                var startTime = Time.realtimeSinceStartup;
+                await operation();
+                var elapsed = Time.realtimeSinceStartup - startTime;
+                
+                Debug.Log($"[DOTS-TIMING] {operationName}: {elapsed * 1000:F2}ms");
+                return elapsed;
+            });
         }
         
         /// <summary>

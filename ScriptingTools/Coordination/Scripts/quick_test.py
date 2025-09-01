@@ -26,6 +26,8 @@ def main():
                        help='Wait for test completion')
     parser.add_argument('--timeout', type=int, default=300,
                        help='Timeout in seconds (default: 300)')
+    parser.add_argument('--focus', action='store_true',
+                       help='Focus Unity window before running tests (Windows only)')
     
     args = parser.parse_args()
     
@@ -83,6 +85,20 @@ def main():
             if args.action != 'all' and not test_filter:
                 print(f"Error: {args.action} requires a target")
                 sys.exit(1)
+            
+            # Focus Unity BEFORE submitting request for immediate processing
+            if args.focus:
+                try:
+                    import unity_focus
+                    print("Focusing Unity window...")
+                    if unity_focus.focus_unity():
+                        print("Unity window focused")
+                    else:
+                        print("Could not focus Unity window")
+                except ImportError:
+                    print("Warning: unity_focus module not found")
+                except Exception as e:
+                    print(f"Could not focus Unity: {e}")
             
             # Submit the request
             request_id = coordinator.submit_test_request(

@@ -85,7 +85,7 @@ We use **SQLite database + Python scripts** for more reliable Unity coordination
 - **Queued Execution**: Operations queue up when Unity is minimized and execute when it regains focus
 - **Not Real-Time**: This is a pragmatic workaround, not true real-time coordination
 
-💡 **Tip**: If tests seem stuck or operations are slow, click on the Unity Editor window to give it focus. The queued operations will then execute at full speed.
+✨ **Auto-Focus**: PerSpec automatically brings the Unity Editor to the foreground on Windows and macOS when operations need to execute. No manual clicking required - commands run at full speed automatically!
 
 ### How It Works
 ```python
@@ -95,14 +95,44 @@ conn = sqlite3.connect("test_coordination.db")
 conn.execute("INSERT INTO commands (type, data) VALUES ('refresh', 'full')")
 conn.commit()
 # Unity polls database every second (even when not in focus)
-# Commands queue up and execute when Unity has focus
+# PerSpec automatically focuses Unity when operations are ready
 ```
 
 The Unity editor uses a background timer to poll the SQLite database:
 - **Commands are queued** when Unity isn't the active window
+- **Automatic focus management** brings Unity to foreground when needed (Windows/macOS)
 - **Test results are captured** once Unity processes them
-- **No "connection lost" errors** (unlike network-based solutions)
+- **Database persists through everything** - no state loss ever
 - **More reliable than MCP** but still subject to Unity's limitations
+
+### Automatic Unity Focus Management
+
+PerSpec includes smart focus management that ensures your operations execute at full speed:
+
+**Windows & macOS Support:**
+- Automatically brings Unity Editor to the foreground when commands are ready
+- No manual intervention needed - just run your commands
+- Operations execute immediately at full speed
+- Works seamlessly with multi-monitor setups
+
+**macOS First-Time Setup:**
+- **First Run**: macOS may ask to grant Terminal/Python accessibility permissions
+  - Go to: System Preferences → Security & Privacy → Privacy → Accessibility
+  - Add Terminal or your Python executable
+- **Security Note**: This is a standard macOS security feature for automation, not a limitation of PerSpec
+
+**How it works:**
+```csharp
+// When database has pending commands
+if (HasPendingCommands()) {
+    // Automatically focus Unity Editor window
+    BringUnityToFront();  // Platform-specific implementation
+    // Commands execute at full speed
+    ExecuteCommands();
+}
+```
+
+This eliminates the focus throttling issue entirely - your tests and operations run at maximum speed without you having to click on Unity!
 
 ## ✨ The PerSpec Solution
 
@@ -213,13 +243,13 @@ This is the heart of PerSpec - your LLM will follow this automatically:
 # LLM creates test first, then implementation
 
 # Step 2: Refresh Unity
-python ScriptingTools/Coordination/Scripts/quick_refresh.py full --wait
+python PerSpec/Coordination/Scripts/quick_refresh.py full --wait
 
 # Step 3: Check for errors (must be clean!)
-python ScriptingTools/Coordination/Scripts/quick_logs.py errors
+python PerSpec/Coordination/Scripts/quick_logs.py errors
 
 # Step 4: Run tests
-python ScriptingTools/Coordination/Scripts/quick_test.py all -p edit --wait
+python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait
 # If tests fail, loop back to Step 1
 ```
 

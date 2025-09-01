@@ -5,6 +5,27 @@ All notable changes to the PerSpec Testing Framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2] - Sep 1, 2025
+
+### Added
+- Enhanced CLAUDE.md documentation with MCP-like natural language command mappings
+- Test results automatic export to PerSpec/TestResults/ directory
+- Console log export functionality to PerSpec/Logs/ with auto-cleanup
+- Improved command execution permissions documentation
+- Simplified script access with fixed paths in PerSpec/Coordination/Scripts/
+
+### Changed
+- Updated natural language command recognition for better user experience
+- Improved test result file management with timestamp-based naming
+- Enhanced error message filtering and logging patterns
+- Streamlined TDD workflow documentation with clearer step-by-step instructions
+
+### Fixed
+- Test result persistence across Unity restarts
+- Console log export path consistency
+- Background polling reliability improvements
+- SQLite coordination edge cases during Unity focus loss
+
 ## [1.0.0] - Aug 28, 2025
 
 ### Added

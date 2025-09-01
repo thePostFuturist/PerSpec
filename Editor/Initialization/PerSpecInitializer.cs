@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using UnityEngine;
 using UnityEditor;
+using UnityEditor.PackageManager;
 using PerSpec.Editor.Services;
 
 namespace PerSpec.Editor.Initialization
@@ -16,6 +17,16 @@ namespace PerSpec.Editor.Initialization
         private static string DatabasePath => Path.Combine(ProjectPerSpecPath, "test_coordination.db");
         private static bool hasShownThisSession = false;
         
+        // Version tracking
+        private const string VERSION_PREF_KEY = "PerSpec_LastKnownVersion";
+        private const string PACKAGE_NAME = "com.digitraver.perspec";
+        private const string CURRENT_VERSION = "1.0.0";  // Should match package.json
+        
+        // Update detection
+        private bool isUpdate = false;
+        private string previousVersion = "";
+        private string currentVersion = CURRENT_VERSION;
+        
         // State for inline message display
         private bool initializationAttempted = false;
         private bool initializationSuccess = false;
@@ -26,6 +37,9 @@ namespace PerSpec.Editor.Initialization
         {
             // Check on Unity startup after a delay
             EditorApplication.delayCall += CheckInitializationOnStartup;
+            
+            // Also check for package updates
+            EditorApplication.delayCall += CheckForPackageUpdate;
         }
         
         static void CheckInitializationOnStartup()
@@ -42,13 +56,68 @@ namespace PerSpec.Editor.Initialization
             }
         }
         
+        static void CheckForPackageUpdate()
+        {
+            try
+            {
+                // Get current package version
+                var packageInfo = UnityEditor.PackageManager.PackageInfo.FindForPackageName(PACKAGE_NAME);
+                string detectedVersion = packageInfo != null ? packageInfo.version : CURRENT_VERSION;
+                
+                // Get last known version from EditorPrefs
+                string lastKnownVersion = EditorPrefs.GetString(VERSION_PREF_KEY, "");
+                
+                if (string.IsNullOrEmpty(lastKnownVersion))
+                {
+                    // First time seeing this package
+                    EditorPrefs.SetString(VERSION_PREF_KEY, detectedVersion);
+                    Debug.Log($"[PerSpec] Package version {detectedVersion} registered");
+                    
+                    // If not initialized, show the setup window
+                    if (!Directory.Exists(ProjectPerSpecPath) && !hasShownThisSession)
+                    {
+                        hasShownThisSession = true;
+                        ShowWindow();
+                    }
+                }
+                else if (lastKnownVersion != detectedVersion)
+                {
+                    // Package was updated!
+                    Debug.Log($"[PerSpec] Package updated from {lastKnownVersion} to {detectedVersion}");
+                    EditorPrefs.SetString(VERSION_PREF_KEY, detectedVersion);
+                    
+                    // Show update window
+                    ShowUpdateWindow(lastKnownVersion, detectedVersion);
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[PerSpec] Could not check package version: {e.Message}");
+            }
+        }
+        
         [MenuItem("Tools/PerSpec/Initialize PerSpec", priority = -100)]
         public static void ShowWindow()
         {
             var window = GetWindow<PerSpecInitializer>("PerSpec Setup");
             window.minSize = new Vector2(450, 350);
             window.maxSize = new Vector2(600, 500);
+            window.isUpdate = false;
             window.Show();
+        }
+        
+        public static void ShowUpdateWindow(string oldVersion, string newVersion)
+        {
+            var window = GetWindow<PerSpecInitializer>("PerSpec Updated!");
+            window.minSize = new Vector2(450, 400);
+            window.maxSize = new Vector2(600, 500);
+            window.isUpdate = true;
+            window.previousVersion = oldVersion;
+            window.currentVersion = newVersion;
+            window.Show();
+            
+            // Show notification
+            window.ShowNotification(new GUIContent($"Updated: {oldVersion} → {newVersion}"), 3f);
         }
         
         [MenuItem("Tools/PerSpec/Documentation", priority = 600)]
@@ -60,7 +129,105 @@ namespace PerSpec.Editor.Initialization
         
         private void OnGUI()
         {
-            // Header with logo
+            if (isUpdate)
+            {
+                DrawUpdateUI();
+            }
+            else
+            {
+                DrawSetupUI();
+            }
+        }
+        
+        private void DrawUpdateUI()
+        {
+            // Update header
+            EditorGUILayout.Space(10);
+            
+            var headerStyle = new GUIStyle(EditorStyles.boldLabel)
+            {
+                fontSize = 18,
+                alignment = TextAnchor.MiddleCenter
+            };
+            
+            EditorGUILayout.LabelField("🎉 PerSpec Updated!", headerStyle, GUILayout.Height(30));
+            
+            EditorGUILayout.Space(10);
+            
+            // Version info
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("Previous Version:", GUILayout.Width(100));
+            EditorGUILayout.LabelField(previousVersion);
+            EditorGUILayout.EndHorizontal();
+            
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("Current Version:", GUILayout.Width(100));
+            var versionStyle = new GUIStyle(EditorStyles.boldLabel);
+            versionStyle.normal.textColor = Color.green;
+            EditorGUILayout.LabelField(currentVersion, versionStyle);
+            EditorGUILayout.EndHorizontal();
+            
+            EditorGUILayout.Space(20);
+            
+            // Update actions
+            EditorGUILayout.HelpBox(
+                "PerSpec has been updated! It's recommended to refresh your coordination scripts to get the latest features.",
+                MessageType.Info
+            );
+            
+            EditorGUILayout.Space(10);
+            
+            GUI.backgroundColor = new Color(0.3f, 0.8f, 0.3f);
+            if (GUILayout.Button("Refresh Coordination Scripts", GUILayout.Height(35)))
+            {
+                if (InitializationService.IsInitialized)
+                {
+                    if (InitializationService.RefreshCoordinationScripts())
+                    {
+                        ShowNotification(new GUIContent("✓ Scripts refreshed successfully!"));
+                        Debug.Log("[PerSpec] Coordination scripts refreshed with latest version");
+                    }
+                    else
+                    {
+                        EditorUtility.DisplayDialog("Error", "Failed to refresh scripts. Check console for details.", "OK");
+                    }
+                }
+                else
+                {
+                    EditorUtility.DisplayDialog("Not Initialized", "Please initialize PerSpec first.", "OK");
+                }
+            }
+            GUI.backgroundColor = Color.white;
+            
+            EditorGUILayout.Space(10);
+            
+            if (GUILayout.Button("Open Control Center", GUILayout.Height(30)))
+            {
+                EditorApplication.ExecuteMenuItem("Tools/PerSpec/Control Center");
+                Close();
+            }
+            
+            if (GUILayout.Button("View Changelog", GUILayout.Height(25)))
+            {
+                Application.OpenURL("https://github.com/thePostFuturist/PerSpec/blob/main/CHANGELOG.md");
+            }
+            
+            EditorGUILayout.Space(10);
+            
+            // What's new section (could be populated from changelog)
+            EditorGUILayout.LabelField("What's New:", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox(
+                "• Unity focus management for Windows & macOS\n" +
+                "• Improved test coordination\n" +
+                "• Enhanced debug logging with PerSpecDebug\n" +
+                "• Better documentation and agent support",
+                MessageType.None
+            );
+        }
+        
+        private void DrawSetupUI()
+        {
+            // Original setup UI
             EditorGUILayout.Space(10);
             
             // Try to load and display logo
