@@ -1,641 +1,164 @@
 <!-- PERSPEC_CONFIG_START -->
 # CLAUDE.md
 
-> **Purpose**: Comprehensive guidance for Claude Code (claude.ai/code) for Test-Driven Development in Unity projects using the PerSpec framework.
+> **Purpose**: TDD guidance for Claude Code in Unity projects using PerSpec framework.
 
-## 📋 Table of Contents
-- [Quick Start - Finding PerSpec](#quick-start---finding-perspec) 🔍 **READ FIRST**
-- [TDD Development Workflow](#tdd-development-workflow) ⭐ **START HERE**
-- [Natural Language Commands](#natural-language-commands) 🗣️ **MCP-LIKE BEHAVIOR**
-- [Project Overview](#project-overview)
-- [Critical Unity Patterns](#critical-unity-patterns)
-- [SOLID Principles](#solid-principles)
-- [Component References](#component-references)
-- [Test Framework Details](#test-framework-details)
-- [Documentation & Guides](#documentation--guides) 📚
-- [Agents & Tools](#agents--tools)
-- [Important Rules](#important-rules)
+## 📋 Quick Navigation
+- [Script Locations](#script-locations) 🔍
+- [Natural Language Commands](#natural-language-commands) 🗣️
+- [TDD Workflow](#tdd-workflow) ⭐
+- [Critical Patterns](#critical-patterns) 🚨
+- [Test Requirements](#test-requirements) 🧪
+- [Important Rules](#important-rules) ⚠️
 
-## 🔍 Quick Start - PerSpec Scripts
+## 🔍 Script Locations
 
-> **IMPORTANT**: All scripts are in fixed locations for easy access!
-
-### Script Locations
-- **Wrapper Scripts**: `PerSpec/Scripts/` - Convenience wrappers (optional)
-- **Coordination Scripts**: `PerSpec/Coordination/Scripts/` - Main Python tools
-
-### Package Info Files
-- **`PerSpec/package_location.txt`** - Contains the package path reference
-- **`PerSpec/package_info.json`** - JSON format with package information
-
-### Working with PerSpec Scripts
 ```bash
-# Use the coordination scripts directly
-python PerSpec/Coordination/Scripts/quick_refresh.py full --wait
-python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait
-python PerSpec/Coordination/Scripts/quick_logs.py errors
+# Fixed paths for reliability
+PerSpec/Coordination/Scripts/       # Python coordination tools
+PerSpec/package_location.txt        # Package path reference
+Packages/com.digitraver.perspec/    # Package location
 ```
-
-### Accessing Package Files
-```bash
-# Package is always at a known location
-cat "Packages/com.digitraver.perspec/Documentation/unity-test-guide.md"
-ls "Packages/com.digitraver.perspec/Editor/"
-```
-
-> **Note**: The coordination scripts are hardcoded to fixed paths for reliability and simplicity.
 
 ## 🗣️ Natural Language Commands
 
-> **MCP-LIKE BEHAVIOR**: When users ask for logs or tests in natural language, translate to these commands:
-
 | User Says | Execute |
-|-----------|----------|
-| "get warning logs" | `python PerSpec/Coordination/Scripts/quick_logs.py warnings` |
-| "show me the errors" | `python PerSpec/Coordination/Scripts/quick_logs.py errors` |
-| "check for compilation errors" | `python PerSpec/Coordination/Scripts/quick_logs.py errors` |
-| "run the tests" | `python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait` |
-| "run tests for a class" | `python PerSpec/Coordination/Scripts/quick_test.py class Tests.PlayMode.ClassName -p play --wait` |
+|-----------|---------|
+| "show/get errors" | `python PerSpec/Coordination/Scripts/quick_logs.py errors` |
+| "run tests" | `python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait` |
 | "refresh Unity" | `python PerSpec/Coordination/Scripts/quick_refresh.py full --wait` |
-| "show test results" | `python PerSpec/Coordination/Scripts/quick_logs.py latest -n 50` |
-| "monitor the logs" | `python PerSpec/Coordination/Scripts/quick_logs.py monitor` |
-| "export the logs" | `python PerSpec/Coordination/Scripts/quick_logs.py export` |
-| "check Unity status" | `python PerSpec/Coordination/Scripts/quick_logs.py summary` |
-| "list recent sessions" | `python PerSpec/Coordination/Scripts/quick_logs.py sessions` |
+| "show logs" | `python PerSpec/Coordination/Scripts/quick_logs.py latest -n 50` |
+| "export logs" | `python PerSpec/Coordination/Scripts/quick_logs.py export` |
+| "test results" | `cat $(ls -t PerSpec/TestResults/*.xml 2>/dev/null \| head -1)` |
 
-### Understanding User Intent
-- **"Something is wrong"** → Check errors first: `python PerSpec/Coordination/Scripts/quick_logs.py errors`
-- **"Tests failing"** → Run tests with verbose: `python PerSpec/Coordination/Scripts/quick_test.py all -v --wait`
-- **"Unity not responding"** → Check logs and refresh: 
-  ```bash
-  python PerSpec/Coordination/Scripts/quick_logs.py latest -n 20
-  python PerSpec/Coordination/Scripts/quick_refresh.py full --wait
-  ```
+**Intent Mapping:**
+- "Something wrong" → Check errors
+- "Tests failing" → Run with verbose: `quick_test.py all -v --wait`
+- "Unity not responding" → Refresh Unity
+- **Timeout?** → Tell user to click Unity window for focus
 
-### ⚠️ Timeout Troubleshooting
-**If commands timeout**: Tell user to **click on the Unity Editor window** to give it focus. Unity throttles main thread execution when not the active window, causing operations to queue until focus returns.
+## 🚀 TDD Workflow
 
-## 📊 Test Results Location
-
-> **IMPORTANT**: All test results are automatically saved to `PerSpec/TestResults/`
-
-### Finding Test Results
+### 📌 4-Step Process (REQUIRED)
 ```bash
-# List all test result files
-ls PerSpec/TestResults/*.xml
-
-# Get the latest test result file
-ls -t PerSpec/TestResults/*.xml 2>/dev/null | head -1
-
-# View test results
-cat PerSpec/TestResults/TestResults_*.xml
-
-# Check if tests passed by examining the XML
-grep -E "passed|failed|errors" PerSpec/TestResults/*.xml
-```
-
-### What's in TestResults Directory
-- **XML Files**: NUnit-format test results with timestamps (e.g., `TestResults_20250829_143022.xml`)
-- **Automatic Cleanup**: Directory is cleared before each new test run
-- **Persistent Storage**: Results persist across Unity restarts until next test run
-- **CI/CD Ready**: XML format compatible with most CI/CD systems
-
-### Natural Language for Test Results
-| User Says | Execute |
-|-----------|----------|
-| "show test result files" | `ls -la PerSpec/TestResults/*.xml` |
-| "view latest test results" | `cat $(ls -t PerSpec/TestResults/*.xml 2>/dev/null \| head -1)` |
-| "check test output" | `ls PerSpec/TestResults/` |
-| "find failed tests" | `grep -l "failed" PerSpec/TestResults/*.xml` |
-
-## 📝 Console Log Exports
-
-> **IMPORTANT**: Console logs are automatically saved to `PerSpec/Logs/` with auto-cleanup
-
-### Export Behavior
-- **Default Export**: `python PerSpec/Coordination/Scripts/quick_logs.py export`
-  - Automatically saves to `PerSpec/Logs/ConsoleLogs_YYYYMMDD_HHMMSS.txt`
-  - Clears all existing files in `PerSpec/Logs/` before exporting (like TestResults)
-  - No need to specify output path
-- **JSON Export**: `python PerSpec/Coordination/Scripts/quick_logs.py export --json`
-- **Custom Path**: `python PerSpec/Coordination/Scripts/quick_logs.py export custom.txt`
-- **Filter by Level**: `python PerSpec/Coordination/Scripts/quick_logs.py export -l error`
-
-### Natural Language for Log Exports
-| User Says | Execute |
-|-----------|----------|
-| "export the logs" | `python PerSpec/Coordination/Scripts/quick_logs.py export` |
-| "export error logs" | `python PerSpec/Coordination/Scripts/quick_logs.py export -l error` |
-| "export logs as json" | `python PerSpec/Coordination/Scripts/quick_logs.py export --json` |
-| "check exported logs" | `ls PerSpec/Logs/` |
-| "view exported logs" | `cat PerSpec/Logs/ConsoleLogs_*.txt` |
-
-## 📖 When to Read Additional Documentation
-
-> **PROACTIVE DOCUMENTATION ACCESS**: Read specific guides when these scenarios arise
-
-### 🔍 Getting Package Location First
-
-**IMPORTANT**: Before reading any documentation, get the package path:
-1. Read `PerSpec/package_location.txt` to get the package base path
-2. Append `/Documentation/[filename].md` to construct the full path
-
-Example:
-```bash
-# Get package location
-cat PerSpec/package_location.txt  # Returns: Packages/com.digitraver.perspec
-# Then read: {package_path}/Documentation/unity-test-guide.md
-```
-
-### Conditional Reading Triggers
-
-| User Request/Scenario | Read This Documentation | Construct Path As |
-|----------------------|------------------------|--------------------|
-| **Writing Unity tests** | Unity Test Guide | `{package_path}/Documentation/unity-test-guide.md` |
-| **"How do I test MonoBehaviours?"** | Unity Test Guide | `{package_path}/Documentation/unity-test-guide.md` |
-| **Mentions prefab pattern** | Unity Test Guide | `{package_path}/Documentation/unity-test-guide.md` |
-| **DOTS/ECS work** | DOTS Test Guide | `{package_path}/Documentation/dots-test-guide.md` |
-| **"Entity system testing"** | DOTS Test Guide | `{package_path}/Documentation/dots-test-guide.md` |
-| **Python script issues** | Coordination Guide | `{package_path}/Documentation/coordination-guide.md` |
-| **SQLite database problems** | Coordination Guide | `{package_path}/Documentation/coordination-guide.md` |
-| **Setting up Claude Code** | Claude Integration | `{package_path}/Documentation/claude-integration.md` |
-| **"Use test-writer-agent"** | Test Writer Agent | `{package_path}/Documentation/agents/test-writer-agent.md` |
-| **"Use refactor-agent"** | Refactor Agent | `{package_path}/Documentation/agents/refactor-agent.md` |
-| **Performance analysis** | DOTS Performance Profiler | `{package_path}/Documentation/agents/dots-performance-profiler.md` |
-| **Batch operations** | Batch Refactor Agent | `{package_path}/Documentation/agents/batch-refactor-agent.md` |
-
-### Common Patterns
-
-**When user says:**
-- **"Write comprehensive tests"** → Read `unity-test-guide.md` FIRST
-- **"I need help with testing"** → Read `unity-test-guide.md` for patterns
-- **"Tests are failing"** → Check current approach against `unity-test-guide.md`
-- **"How does coordination work?"** → Read `coordination-guide.md`
-- **"Python script won't run"** → Read `coordination-guide.md` for troubleshooting
-- **"Use an agent for this"** → Read the specific agent documentation before proceeding
-
-### Manual Inclusion Syntax
-
-When user provides context, you can manually include documentation:
-```markdown
-# First get package path
-@PerSpec/package_location.txt
-# Then construct and read documentation
-@{package_path}/Documentation/unity-test-guide.md
-"Now help me implement this test pattern"
-```
-
-### Proactive Reading Guidelines
-
-1. **Before writing any Unity test** → Get package path, then read `{package_path}/Documentation/unity-test-guide.md`
-2. **Before using any agent** → Get package path, then read the specific agent's documentation
-3. **When troubleshooting coordination** → Get package path, then read `{package_path}/Documentation/coordination-guide.md`
-4. **When user mentions unfamiliar PerSpec concepts** → Get package path, then check relevant documentation
-
-### Step-by-Step Process
-
-```bash
-# Step 1: Always start here when documentation is needed
-cat PerSpec/package_location.txt
-
-# Step 2: Use the returned path to construct documentation paths
-# If package_location.txt returns "Packages/com.digitraver.perspec", then read:
-# - Packages/com.digitraver.perspec/Documentation/unity-test-guide.md
-# - Packages/com.digitraver.perspec/Documentation/agents/test-writer-agent.md
-# etc.
-```
-
-> **IMPORTANT**: Don't load all documentation at once. Read only what's needed for the current task to keep context efficient. Always check package location first.
-
-## 🚀 TDD Development Workflow
-
-> **THIS IS THE CORE OF DEVELOPMENT** - All features must follow this workflow!
-
-### 📌 The 4-Step Process (REQUIRED)
-
-```bash
-# Step 1: Write code and tests with TDD
-# Step 2: Refresh Unity
+# 1. Write tests & code
+# 2. Refresh Unity
 python PerSpec/Coordination/Scripts/quick_refresh.py full --wait
-
-# Step 3: Check for compilation errors (MUST be clean)
+# 3. Check compilation
 python PerSpec/Coordination/Scripts/quick_logs.py errors
-
-# Step 4: Run tests
+# 4. Run tests
 python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait
 ```
 
-### 🎯 Test Execution Patterns
-
-> **IMPORTANT**: Class and method filters require FULL namespace-qualified names!
-
+### 🎯 Test Execution
 ```bash
 # Run ALL tests
-python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait
+quick_test.py all -p edit --wait
 
-# Run tests by CLASS (MUST use full namespace)
-python PerSpec/Coordination/Scripts/quick_test.py class Tests.PlayMode.SimplePerSpecTest -p play --wait
-# ❌ WRONG: quick_test.py class SimplePerSpecTest (will find 0 tests)
-# ✅ CORRECT: quick_test.py class Tests.PlayMode.SimplePerSpecTest
+# Run by CLASS (use FULL namespace)
+quick_test.py class Tests.PlayMode.SimplePerSpecTest -p play --wait
 
-# Run specific METHOD (full namespace + method name)
-python PerSpec/Coordination/Scripts/quick_test.py method Tests.PlayMode.SimplePerSpecTest.Should_Pass_Basic_Test -p play --wait
-
-# Run by CATEGORY
-python PerSpec/Coordination/Scripts/quick_test.py category Integration -p both --wait
+# Run specific METHOD
+quick_test.py method Tests.PlayMode.SimplePerSpecTest.Should_Pass -p play --wait
 ```
 
-## 🤖 Agentic Workflow for TDD (CLOSED-LOOP AUTOMATION)
+## 🤖 Agent Usage
 
-> **CRITICAL**: Use MULTIPLE SPECIALIZED AGENTS for complex tasks, but AVOID agents for simple edits!
+### Decision Matrix
+- **Score 1-3**: NO agents - direct edits only
+- **Score 4-7**: ONE specialized agent
+- **Score 8+**: MULTIPLE agents in PARALLEL
 
-### When to Use Agents vs Direct Commands
+### When to Use Agents
+| Task | Use Agent? | Example |
+|------|------------|---------|
+| Complex feature (5+ files) | ✅ YES | "Implement auth system" |
+| Test suite creation | ✅ YES | "Write comprehensive tests" |
+| Simple fix | ❌ NO | "Fix null reference" |
+| View file | ❌ NO | "Show Player class" |
 
-| Task Type | Use Agents? | Which Agents | Example |
-|-----------|------------|--------------|---------|
-| **Complex Feature (5+ files)** | ✅ YES - Multiple | `test-writer-agent` + `refactor-agent` | "Implement user authentication system" |
-| **Test Suite Creation** | ✅ YES | `test-writer-agent` | "Write comprehensive tests for PlayerController" |
-| **Large Refactoring** | ✅ YES - Multiple | `refactor-agent` + `batch-refactor-agent` | "Split all files over 750 lines" |
-| **Performance Analysis** | ✅ YES | `dots-performance-profiler` | "Analyze DOTS system performance" |
-| **Simple Bug Fix** | ❌ NO | Direct edit | "Fix null reference on line 42" |
-| **Add Single Method** | ❌ NO | Direct edit | "Add GetName() method" |
-| **Update Config** | ❌ NO | Direct edit | "Change timeout to 60 seconds" |
-| **View File** | ❌ NO | Read tool | "Show me the Player class" |
-
-### 🎯 Agent Decision Matrix
-
-```
-Complexity Score = Number of files + Number of operations + Integration points
-
-Score 1-3:   DO NOT use agents - Direct tools only
-Score 4-7:   Use ONE specialized agent
-Score 8+:    Use MULTIPLE agents in PARALLEL
-```
-
-### 🔄 Automated 4-Step Process with Agents
-
+### Agent Patterns
 ```python
-# For COMPLEX features (Score 8+): Launch agents IN PARALLEL for maximum efficiency
+# Complex feature - PARALLEL execution
+Task(test-writer-agent): "Create test suite for inventory system"
+Task(refactor-agent): "Prepare existing code for inventory"
 
-# Step 1: Write comprehensive tests and implementation
-Task(test-writer-agent): "Write tests for [feature] using prefab pattern"
-Task(refactor-agent): "Prepare existing code for [feature] integration"
-
-# Steps 2-4: Automated cycle (agents handle this internally)
-# Agents will automatically:
-# - Refresh Unity
-# - Check compilation errors  
-# - Run tests
-# - Fix issues
-# - Repeat until green
+# Simple tasks - NO AGENTS
+Edit: Fix null check on line 42
+Read: Show PlayerController
 ```
 
-> **IMPORTANT**: Launch multiple agents CONCURRENTLY when possible! Use a single message with multiple Task tool invocations.
+## 📖 Documentation Access
 
-### 🔄 TDD Development Cycle
+**Get package path first:**
+```bash
+cat PerSpec/package_location.txt  # Returns: Packages/com.digitraver.perspec
+```
 
-**A. Feature Implementation (TDD)**
-1. User requests a feature
-   - **Simple feature (1-2 files)**: Write directly, no agents
-   - **Complex feature (3+ files)**: Use `test-writer-agent` for comprehensive test coverage
-2. **Create prefab factory FIRST** (unless testing pure utilities)
-   - Agent will handle this automatically for complex features
-3. Write tests using the prefab pattern
-   - **For new systems**: `test-writer-agent` creates full test suite
-   - **For additions**: Direct edit if <50 lines
-4. Write production code to make tests pass
-   - **Large implementation**: `refactor-agent` to maintain SOLID principles
-   - **Small changes**: Direct edits
-5. Include debug logs with proper prefixes
-   - Agents add these automatically
+**Then read as needed:**
+| Scenario | Read |
+|----------|------|
+| Writing Unity tests | `{package_path}/Documentation/unity-test-guide.md` |
+| DOTS/ECS work | `{package_path}/Documentation/dots-test-guide.md` |
+| Python issues | `{package_path}/Documentation/coordination-guide.md` |
+| Using agents | `{package_path}/Documentation/agents/[agent-name].md` |
 
-> **DEFAULT APPROACH**: Use the Prefab Pattern for ALL Unity tests except pure utility functions. See [Unity Test Guide](unity-test-guide.md#testing-approach-prefab-pattern-default) for details.
+## 🎯 Test Facade Pattern
 
+### ✅ CORRECT Pattern
 ```csharp
-using PerSpec;
-
-// STEP 1: Create Prefab Factory (Editor/PrefabFactories/DataProcessorFactory.cs)
-[MenuItem("Tests/Prefabs/Create DataProcessor")]
-public static void CreateDataProcessorPrefab() {
-    var go = new GameObject("DataProcessor");
-    go.AddComponent<DataProcessor>().FindVars();
-    PrefabUtility.SaveAsPrefabAsset(go, "Assets/Resources/TestPrefabs/DataProcessor.prefab");
-    Object.DestroyImmediate(go);
-}
-
-// STEP 2: Test Using Prefab (Tests/PlayMode/DataProcessorTests.cs)
-[UnityTest]
-public IEnumerator Should_ProcessDataCorrectly() => UniTask.ToCoroutine(async () => {
-    // Arrange - Load prefab (not create GameObject)
-    PerSpecDebug.LogTestSetup("Loading test prefab");
-    var prefab = Resources.Load<GameObject>("TestPrefabs/DataProcessor");
-    var instance = Object.Instantiate(prefab);
-    var component = instance.GetComponent<DataProcessor>();
-    
-    // Act
-    PerSpecDebug.LogTest("Processing data");
-    var result = await component.ProcessAsync(testData);
-    
-    // Assert
-    Assert.IsTrue(result.Success, "[TEST-ASSERT] Processing should succeed");
-    PerSpecDebug.LogTestComplete($"Test passed with result: {result}");
-});
-
-// Production Code
-public class DataProcessor : MonoBehaviour {
-    [SerializeField] private bool debugLogs = true;
-    
-    public async UniTask<ProcessResult> ProcessAsync(byte[] data) {
-        if (debugLogs) PerSpecDebug.Log($"[PROCESS] Starting with {data.Length} bytes");
-        
-        try {
-            // Implementation
-            await UniTask.Delay(100);
-            
-            if (debugLogs) PerSpecDebug.Log("[PROCESS] Completed successfully");
-            return new ProcessResult { Success = true };
-        } catch (Exception ex) {
-            PerSpecDebug.LogError($"[PROCESS-ERROR] Failed: {ex.Message}");
-            throw;
-        }
-    }
-}
-```
-
-**B. Refresh Unity**
-```bash
-python PerSpec/Coordination/Scripts/quick_refresh.py full --wait
-# Wait for "Refresh completed" confirmation
-```
-- **Agent Note**: Agents handle this automatically in their workflow
-
-**C. Check Compilation**
-```bash
-python PerSpec/Coordination/Scripts/quick_logs.py errors
-# Must show "No errors found" before proceeding
-```
-- **Agent Note**: Agents check and fix compilation errors automatically
-
-**D. Run Tests**
-```bash
-python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait
-# If tests fail, return to step A
-# Repeat cycle until all tests pass
-```
-- **Agent Note**: Agents run tests and iterate until green
-
-### ⚠️ CRITICAL: Never Skip Steps!
-- **NEVER** write code without tests
-- **NEVER** proceed with compilation errors
-- **ALWAYS** wait for refresh completion
-- **ALWAYS** check logs before running tests
-
-### 🎯 Testing Production Code - Test Facade Pattern
-
-> **CRITICAL**: Add PUBLIC test methods IN PRODUCTION CLASSES, wrapped in #if UNITY_EDITOR. Tests call these methods directly - NO compiler directives in test code!
-
-#### ✅ CORRECT: Test Facades in Production Code
-```csharp
-// PRODUCTION CLASS - Has test facades inside it
+// PRODUCTION CLASS
 public class PlayerController : MonoBehaviour 
 {
-    // Private production implementation
     private float health = 100f;
-    private bool isInvulnerable;
-    private AudioSource audioSource;
-    private ParticleSystem damageEffect;
     
-    private void PlayDamageSound()
-    {
-        if (audioSource != null)
-            audioSource.Play();
-    }
-    
-    private void ShowDamageEffect()
-    {
-        if (damageEffect != null)
-            damageEffect.Play();
-    }
-    
-    private void ApplyDamage(float amount)
-    {
-        health = Mathf.Max(0, health - amount);
-        PlayDamageSound();
-        ShowDamageEffect();
-    }
-    
-    // Public production API
-    public void TakeDamage(float amount)
-    {
+    public void TakeDamage(float amount) {
         if (!isInvulnerable)
-            ApplyDamage(amount);
+            health -= amount;
     }
     
     #if UNITY_EDITOR
-    // TEST FACADES - Only exist in Editor builds
-    public void Test_SimulateCombatDamage(float damage, bool invulnerable = false)
-    {
-        // Orchestrates private methods to simulate real scenario
-        isInvulnerable = invulnerable;
-        PlayDamageSound();
-        ShowDamageEffect();
-        ApplyDamage(damage);
-    }
-    
-    public void Test_SetupCombatState(float startHealth, bool startInvulnerable)
-    {
-        health = startHealth;
-        isInvulnerable = startInvulnerable;
-    }
-    
+    // Test facades - ONLY in production code
+    public void Test_SetHealth(float value) => health = value;
     public float Test_GetHealth() => health;
-    public bool Test_GetInvulnerable() => isInvulnerable;
     #endif
 }
 
-// TEST CODE - No compiler directives needed!
+// TEST CODE - No directives needed!
 [UnityTest]
-public IEnumerator Should_ApplyDamageEffects_WhenPlayerHit() => UniTask.ToCoroutine(async () => 
-{
-    // Load prefab
-    var prefab = Resources.Load<GameObject>("TestPrefabs/Player");
+public IEnumerator Should_TakeDamage() => UniTask.ToCoroutine(async () => {
     var player = Object.Instantiate(prefab).GetComponent<PlayerController>();
     
-    // Call test facades directly - they exist in Editor!
-    player.Test_SetupCombatState(100f, false);
-    player.Test_SimulateCombatDamage(30f);
+    player.Test_SetHealth(100f);  // Direct call - no #if needed
+    player.TakeDamage(30f);
     
-    await UniTask.Delay(100);
-    
-    // Verify using test facades
     Assert.AreEqual(70f, player.Test_GetHealth());
-    
-    Object.DestroyImmediate(player.gameObject);
 });
 ```
 
-#### ❌ FORBIDDEN: Wrong Patterns
+### ❌ FORBIDDEN
+- Compiler directives in test code
+- Using reflection for private access
+- Making private methods public
+- Test parameters in production methods
+
+## ⚠️ Critical Patterns
+
+### CS1626 - Yield in Try-Catch
 ```csharp
-// WRONG - Compiler directives in test code
-[UnityTest]
-public IEnumerator BadTest()
-{
-    #if UNITY_EDITOR  // NO! Pointless in test code
-    player.Test_GetHealth();
-    #endif
-}
-
-// WRONG - Using reflection instead of test facades
-var healthField = typeof(PlayerController).GetField("health", BindingFlags.NonPublic);
-healthField.SetValue(player, 100);  // NO!
-
-// WRONG - Making private methods public
-public void ApplyDamage(float amount)  // Was private, now exposed - NO!
-
-// WRONG - Test flags in production methods
-private void ApplyDamage(float amount, bool isTest = false)  // NO!
-```
-
-#### Key Points:
-- Test facades are PUBLIC methods in PRODUCTION classes
-- Always prefix with `Test_` for clarity
-- Wrap ONLY in production code with `#if UNITY_EDITOR`
-- Tests call these methods normally - no directives needed
-- Facades orchestrate private methods to simulate real scenarios
-- Never use reflection or modify production signatures
-
-### 📝 Logging Standards for TDD
-
-```csharp
-using PerSpec;
-
-// Test Logs
-PerSpecDebug.LogTest("Test execution message");
-PerSpecDebug.LogTestSetup("Test setup/arrange phase");
-PerSpecDebug.LogTestAct("Test action phase");
-PerSpecDebug.LogTestAssert("Test assertion phase");
-PerSpecDebug.LogTestComplete("Test completed");
-PerSpecDebug.LogTestError("Test failed: reason");
-
-// Production Logs (with serialized bool)
-[SerializeField] private bool debugLogs = true;
-if (debugLogs) PerSpecDebug.Log("[FEATURE] Operation message");
-if (debugLogs) PerSpecDebug.Log("[FEATURE-START] Starting operation");
-if (debugLogs) PerSpecDebug.Log("[FEATURE-PROGRESS] Progress update");
-if (debugLogs) PerSpecDebug.Log("[FEATURE-COMPLETE] Operation complete");
-PerSpecDebug.LogError("[FEATURE-ERROR] Critical error (always log)");
-```
-
-### 🛠️ Error Resolution Quick Reference
-
-| Error | Fix | Command to Verify |
-|-------|-----|-------------------|
-| CS1626 (yield in try) | Use `UniTask.ToCoroutine()` | `logs.py errors` |
-| UniTask not found | Add to asmdef references | `refresh.py full --wait` |
-| async void | Convert to `UniTask`/`UniTaskVoid` | `logs.py errors` |
-| Thread error | `UniTask.SwitchToMainThread()` | `test.py` |
-| Test timeout | Add timeout attribute or check async | `test.py -v` |
-
-## 🚀 Common Agent Patterns (COPY-PASTE READY)
-
-> **USE THESE PATTERNS**: Copy and adapt for your specific needs
-
-### Pattern 1: Complex Feature Implementation (PARALLEL AGENTS)
-```python
-# Launch BOTH agents simultaneously for maximum efficiency
-Task(test-writer-agent): "Create comprehensive test suite for inventory system with item stacking, categories, and persistence. Use prefab pattern for UI components."
-Task(refactor-agent): "Prepare existing Player and UI classes for inventory integration. Split any files over 500 lines."
-```
-
-### Pattern 2: Large-Scale Refactoring (SEQUENTIAL AGENTS)
-```python
-# First: Analyze and split large files
-Task(refactor-agent): "Identify and split all C# files exceeding 750 lines in Assets/Scripts. Extract interfaces and create partial classes."
-
-# Then: Update all files with consistent patterns
-Task(batch-refactor-agent): "Add regions to all refactored files, convert async void to UniTask, and ensure XML documentation on public methods."
-```
-
-### Pattern 3: Test Coverage Enhancement
-```python
-# Single agent for focused test creation
-Task(test-writer-agent): "Add missing tests for PlayerMovement, focusing on edge cases: collision detection, boundary conditions, and async input handling."
-```
-
-### Pattern 4: Performance Analysis
-```python
-# Specialized agent for DOTS optimization
-Task(dots-performance-profiler): "Analyze EntitySpawnSystem for bottlenecks. Check Burst compilation, job scheduling, and NativeArray allocations."
-```
-
-### Pattern 5: AVOID AGENTS - Direct Commands
-```csharp
-// Simple fixes - DO NOT use agents for these:
-Edit: Fix null check on line 42
-Edit: Add [SerializeField] to health variable
-Edit: Change method visibility to public
-Read: Show the PlayerController class
-```
-
-> **REMEMBER**: Complexity Score 1-3 = NO AGENTS. Always prefer direct tools for simple tasks!
-
-## 🎯 Project Overview
-
-**PerSpec** - Unity Test Framework with **UniTask** for zero-allocation async/await patterns and TDD.
-
-### Key Features
-- ✅ **4-Step TDD Workflow** with automated testing
-- ✅ Zero-allocation async testing with UniTask
-- ✅ TDD patterns for Unity prefabs/components
-- ✅ Background test coordination (works when Unity loses focus)
-- ✅ Automated refactoring agents
-- ✅ SOLID principles enforcement
-
-### 📁 Directory Structure
-```
-TestFramework/
-├── Packages/
-│   └── com.perspec.framework/     # PerSpec Unity Package
-│       ├── Runtime/                # Runtime components
-│       ├── Editor/                 # Editor tools & coordination
-│       └── Tests/                  # Framework tests
-├── Assets/
-│   └── Tests/                      # Your project tests
-│       └── PerSpec/               # PerSpec test directories (with asmdef)
-├── PerSpec/                        # Working directory (writable)
-│   ├── test_coordination.db       # SQLite database
-│   ├── Scripts/                   # Convenience wrapper scripts
-│   ├── Coordination/
-│   │   └── Scripts/               # Actual Python coordination scripts
-│   ├── TestResults/               # Test execution results (XML files)
-│   ├── package_location.txt       # Package path reference
-│   └── package_info.json          # Package information
-└── CustomScripts/
-    └── Output/                    # Generated files go here
-        ├── Reports/
-        ├── Refactored/
-        └── Tests/
-
-## ⚠️ Critical Unity Patterns
-
-### 🚨 CS1626 - Yield in Try-Catch Blocks
-**Problem**: C# prevents `yield` inside try-catch blocks.
-
-```csharp
-// ❌ WILL NOT COMPILE - CS1626 Error
+// ❌ WRONG
 [UnityTest]
 public IEnumerator BadTest() {
     try {
         yield return new WaitForSeconds(1); // CS1626!
-    } catch (Exception ex) { }
+    } catch { }
 }
 
-// ✅ SOLUTION - Use UniTask
+// ✅ CORRECT
 [UnityTest]
 public IEnumerator GoodTest() => UniTask.ToCoroutine(async () => {
     try {
-        await UniTask.Delay(1000); // Full try-catch support!
-        await ProcessDataAsync();
+        await UniTask.Delay(1000);
     } catch (Exception ex) {
         PerSpecDebug.LogError($"[ERROR] {ex.Message}");
         throw;
@@ -643,625 +166,182 @@ public IEnumerator GoodTest() => UniTask.ToCoroutine(async () => {
 });
 ```
 
-### 🔥 NEVER Use async void
+### Never async void
 ```csharp
-// ❌ CRASHES Unity on exception
-public async void BadMethod() {
-    await UniTask.Delay(100);
-    throw new Exception("Crashes Unity!");
-}
+// ❌ Crashes Unity
+public async void BadMethod() { }
 
-// ✅ Use UniTask/UniTaskVoid
-public async UniTask GoodMethod() {
-    await UniTask.Delay(100);
-    // Exceptions handled properly
-}
-
-// ✅ Fire-and-forget with error handling
-public async UniTaskVoid FireAndForget() {
-    try {
-        await UniTask.Delay(100);
-    } catch (Exception ex) {
-        PerSpecDebug.LogError($"[ERROR] {ex.Message}");
-    }
-}
+// ✅ Use UniTask
+public async UniTask GoodMethod() { }
+public async UniTaskVoid FireAndForget() { }
 ```
 
-### 🎯 Thread Safety for Unity APIs
+### Thread Safety
 ```csharp
-public async UniTask UpdateGameObjectSafely(GameObject obj) {
-    // ✅ Unity APIs require main thread
-    await UniTask.SwitchToMainThread();
+public async UniTask UpdateSafely(GameObject obj) {
+    await UniTask.SwitchToMainThread();  // Unity APIs need main thread
     obj.transform.position = Vector3.zero;
-    
-    // ✅ Heavy work on thread pool
-    var result = await UniTask.RunOnThreadPool(() => CalculateComplexValue());
-    
-    // ✅ Back to main thread
-    await UniTask.SwitchToMainThread();
-    obj.transform.rotation = Quaternion.identity;
 }
 ```
 
 ## 🏗️ SOLID Principles
 
-### 1️⃣ Single Responsibility (SRP)
+### Single Responsibility
 ```csharp
-// ❌ BAD: Multiple responsibilities
-public class PlayerManager : MonoBehaviour {
-    public void HandleInput() { }
-    public void UpdatePhysics() { }
-    public void UpdateUI() { }
-    public void SaveGame() { }
-}
-
-// ✅ GOOD: Single responsibility
-public class PlayerInputHandler : MonoBehaviour {
-    public event Action<Vector2> OnMoveInput;
-}
-
-public class PlayerMovement : MonoBehaviour {
-    [SerializeField] private Rigidbody rb;
-    public async UniTask MoveAsync(Vector3 direction) {
-        await UniTask.SwitchToMainThread();
-        rb.velocity = direction * speed;
-    }
-}
+// ✅ Each class does ONE thing
+public class PlayerMovement : MonoBehaviour { }
+public class PlayerCombat : MonoBehaviour { }
 ```
 
-### 2️⃣ Open/Closed (OCP)
+### Open/Closed
 ```csharp
-// ❌ BAD: Modify for each weapon type
-public float CalculateDamage(string weaponType) {
-    switch (weaponType) {
-        case "Sword": return 10f;
-        case "Bow": return 8f; // Adding = modifying
-    }
-}
-
-// ✅ GOOD: Extend without modifying
+// ✅ Extend via abstraction
 public abstract class Weapon : ScriptableObject {
-    public abstract float BaseDamage { get; }
     public abstract UniTask<float> CalculateDamageAsync(Enemy target);
 }
-
-[CreateAssetMenu(fileName = "Sword", menuName = "Weapons/Sword")]
-public class Sword : Weapon {
-    public override float BaseDamage => 10f;
-    public override async UniTask<float> CalculateDamageAsync(Enemy target) {
-        await UniTask.Yield();
-        return BaseDamage * (target.IsArmored ? 0.5f : 1f);
-    }
-}
 ```
 
-### 3️⃣ Liskov Substitution (LSP)
-```csharp
-// ❌ BAD: Breaking base contract
-public class Bird {
-    public virtual void Fly() => PerSpecDebug.Log("Flying");
-}
-public class Penguin : Bird {
-    public override void Fly() {
-        throw new NotSupportedException(); // Breaks LSP!
-    }
-}
+### Dependency Inversion
+**🚨 NEVER use Singleton MonoBehaviours!**
 
-// ✅ GOOD: Proper abstraction
-public abstract class Bird {
-    public abstract UniTask MoveAsync();
-}
-public interface IFlyable {
-    UniTask FlyAsync(Vector3 destination);
-}
-public class Eagle : Bird, IFlyable {
-    public override async UniTask MoveAsync() => await FlyAsync(targetPos);
-    public async UniTask FlyAsync(Vector3 dest) { /* implementation */ }
-}
-```
-
-### 4️⃣ Interface Segregation (ISP)
-```csharp
-// ❌ BAD: Fat interface
-public interface ICharacter {
-    void Move();
-    void Attack();
-    void CastSpell();
-    void Trade();
-}
-
-// ✅ GOOD: Segregated interfaces
-public interface IMovable { UniTask MoveAsync(Vector3 dest); }
-public interface ICombatant { UniTask AttackAsync(IDamageable target); }
-public interface IMerchant { UniTask<bool> TradeAsync(Item item, int price); }
-
-public class Player : MonoBehaviour, IMovable, ICombatant, IMerchant { }
-public class Shopkeeper : MonoBehaviour, IMerchant { } // Only what's needed
-```
-
-### 5️⃣ Dependency Inversion (DIP)
-
-### 🚨 NEVER USE SINGLETON MONOBEHAVIOURS
-> **Critical**: Causes race conditions, memory leaks, testing issues, hidden dependencies
-
-```csharp
-// ❌ FORBIDDEN: Singleton MonoBehaviour
-public class GameManager : MonoBehaviour {
-    private static GameManager instance; // NO!
-    public static GameManager Instance { get { /* singleton logic */ } } // NO!
-}
-```
-
-### ✅ Choose the Right Abstraction
-
-| Pattern | Use When | Don't Use When |
-|---------|----------|----------------|
-| **Static Class** | Utilities, math, constants | Need state, Unity lifecycle |
-| **POCO** | Data transfer, serialization | Need Inspector, assets |
-| **ScriptableObject** | Designer config, assets, shared data | Simple data, utilities |
-| **Singleton MonoBehaviour** | **NEVER** | **ALWAYS AVOID** |
-
-```csharp
-// ✅ Static utility
-public static class MathUtilities {
-    public static float Lerp(float a, float b, float t) => a + (b - a) * Mathf.Clamp01(t);
-}
-
-// ✅ POCO for data
-[System.Serializable]
-public class PlayerData {
-    public string playerName;
-    public int level;
-}
-
-// ✅ ScriptableObject for configuration
-[CreateAssetMenu(fileName = "SaveService", menuName = "Services/SaveService")]
-public abstract class SaveServiceSO : ScriptableObject {
-    public abstract UniTask SaveAsync(string saveName);
-    public abstract UniTask<SaveData> LoadAsync(string saveName);
-}
-```
+Use instead:
+- Static classes for utilities
+- ScriptableObjects for configuration
+- POCO for data
 
 ## 🔧 Component References
 
 ### ✅ FindVars Pattern (REQUIRED)
-> **CRITICAL**: ONLY acceptable way to get component references in Unity!
-
 ```csharp
 public class ExampleComponent : MonoBehaviour {
-    // ✅ ALL references MUST be SerializedField
     [SerializeField] private AudioSource audioSource;
-    [SerializeField] private Rigidbody rb;
-    [SerializeField] private Transform target;
     
-    // ✅ REQUIRED: FindVars with ContextMenu
     [ContextMenu("Find Vars")]
     public void FindVars() {
         audioSource = GetComponent<AudioSource>();
-        rb = GetComponent<Rigidbody>();
-        target = transform.Find("Target");
-    }
-    
-    void Awake() {
-        // Components already assigned via FindVars
-        // NO GetComponent calls here!
     }
 }
 ```
 
-### ❌ NEVER Do This
-```csharp
-// ❌ NO runtime component getting
-void Start() { audioSource = GetComponent<AudioSource>(); }
-// ❌ NO runtime component adding
-void Start() { gameObject.AddComponent<AudioSource>(); }
-// ❌ NO reflection
-var field = GetType().GetField("audioSource");
-```
+### ❌ NEVER
+- Get components at runtime
+- Add components at runtime  
+- Use reflection for components
 
-## 📝 C# Standards
+## 🧪 Test Requirements
 
-### Code Organization
-```csharp
-public class ExampleClass : MonoBehaviour {
-    #region Fields
-    private int count;
-    #endregion
-    
-    #region Properties
-    public int Count => count;
-    #endregion
-    
-    #region Unity Lifecycle
-    void Awake() { }
-    void Start() { }
-    #endregion
-    
-    #region Public Methods
-    public void DoSomething() { }
-    #endregion
-    
-    #region Private Methods
-    private void ProcessData() { }
-    #endregion
-}
-```
-
-### Documentation
-```csharp
-/// <summary>
-/// Processes batch data with retry logic
-/// </summary>
-/// <param name="data">Data to process</param>
-/// <returns>Result or null on failure</returns>
-public async Task<ProcessResult> ProcessBatchAsync(byte[] data, int retryCount = 3) {
-    if (data == null) return null;
-    // Implementation...
-}
-```
-
-## 🧪 Test Framework Details
-
-### 🚨 CRITICAL REQUIREMENTS: USE PERSPEC RUNTIME FRAMEWORKS
-
-> **MANDATORY**: ALL tests MUST use the provided PerSpec runtime frameworks. NEVER create custom test infrastructure!
-
-#### Required Base Classes (NON-NEGOTIABLE)
-
-**For Unity Tests:**
+### MANDATORY Base Classes
 ```csharp
 using PerSpec.Runtime.Unity;
-using PerSpec.Runtime.Unity.Helpers;
 
 [TestFixture]
-public class MyUnityTest : UniTaskTestBase  // REQUIRED - NEVER inherit from TestFixture directly
+public class MyTest : UniTaskTestBase  // REQUIRED - never TestFixture directly
 {
-    // Your tests here
 }
 ```
 
-**For DOTS Tests:**
-```csharp
-using PerSpec.Runtime.DOTS;
-using PerSpec.Runtime.DOTS.Core;
-using PerSpec.Runtime.DOTS.Helpers;
-
-[TestFixture] 
-public class MyDOTSTest : DOTSTestBase  // REQUIRED - NEVER inherit from TestFixture directly
-{
-    // Your tests here  
-}
-```
-
-#### Assembly References Required
+### Required References
 ```json
 {
     "references": [
         "PerSpec.Runtime",
-        "PerSpec.Runtime.Debug",      // Required for PerSpecDebug logging
-        "UniTask", 
-        "UnityEngine.TestRunner",
-        "UnityEditor.TestRunner"
+        "PerSpec.Runtime.Debug",
+        "UniTask",
+        "UnityEngine.TestRunner"
     ]
 }
 ```
 
-#### ❌ FORBIDDEN: Never Do This
-```csharp
-// ❌ DO NOT create custom base classes
-public class MyCustomTestBase : MonoBehaviour { } // NO!
+### Prefab Pattern Default
+Use for: MonoBehaviours, components, UI, gameplay
+Skip for: Pure utilities, math, string helpers
 
-// ❌ DO NOT inherit directly from TestFixture 
-[TestFixture]
-public class BadTest { } // NO!
-
-// ❌ DO NOT reimplement async helpers
-public static class MyTestHelpers { } // NO!
-```
-
-#### ✅ ALWAYS Use Provided Infrastructure
-
-**Unity Test Infrastructure Location:**
-- `{package_path}/Runtime/Unity/Core/UniTaskTestBase.cs` 
-- `{package_path}/Runtime/Unity/Helpers/UniTaskTestHelpers.cs`
-- `{package_path}/Runtime/Unity/Helpers/UniTaskRunner.cs`
-
-**DOTS Test Infrastructure Location:**  
-- `{package_path}/Runtime/DOTS/Core/DOTSTestBase.cs`
-- `{package_path}/Runtime/DOTS/Helpers/DOTSTestFactory.cs`
-- `{package_path}/Runtime/DOTS/Helpers/DOTSTestConfiguration.cs`
-
-**Debug Infrastructure:**
-- `{package_path}/Runtime/Debug/PerSpecDebug.cs`
-- `{package_path}/Runtime/Debug/PerSpecDebugSettings.cs`
-
-> **WHY**: The Runtime frameworks provide zero-allocation async testing, proper cancellation support, thread safety, memory leak detection, and performance profiling. Custom implementations will be slower, buggier, and incompatible with PerSpec tooling.
-
-### 📝 MANDATORY NAMESPACES AND IMPORTS
-
-> **CRITICAL**: All PerSpec code must use proper namespaces and import statements. These are REQUIRED, not optional!
-
-#### Standard Test File Template
-```csharp
-// REQUIRED using statements for ANY PerSpec test
-using System;
-using System.Collections;
-using System.Threading;
-using UnityEngine;
-using UnityEngine.TestTools;
-using NUnit.Framework;
-using Cysharp.Threading.Tasks;
-using PerSpec;  // Core PerSpec utilities and debug logging
-
-// For Unity tests - ADD THESE
-using PerSpec.Runtime.Unity;           // UniTaskTestBase
-using PerSpec.Runtime.Unity.Helpers;  // UniTaskTestHelpers
-
-// For DOTS tests - ADD THESE  
-using PerSpec.Runtime.DOTS;            // DOTS testing infrastructure
-using PerSpec.Runtime.DOTS.Core;      // DOTSTestBase
-using PerSpec.Runtime.DOTS.Helpers;   // DOTS test helpers
-using Unity.Entities;                 // Entity, EntityManager
-using Unity.Transforms;               // Translation, Rotation, etc.
-
-// Standard namespace pattern
-namespace YourProject.Tests.PlayMode  // or .EditMode
-{
-    [TestFixture]
-    public class YourTestClass : UniTaskTestBase  // or DOTSTestBase
-    {
-        // Tests here
-    }
-}
-```
-
-#### Production Code Namespace Template
-```csharp
-// REQUIRED using statements for production components
-using System;
-using UnityEngine;
-using Cysharp.Threading.Tasks;
-using PerSpec;  // For PerSpecDebug logging
-
-// For DOTS components - ADD THESE
-using Unity.Entities;
-using Unity.Mathematics;
-using Unity.Transforms;
-
-// Use meaningful namespaces
-namespace YourProject.Gameplay.Player
-{
-    public class PlayerController : MonoBehaviour
-    {
-        // Component implementation
-    }
-}
-```
-
-#### Required Assembly References
-Every `.asmdef` file must include these references:
-```json
-{
-    "name": "YourProject.Tests",
-    "rootNamespace": "YourProject.Tests",
-    "references": [
-        "PerSpec.Runtime.Unity",    // MANDATORY - Base test framework
-        "PerSpec.Runtime.Debug",    // MANDATORY - For PerSpecDebug logging
-        "PerSpec.Runtime.DOTS",     // If using DOTS
-        "UniTask",                  // MANDATORY - Async testing
-        "UnityEngine.TestRunner",   // Unity test framework
-        "UnityEditor.TestRunner"    // Editor test support
-    ],
-    "defineConstraints": ["UNITY_INCLUDE_TESTS"]
-}
-```
-
-#### Common Import Mistakes to Avoid
-```csharp
-// ❌ NEVER import these for PerSpec tests
-using UnityEngine.TestTools.TestRunner;  // Wrong test runner
-using Unity.PerformanceTesting;          // Use PerSpec profiling instead
-using System.Threading.Tasks;            // Use UniTask instead
-
-// ❌ NEVER create custom test base classes
-public class MyCustomTestBase { }        // Use UniTaskTestBase/DOTSTestBase
-
-// ❌ NEVER skip PerSpec namespace
-Debug.Log("message");                    // Use PerSpecDebug.Log instead
-```
-
-#### Namespace Naming Conventions
-- **Tests**: `YourProject.Tests.PlayMode` / `YourProject.Tests.EditMode`
-- **Production**: `YourProject.Feature.SubFeature`
-- **Editor Tools**: `YourProject.Editor.Tools`
-- **Test Factories**: `YourProject.Tests.Editor.Factories`
-
-### Prefab Pattern (Default for 99% of Tests)
-
-Always use prefab pattern for:
-- MonoBehaviours
-- Component interactions  
-- Systems with dependencies
-- UI elements
-- Gameplay mechanics
-
-Only skip prefab pattern for:
-- Pure math utilities
-- String helpers
-- Static methods without Unity APIs
-
-### UniTask Test Pattern
+### Test Pattern
 ```csharp
 [UnityTest]
-public IEnumerator TestWithUniTask() => UniTask.ToCoroutine(async () => {
+public IEnumerator TestName() => UniTask.ToCoroutine(async () => {
     try {
         // Arrange
-        var gameObject = new GameObject("Test");
-        var component = gameObject.AddComponent<TestComponent>();
+        var prefab = Resources.Load<GameObject>("TestPrefabs/Player");
+        var instance = Object.Instantiate(prefab);
         
         // Act
-        await UniTask.Delay(100);
-        await component.ProcessAsync();
+        await instance.GetComponent<Player>().DoActionAsync();
         
         // Assert
-        Assert.IsTrue(component.IsProcessed);
+        Assert.IsTrue(condition);
     } finally {
-        // Cleanup
-        if (gameObject != null) Object.DestroyImmediate(gameObject);
+        if (instance) Object.DestroyImmediate(instance);
     }
 });
 ```
 
-### Test Base Classes
-- **UniTaskTestBase**: Core async test support (`Packages/com.perspec.framework/Runtime/Unity/Helpers/`)
-- **DOTSTestBase**: ECS/DOTS testing (`Packages/com.perspec.framework/Runtime/DOTS/Core/`)
+## 📝 Logging
 
-### Assembly Definition Requirements
-> **CRITICAL**: Each new directory requires an asmdef!
+```csharp
+using PerSpec;
 
-```json
-// Example: Assets/Tests/PerSpec/PerSpec.Tests.asmdef
-{
-    "name": "PerSpec.Tests",
-    "rootNamespace": "PerSpec.Tests",
-    "references": [
-        "PerSpec.Runtime",
-        "UniTask",
-        "UnityEngine.TestRunner",
-        "UnityEditor.TestRunner"
-    ],
-    "includePlatforms": [],
-    "excludePlatforms": [],
-    "allowUnsafeCode": false,
-    "overrideReferences": true,
-    "precompiledReferences": ["nunit.framework.dll"],
-    "autoReferenced": false,
-    "defineConstraints": ["UNITY_INCLUDE_TESTS"],
-    "versionDefines": [],
-    "noEngineReferences": false
-}
+// Test logs
+PerSpecDebug.LogTest("message");
+PerSpecDebug.LogTestSetup("setup");
+PerSpecDebug.LogTestError("error");
+
+// Production logs
+[SerializeField] private bool debugLogs = true;
+if (debugLogs) PerSpecDebug.Log("[FEATURE] message");
+PerSpecDebug.LogError("[ERROR] always log errors");
 ```
-
-### 📚 Documentation References
-- Test execution guides in `Packages/com.digitraver.perspec/Documentation/`
-- Coordination tools in `PerSpec/Coordination/Scripts/` (main scripts)
-- Wrapper scripts in `PerSpec/Scripts/` (optional convenience wrappers)
-- PerSpec working directory: `PerSpec/` (project root)
-
-## 📚 Documentation & Guides
-
-### Core Documentation
-- **[quick-start.md](quick-start.md)** - Getting started with PerSpec, installation, and first test
-- **[workflow.md](workflow.md)** - Complete TDD workflow, best practices, and development cycle
-- **[unity-test-guide.md](unity-test-guide.md)** - Unity testing patterns, prefab approach, UniTask integration
-- **[dots-test-guide.md](dots-test-guide.md)** - DOTS/ECS testing, systems testing, job testing
-- **[coordination-guide.md](coordination-guide.md)** - Python-Unity coordination, SQLite database, background processing
-- **[claude-integration.md](claude-integration.md)** - Claude Code integration, agent usage, automation
-
-### Agent Documentation
-- **[agents/test-writer-agent.md](agents/test-writer-agent.md)** - Writes comprehensive Unity tests with TDD approach
-- **[agents/refactor-agent.md](agents/refactor-agent.md)** - Splits large files, enforces SOLID principles
-- **[agents/batch-refactor-agent.md](agents/batch-refactor-agent.md)** - Batch processes C# files, adds regions, converts async
-- **[agents/dots-performance-profiler.md](agents/dots-performance-profiler.md)** - Analyzes DOTS/ECS performance, Burst compilation
-- **[agents/test-coordination-agent.md](agents/test-coordination-agent.md)** - Manages test execution through SQLite coordination
-
-## 🤖 Agents & Tools
-
-### Available Agents (`.claude/agents/`)
-- **architecture-agent.md**: Documents project architecture in `/Documentation/Architecture/` - Run at project start and after major changes
-  - Creates class inventory with responsibilities
-  - Identifies redundant code and suggests consolidation
-  - Detects SOLID violations and recommends patterns
-- **refactor-agent.md**: Splits files >750 lines, enforces SOLID
-- **batch-refactor-agent.md**: Batch processes C# files, adds regions, converts async void
-- **dots-performance-profiler.md**: Analyzes DOTS/ECS performance
-- **test-coordination-agent.md**: Manages SQLite test coordination between Python and Unity (with background processing)
-
-### Architecture Documentation
-> **IMPORTANT**: Run `architecture-agent` proactively:
-> - At project initialization for baseline documentation
-> - After adding major features or systems
-> - Before significant refactoring efforts
-> - When identifying performance or maintainability issues
-
-### Custom Scripts (`CustomScripts/`)
-- Automated refactoring scripts
-- Code quality tools
-- Use `CustomScripts/Output/` for generated files
-
-### Test Coordination System
-
-**PerSpec Coordination** (`PerSpec/Coordination/Scripts/`)
-- SQLite database in `PerSpec/test_coordination.db`
-- Python tools for Unity control:
-  - `quick_refresh.py` - Refresh Unity assets
-  - `quick_test.py` - Execute tests
-  - `quick_logs.py` - View Unity console logs
-  - `console_log_reader.py` - Read captured logs
-
-**Background Processing** (`Packages/com.perspec.framework/Editor/Coordination/`)
-- `BackgroundPoller.cs` - System.Threading.Timer for continuous polling
-- `TestCoordinatorEditor.cs` - Main coordination system
-- `SQLiteManager.cs` - Database operations
-- Works even when Unity loses focus!
-
-**Menu Items** (Tools > PerSpec)
-- Initialize PerSpec - Set up working directories
-- Test Coordinator - View status
-- Console Logs - View/export logs
-- Commands - Execute operations
-
-## 📊 Code Quality
-
-### Limits
-- **Files**: Max 750 lines (use partial classes if needed)
-- **Methods**: Max 50 lines, cyclomatic complexity <10
-- **Tests**: Min 80% coverage, all public APIs tested
 
 ## 🚨 Important Rules
 
 ### ALWAYS
-✅ Use UniTask for async (never Task/coroutines)
-✅ Use FindVars pattern for components
-✅ Stay on main thread for Unity APIs
-✅ Handle exceptions properly
-✅ Use ScriptableObjects/static/POCO appropriately
+✅ Use UniTask (never Task/coroutines)  
+✅ Use FindVars for components  
+✅ Stay on main thread for Unity APIs  
+✅ Use test facades for private access  
+✅ Follow 4-step TDD workflow  
 
 ### NEVER
-❌ Use async void (use UniTask/UniTaskVoid)
-❌ Use Singleton MonoBehaviours
-❌ Get components at runtime
-❌ Use reflection to access private members
-❌ Put compiler directives in test code (they go in production)
-❌ Make private methods public for testing
-❌ Add test parameters to production methods
-❌ Yield in try blocks (use UniTask.ToCoroutine)
+❌ async void → Use UniTask/UniTaskVoid  
+❌ Singleton MonoBehaviours  
+❌ Runtime GetComponent  
+❌ Reflection for private access  
+❌ Compiler directives in tests  
+❌ Skip TDD steps  
 
-### Logging Standards
-```csharp
-using PerSpec;
+## 📊 Quick Reference
 
-PerSpecDebug.LogTest("Message");
-PerSpecDebug.LogTestSetup("Setup message");
-PerSpecDebug.LogTestError($"Error: {message}");
+### Error Fixes
+| Error | Solution |
+|-------|----------|
+| CS1626 | UniTask.ToCoroutine() |
+| async void | UniTask/UniTaskVoid |
+| Thread error | SwitchToMainThread() |
+| Null components | FindVars pattern |
+
+### Project Structure
+```
+TestFramework/
+├── Packages/com.digitraver.perspec/  # Package
+├── Assets/Tests/                      # Your tests
+├── PerSpec/                           # Working dir
+│   ├── Coordination/Scripts/          # Python tools
+│   ├── TestResults/                   # XML results
+│   └── test_coordination.db           # SQLite
+└── CustomScripts/Output/              # Generated
 ```
 
-### Common Issues & Solutions
-| Issue | Solution |
-|-------|----------|
-| CS1626 (yield in try) | Use UniTask.ToCoroutine() |
-| async void crashes | Use UniTask/UniTaskVoid |
-| Wrong thread for Unity API | UniTask.SwitchToMainThread() |
-| Components null at runtime | Use FindVars pattern |
-| Test cleanup failing | try-finally with Object.DestroyImmediate |
+### Available Agents
+- **test-writer-agent**: Comprehensive tests with TDD
+- **refactor-agent**: Split large files, SOLID
+- **batch-refactor-agent**: Batch C# processing
+- **dots-performance-profiler**: DOTS/ECS analysis
+- **architecture-agent**: Document architecture
 
-## 📝 Key Reminders
+## 📝 Reminders
 
-> **Implementation Approach**: If pivoting to another implementation, halt and ask user first.
-
-> **Each new directory requires an asmdef** - Don't use GUIDs. More directories/asmdefs solve cyclical dependencies.
-
-> **Error Handling**: Never silence errors. Always log with full context.
-
-> **Test Prefabs**: Create via Editor scripts for TDD (see test guides for patterns).
+> **Pivoting?** Ask user first  
+> **New directory?** Needs asmdef  
+> **Errors?** Log with context  
+> **Test prefabs?** Use Editor scripts
 <!-- PERSPEC_CONFIG_END -->
