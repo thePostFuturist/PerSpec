@@ -48,6 +48,7 @@ public class BadDOTSTest
 
 ### Why DOTSTestBase is Mandatory
 - **World Management**: Automatically creates isolated test worlds
+- **DefaultGameObjectInjectionWorld**: Automatically sets test world as default (NEW)
 - **Entity Manager**: Pre-configured with proper lifecycle
 - **UniTask Integration**: Zero-allocation async testing support
 - **Memory Leak Detection**: Automatic native collection tracking
@@ -198,6 +199,17 @@ public IEnumerator Should_UpdateEntityPositions_WhenSystemRuns() => RunAsyncTest
 
 This guide provides comprehensive documentation for testing Unity DOTS (Data-Oriented Technology Stack) applications using modern async/await patterns with UniTask. The DOTS test infrastructure extends the Unity Test Framework with specialized support for Entity Component System (ECS) testing, Burst compilation validation, and Job System testing - all with zero-allocation async operations.
 
+### 🔄 Important: DefaultGameObjectInjectionWorld Handling (v2.0+)
+
+As of PerSpec v2.0, `DOTSTestBase` automatically manages `World.DefaultGameObjectInjectionWorld`:
+
+- **Automatic Setup**: Test world is set as `DefaultGameObjectInjectionWorld` by default
+- **Compatibility**: Code expecting the default world now works in tests
+- **Cleanup**: Properly cleared between tests to prevent contamination
+- **Override**: Set `protected override bool SetAsDefaultWorld => false;` to disable
+
+This solves the common issue where `World.DefaultGameObjectInjectionWorld` was null in tests, causing failures in production code that relied on it.
+
 ## Prefab-Based DOTS Testing (Standard Approach)
 
 > **IMPORTANT**: Like all Unity testing, DOTS tests should use the Prefab Pattern for any non-trivial scenarios.
@@ -341,6 +353,44 @@ The DOTS test infrastructure uses the following assembly structure:
 1. **PerSpec.Runtime.DOTS** - DOTS test infrastructure with UniTask
 2. **PerSpec.Runtime.Unity** - Base Unity test framework with UniTask
 3. **UniTask** - Zero-allocation async/await library
+
+## World Management Features (NEW)
+
+`DOTSTestBase` provides several helpers for world management:
+
+```csharp
+[TestFixture]
+public class MyDOTSTest : DOTSTestBase
+{
+    // Control whether test world becomes DefaultGameObjectInjectionWorld
+    protected override bool SetAsDefaultWorld => true; // Default is true
+    
+    [UnityTest]
+    public IEnumerator TestWithDefaultWorld() => RunAsyncTest(async () =>
+    {
+        // Method 1: Automatic (if SetAsDefaultWorld is true)
+        Assert.IsNotNull(World.DefaultGameObjectInjectionWorld);
+        Assert.AreEqual(testWorld, World.DefaultGameObjectInjectionWorld);
+        
+        // Method 2: Manual control
+        EnsureDefaultWorldIsSet(); // Manually set if needed
+        
+        // Method 3: Get appropriate world
+        var world = GetWorldForTesting(); // Returns test or default world
+        
+        // Method 4: Get or create systems
+        var mySystem = GetOrCreateSystem<MyTestSystem>();
+        
+        await UniTask.Yield();
+    });
+}
+```
+
+### Helper Methods
+
+- **`GetWorldForTesting()`**: Returns the test world or default world
+- **`EnsureDefaultWorldIsSet()`**: Manually sets test world as default
+- **`GetOrCreateSystem<T>()`**: Gets or creates a system in the test world
 
 ## Using DOTSTestBase with UniTask
 
@@ -840,6 +890,12 @@ python PerSpec/Coordination/Scripts/quick_test.py class DOTSPerformanceTests -p 
 
 
 ## Troubleshooting
+
+### DefaultGameObjectInjectionWorld is Null
+1. Ensure test inherits from `DOTSTestBase`
+2. Check `SetAsDefaultWorld` is not overridden to false
+3. Call `EnsureDefaultWorldIsSet()` if needed
+4. Use `GetWorldForTesting()` for flexible world access
 
 ### Tests Not Running
 1. Ensure UniTask is installed via Package Manager

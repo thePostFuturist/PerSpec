@@ -36,6 +36,7 @@ Packages/com.digitraver.perspec/    # Package location
 - "Tests failing" → Run with verbose: `quick_test.py all -v --wait`
 - "Unity not responding" → Refresh Unity
 - **Timeout?** → Tell user to click Unity window for focus
+- **DOTS world null?** → Ensure using DOTSTestBase
 
 ## 🚀 TDD Workflow
 
@@ -233,9 +234,15 @@ public class ExampleComponent : MonoBehaviour {
 ### MANDATORY Base Classes
 ```csharp
 using PerSpec.Runtime.Unity;
+using PerSpec.Runtime.DOTS;  // For DOTS tests
 
 [TestFixture]
-public class MyTest : UniTaskTestBase  // REQUIRED - never TestFixture directly
+public class MyTest : UniTaskTestBase  // For Unity tests
+{
+}
+
+[TestFixture] 
+public class MyDOTSTest : DOTSTestBase  // For DOTS/ECS tests (auto-sets DefaultWorld)
 {
 }
 ```
@@ -326,6 +333,8 @@ PerSpecDebug.LogError("error message - always important");
 | async void | UniTask/UniTaskVoid |
 | Thread error | SwitchToMainThread() |
 | Null components | FindVars pattern |
+| DefaultGameObjectInjectionWorld null | Inherit from DOTSTestBase |
+| NativeArray disposed | Use try-finally with Dispose() |
 
 ### Project Structure
 ```

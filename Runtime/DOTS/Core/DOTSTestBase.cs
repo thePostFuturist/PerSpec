@@ -31,6 +31,12 @@ namespace PerSpec.Runtime.DOTS
         protected virtual bool EnableOperationTracking => true;
         protected virtual bool LogOperationLifecycle => false;
         
+        /// <summary>
+        /// When true, sets the test world as World.DefaultGameObjectInjectionWorld
+        /// This allows code that expects the default world to work in tests
+        /// </summary>
+        protected virtual bool SetAsDefaultWorld => true;
+        
         #endregion
         
         #region Setup and Teardown
@@ -41,6 +47,20 @@ namespace PerSpec.Runtime.DOTS
             // Create a test world for ECS
             testWorld = new World("DOTS_Test_World");
             entityManager = testWorld.EntityManager;
+            
+            // Optionally set as default world for compatibility with code that expects it
+            if (SetAsDefaultWorld)
+            {
+                // Store the existing default world if any (Unity may have created one)
+                var existingDefault = World.DefaultGameObjectInjectionWorld;
+                if (existingDefault != null && existingDefault != testWorld)
+                {
+                    Debug.Log($"[DOTS-TEST] Replacing existing DefaultGameObjectInjectionWorld '{existingDefault.Name}' with test world");
+                }
+                
+                World.DefaultGameObjectInjectionWorld = testWorld;
+                Debug.Log($"[DOTS-TEST] Set test world as DefaultGameObjectInjectionWorld");
+            }
             
             // Initialize cancellation token
             testCancellationTokenSource = new CancellationTokenSource();
@@ -64,6 +84,13 @@ namespace PerSpec.Runtime.DOTS
             // Now cancel any remaining operations
             testCancellationTokenSource?.Cancel();
             testCancellationTokenSource?.Dispose();
+            
+            // Clear default world reference if we set it
+            if (World.DefaultGameObjectInjectionWorld == testWorld)
+            {
+                World.DefaultGameObjectInjectionWorld = null;
+                Debug.Log($"[DOTS-TEST] Cleared DefaultGameObjectInjectionWorld reference");
+            }
             
             if (testWorld != null && testWorld.IsCreated)
             {
@@ -209,6 +236,56 @@ namespace PerSpec.Runtime.DOTS
             
             Debug.Log($"[DOTS-ENTITY] Created {count} entities with {components.Length} components");
             return entities;
+        }
+        
+        #endregion
+        
+        #region World Management Helpers
+        
+        /// <summary>
+        /// Gets the world to use for testing. Returns the test world or the default world if available.
+        /// Useful for tests that need to work with systems that expect DefaultGameObjectInjectionWorld.
+        /// </summary>
+        protected World GetWorldForTesting()
+        {
+            if (testWorld != null && testWorld.IsCreated)
+                return testWorld;
+            
+            if (World.DefaultGameObjectInjectionWorld != null && World.DefaultGameObjectInjectionWorld.IsCreated)
+                return World.DefaultGameObjectInjectionWorld;
+            
+            throw new InvalidOperationException("No valid world available for testing");
+        }
+        
+        /// <summary>
+        /// Gets or creates a system in the test world
+        /// </summary>
+        protected T GetOrCreateSystem<T>() where T : SystemBase, new()
+        {
+            var world = GetWorldForTesting();
+            var systemHandle = world.GetExistingSystem<T>();
+            
+            if (systemHandle == SystemHandle.Null)
+            {
+                // Create the system if it doesn't exist
+                systemHandle = world.CreateSystem<T>();
+                Debug.Log($"[DOTS-TEST] Created system {typeof(T).Name} in world {world.Name}");
+            }
+            
+            return world.GetExistingSystemManaged<T>();
+        }
+        
+        /// <summary>
+        /// Ensures the test world is set as the default world
+        /// Call this if your test needs DefaultGameObjectInjectionWorld to be non-null
+        /// </summary>
+        protected void EnsureDefaultWorldIsSet()
+        {
+            if (World.DefaultGameObjectInjectionWorld == null && testWorld != null && testWorld.IsCreated)
+            {
+                World.DefaultGameObjectInjectionWorld = testWorld;
+                Debug.Log($"[DOTS-TEST] Manually set test world as DefaultGameObjectInjectionWorld");
+            }
         }
         
         #endregion
