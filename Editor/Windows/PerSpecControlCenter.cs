@@ -778,10 +778,12 @@ PerSpecDebug.LogTestComplete(""Test passed"");";
                     if (GUILayout.Button(needsRefresh ? "Refresh Scripts (Recommended)" : "Refresh Scripts", 
                         GUILayout.Height(30)))
                     {
-                        if (InitializationService.RefreshCoordinationScripts())
+                        var result = InitializationService.RefreshCoordinationScripts();
+                        if (!string.IsNullOrEmpty(result))
                         {
-                            ShowNotification(new GUIContent("Scripts refreshed successfully"));
-                            Debug.Log($"[PerSpec] Scripts refreshed. Package at: {PackagePathResolver.PackagePath}");
+                            // Show detailed notification about what was copied
+                            ShowNotification(new GUIContent(result.Replace("\n", " ")), 3.0f);
+                            Debug.Log($"[PerSpec] {result}");
                         }
                         else
                         {
@@ -802,7 +804,11 @@ PerSpecDebug.LogTestComplete(""Test passed"");";
                             Debug.Log($"[PerSpec] Package path changed from: {oldPath} to: {newPath}");
                             
                             // Also refresh scripts after package path change
-                            InitializationService.RefreshCoordinationScripts();
+                            var refreshResult = InitializationService.RefreshCoordinationScripts();
+                            if (!string.IsNullOrEmpty(refreshResult))
+                            {
+                                Debug.Log($"[PerSpec] After path update: {refreshResult}");
+                            }
                         }
                         else
                         {

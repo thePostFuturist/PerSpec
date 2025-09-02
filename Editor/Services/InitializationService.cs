@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Diagnostics;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEditor;
 using Debug = UnityEngine.Debug;
@@ -205,43 +207,43 @@ namespace PerSpec.Editor.Services
         /// <summary>
         /// Refresh coordination scripts from package
         /// </summary>
-        public static bool RefreshCoordinationScripts()
+        public static string RefreshCoordinationScripts()
         {
             try
             {
                 if (!IsInitialized)
                 {
                     Debug.LogError("[PerSpec] Cannot refresh scripts - PerSpec not initialized");
-                    return false;
+                    return null;
                 }
                 
                 // Copy coordination scripts from package
-                CopyCoordinationScripts();
+                var copyResult = CopyCoordinationScripts();
                 
                 // Update package location file (still useful for reference)
                 PackageLocationTracker.UpdateLocationFile();
                 
-                Debug.Log("[PerSpec] Scripts refreshed with hardcoded paths");
-                return true;
+                Debug.Log($"[PerSpec] {copyResult}");
+                return copyResult;
             }
             catch (Exception e)
             {
                 Debug.LogError($"[PerSpec] Failed to refresh scripts: {e.Message}");
-                return false;
+                return null;
             }
         }
         
         /// <summary>
         /// Force update coordination scripts (delete existing and copy fresh)
         /// </summary>
-        public static bool ForceUpdateCoordinationScripts()
+        public static string ForceUpdateCoordinationScripts()
         {
             try
             {
                 if (!IsInitialized)
                 {
                     Debug.LogError("[PerSpec] Cannot force update scripts - PerSpec not initialized");
-                    return false;
+                    return null;
                 }
                 
                 // Delete existing scripts directory to ensure clean update
@@ -255,18 +257,18 @@ namespace PerSpec.Editor.Services
                 Directory.CreateDirectory(CoordinationScriptsPath);
                 
                 // Copy fresh scripts from package
-                CopyCoordinationScripts();
+                var copyResult = CopyCoordinationScripts();
                 
                 // Update package location file
                 PackageLocationTracker.UpdateLocationFile();
                 
-                Debug.Log("[PerSpec] Scripts force updated from package");
-                return true;
+                Debug.Log($"[PerSpec] Force update: {copyResult}");
+                return $"Force update: {copyResult}";
             }
             catch (Exception e)
             {
                 Debug.LogError($"[PerSpec] Failed to force update scripts: {e.Message}");
-                return false;
+                return null;
             }
         }
         
@@ -291,7 +293,7 @@ namespace PerSpec.Editor.Services
         
         #region Private Methods
         
-        private static void CopyCoordinationScripts()
+        private static string CopyCoordinationScripts()
         {
             try
             {
@@ -300,14 +302,7 @@ namespace PerSpec.Editor.Services
                 if (string.IsNullOrEmpty(packagePath))
                 {
                     Debug.LogError("[PerSpec] Could not find package path to copy coordination scripts");
-                    return;
-                }
-                
-                string sourceScriptsPath = Path.Combine(packagePath, "ScriptingTools", "Coordination", "Scripts");
-                if (!Directory.Exists(sourceScriptsPath))
-                {
-                    Debug.LogError($"[PerSpec] Source scripts directory not found: {sourceScriptsPath}");
-                    return;
+                    return "Failed: Package path not found";
                 }
                 
                 // Ensure destination directory exists
@@ -316,19 +311,69 @@ namespace PerSpec.Editor.Services
                     Directory.CreateDirectory(CoordinationScriptsPath);
                 }
                 
-                // Copy all Python scripts
-                foreach (string sourceFile in Directory.GetFiles(sourceScriptsPath, "*.py"))
+                int totalCopied = 0;
+                List<string> scriptNames = new List<string>();
+                
+                // Copy from ScriptingTools/Coordination/Scripts
+                string sourceScriptsPath1 = Path.Combine(packagePath, "ScriptingTools", "Coordination", "Scripts");
+                if (Directory.Exists(sourceScriptsPath1))
                 {
-                    string fileName = Path.GetFileName(sourceFile);
-                    string destFile = Path.Combine(CoordinationScriptsPath, fileName);
-                    File.Copy(sourceFile, destFile, true);
+                    foreach (string sourceFile in Directory.GetFiles(sourceScriptsPath1, "*.py"))
+                    {
+                        string fileName = Path.GetFileName(sourceFile);
+                        string destFile = Path.Combine(CoordinationScriptsPath, fileName);
+                        File.Copy(sourceFile, destFile, true);
+                        scriptNames.Add(fileName);
+                        totalCopied++;
+                    }
                 }
                 
-                Debug.Log($"[PerSpec] Copied coordination scripts to {CoordinationScriptsPath}");
+                // Copy from Editor/Coordination/Scripts
+                string sourceScriptsPath2 = Path.Combine(packagePath, "Editor", "Coordination", "Scripts");
+                if (Directory.Exists(sourceScriptsPath2))
+                {
+                    foreach (string sourceFile in Directory.GetFiles(sourceScriptsPath2, "*.py"))
+                    {
+                        string fileName = Path.GetFileName(sourceFile);
+                        string destFile = Path.Combine(CoordinationScriptsPath, fileName);
+                        File.Copy(sourceFile, destFile, true);
+                        if (!scriptNames.Contains(fileName))
+                        {
+                            scriptNames.Add(fileName);
+                        }
+                        totalCopied++;
+                    }
+                }
+                
+                // Create detailed message
+                string message = $"Copied {totalCopied} scripts";
+                if (scriptNames.Count > 0)
+                {
+                    // Group scripts by type
+                    var quickScripts = scriptNames.Where(s => s.StartsWith("quick_")).Select(s => s.Replace(".py", "")).ToList();
+                    var dbScripts = scriptNames.Where(s => s.Contains("db_") || s.Contains("database")).Select(s => s.Replace(".py", "")).ToList();
+                    var otherScripts = scriptNames.Where(s => !s.StartsWith("quick_") && !s.Contains("db_") && !s.Contains("database"))
+                                                .Select(s => s.Replace(".py", "")).ToList();
+                    
+                    List<string> details = new List<string>();
+                    if (quickScripts.Count > 0)
+                        details.Add($"Quick tools: {string.Join(", ", quickScripts)}");
+                    if (dbScripts.Count > 0)
+                        details.Add($"Database: {string.Join(", ", dbScripts)}");
+                    if (otherScripts.Count > 0)
+                        details.Add($"Other: {string.Join(", ", otherScripts)}");
+                    
+                    if (details.Count > 0)
+                        message = $"Copied {totalCopied} scripts:\n• {string.Join("\n• ", details)}";
+                }
+                
+                Debug.Log($"[PerSpec] {message}");
+                return message;
             }
             catch (Exception e)
             {
                 Debug.LogError($"[PerSpec] Failed to copy coordination scripts: {e.Message}");
+                return $"Failed: {e.Message}";
             }
         }
         
