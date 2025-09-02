@@ -321,20 +321,28 @@ namespace PerSpec.Editor.Coordination
                             Debug.LogError($"[PlayModeTestCompletionChecker] Failed to generate XML: {ex.Message}");
                         }
                         
+                        // Calculate actual duration from request start time
+                        float actualDuration = 0.1f; // Default if we can't calculate
+                        if (request.StartedAt.HasValue)
+                        {
+                            actualDuration = (float)(DateTime.Now - request.StartedAt.Value).TotalSeconds;
+                            Debug.Log($"[PlayModeTestCompletionChecker] Calculated actual duration: {actualDuration:F2} seconds");
+                        }
+                        
                         // For individual test methods with empty results, mark as inconclusive
-                        // This prevents using stale data from previous test runs
+                        // Use "inconclusive" status instead of "completed" to avoid false positives
                         dbManager.UpdateRequestResults(
                             request.Id,
-                            "completed",
+                            "inconclusive",  // Changed from "completed" to prevent false positives
                             1,  // Assume 1 test was requested
                             0,  // Unknown pass count
                             0,  // Unknown fail count
                             1,  // Mark as skipped/inconclusive
-                            0.1f
+                            actualDuration  // Use actual duration instead of hardcoded 0.1f
                         );
                         
                         dbManager.LogExecution(request.Id, "WARNING", "PlayModeTestCompletionChecker", 
-                            "Individual test completed but Unity did not generate proper results - generated XML workaround");
+                            $"Individual test ran for {actualDuration:F2}s but Unity did not generate proper results - marked as inconclusive");
                         
                         Debug.LogWarning($"[PlayModeTestCompletionChecker] Unity did not generate test results for individual method. " +
                                        $"Generated workaround XML file. Test may have run but results are unavailable.");

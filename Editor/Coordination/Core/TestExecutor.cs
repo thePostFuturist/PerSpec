@@ -521,19 +521,34 @@ namespace PerSpec.Editor.Coordination
                                 // Check if we got valid results
                                 if (_currentSummary.TotalTests > 0 || _currentRequest.RequestType == "method")
                                 {
+                                    // For individual tests with no results, mark as inconclusive
+                                    string status = "completed";
+                                    if (_currentRequest.RequestType == "method" && _currentSummary.TotalTests == 1 && _currentSummary.SkippedTests == 1)
+                                    {
+                                        status = "inconclusive";
+                                    }
+                                    
+                                    // Calculate actual duration if not provided
+                                    float duration = _currentSummary.Duration;
+                                    if (duration <= 0.1f && _currentRequest.StartedAt.HasValue)
+                                    {
+                                        duration = (float)(DateTime.Now - _currentRequest.StartedAt.Value).TotalSeconds;
+                                        Debug.Log($"[TestExecutor] Using calculated duration: {duration:F2}s");
+                                    }
+                                    
                                     // Update database with parsed results
                                     _dbManager.UpdateRequestResults(
                                         _currentRequest.Id,
-                                        "completed",
+                                        status,
                                         _currentSummary.TotalTests,
                                         _currentSummary.PassedTests,
                                         _currentSummary.FailedTests,
                                         _currentSummary.SkippedTests,
-                                        _currentSummary.Duration
+                                        duration
                                     );
                                     
                                     _dbManager.LogExecution(_currentRequest.Id, "INFO", "TestExecutor", 
-                                        $"{_currentRequest.TestPlatform} test completed: {_currentSummary.PassedTests}/{_currentSummary.TotalTests} passed");
+                                        $"{_currentRequest.TestPlatform} test {status}: {_currentSummary.PassedTests}/{_currentSummary.TotalTests} passed");
                                     
                                     Debug.Log($"[TestExecutor] Request {_currentRequest.Id} marked as completed");
                                     
