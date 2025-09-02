@@ -311,6 +311,118 @@ namespace PerSpec.Editor.Windows
                 EditorGUILayout.TextArea(TestCoordinationService.GetDatabaseStatus(), 
                     GUILayout.Height(100));
             });
+            
+            EditorGUILayout.Space(10);
+            
+            // Database Maintenance
+            DrawSection("Database Maintenance", () =>
+            {
+                // Show database size
+                var dbManager = new SQLiteManager();
+                if (dbManager.IsInitialized)
+                {
+                    long dbSize = dbManager.GetDatabaseSize();
+                    float sizeMB = dbSize / (1024f * 1024f);
+                    
+                    // Color code based on size
+                    Color sizeColor = Color.white;
+                    if (sizeMB > 500) sizeColor = Color.red;
+                    else if (sizeMB > 100) sizeColor = Color.yellow;
+                    else if (sizeMB > 50) sizeColor = new Color(1f, 0.8f, 0f); // Orange
+                    
+                    GUI.color = sizeColor;
+                    EditorGUILayout.LabelField("Database Size:", $"{sizeMB:F2} MB");
+                    GUI.color = Color.white;
+                    
+                    // Show maintenance status
+                    EditorGUILayout.LabelField("Maintenance Status:");
+                    EditorGUILayout.TextArea(DatabaseMaintenanceService.GetMaintenanceStatus(), 
+                        GUILayout.Height(60));
+                    
+                    EditorGUILayout.Space(5);
+                    
+                    // Maintenance buttons
+                    EditorGUILayout.BeginHorizontal();
+                    
+                    if (GUILayout.Button("Clean Old Data (2h)", GUILayout.Height(25)))
+                    {
+                        if (EditorUtility.DisplayDialog("Clean Old Data", 
+                            "This will delete all test results, logs, and execution data older than 2 hours.\n\nContinue?", 
+                            "Clean", "Cancel"))
+                        {
+                            dbManager.PerformFullMaintenance(2);
+                            ShowNotification(new GUIContent("Old data cleaned"));
+                        }
+                    }
+                    
+                    if (GUILayout.Button("Vacuum Database", GUILayout.Height(25)))
+                    {
+                        if (EditorUtility.DisplayDialog("Vacuum Database", 
+                            "This will reclaim unused space in the database. The operation may take a moment.\n\nContinue?", 
+                            "Vacuum", "Cancel"))
+                        {
+                            dbManager.VacuumDatabase();
+                            ShowNotification(new GUIContent("Database vacuumed"));
+                        }
+                    }
+                    
+                    EditorGUILayout.EndHorizontal();
+                    
+                    EditorGUILayout.BeginHorizontal();
+                    
+                    if (sizeMB > 10)
+                    {
+                        GUI.color = Color.yellow;
+                        if (GUILayout.Button("Aggressive Cleanup", GUILayout.Height(25)))
+                        {
+                            if (EditorUtility.DisplayDialog("Aggressive Cleanup", 
+                                "This will delete ALL data older than 30 minutes and vacuum the database.\n\nContinue?", 
+                                "Clean", "Cancel"))
+                            {
+                                // Aggressive cleanup
+                                dbManager.DeleteOldConsoleLogs(DateTime.Now.AddMinutes(-30));
+                                dbManager.DeleteOldTestResults(0);
+                                dbManager.DeleteOldExecutionLogs(0);
+                                dbManager.DeleteOldRefreshRequests(0);
+                                dbManager.VacuumDatabase();
+                                ShowNotification(new GUIContent("Aggressive cleanup complete"));
+                            }
+                        }
+                        GUI.color = Color.white;
+                    }
+                    
+                    if (sizeMB > 1)
+                    {
+                        GUI.color = Color.red;
+                        if (GUILayout.Button("Reset Database", GUILayout.Height(25)))
+                        {
+                            if (EditorUtility.DisplayDialog("Reset Database", 
+                                "WARNING: This will DELETE ALL data in the database!\n\nThis cannot be undone.\n\nAre you sure?", 
+                                "Reset", "Cancel"))
+                            {
+                                dbManager.ResetDatabase();
+                                ShowNotification(new GUIContent("Database reset complete"));
+                            }
+                        }
+                        GUI.color = Color.white;
+                    }
+                    
+                    EditorGUILayout.EndHorizontal();
+                    
+                    EditorGUILayout.Space(5);
+                    
+                    // Force maintenance button
+                    if (GUILayout.Button("Force Scheduled Maintenance", GUILayout.Height(20)))
+                    {
+                        DatabaseMaintenanceService.ForceMaintenance();
+                        ShowNotification(new GUIContent("Maintenance triggered"));
+                    }
+                }
+                else
+                {
+                    EditorGUILayout.HelpBox("Database not initialized", MessageType.Warning);
+                }
+            });
         }
         
         #endregion

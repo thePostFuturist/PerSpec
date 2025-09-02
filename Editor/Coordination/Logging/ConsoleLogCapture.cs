@@ -23,6 +23,8 @@ namespace PerSpec.Editor.Coordination
         private static bool _isCapturing = true;
         private static int _maxStackFrames = 10;
         private static int _maxLineLength = 200;
+        private static DateTime _lastCleanup = DateTime.MinValue;
+        private static readonly TimeSpan _cleanupInterval = TimeSpan.FromHours(1);
         
         // Patterns to filter out from stack traces
         private static readonly string[] FrameworkPatterns = new[]
@@ -81,8 +83,8 @@ namespace PerSpec.Editor.Coordination
                 // Log session start
                 Debug.Log($"[ConsoleLogCapture] Started capture session: {SessionId}");
                 
-                // Clear old logs on startup (optional, configurable)
-                CleanOldLogs(24); // Keep last 24 hours
+                // Clear old logs on startup (aggressive cleanup to prevent bloat)
+                CleanOldLogs(2); // Keep only last 2 hours
             }
             catch (Exception)
             {
@@ -132,6 +134,12 @@ namespace PerSpec.Editor.Coordination
         
         private static void ProcessLogQueue()
         {
+            // Check if periodic cleanup is needed
+            if (DateTime.Now - _lastCleanup > _cleanupInterval)
+            {
+                PerformPeriodicCleanup();
+            }
+            
             if (_logQueue.Count == 0) return;
             
             List<ConsoleLogEntry> logsToProcess = null;
@@ -158,6 +166,29 @@ namespace PerSpec.Editor.Coordination
                 {
                     Debug.LogError($"[ConsoleLogCapture] Failed to save logs: {ex.Message}");
                 }
+            }
+        }
+        
+        private static void PerformPeriodicCleanup()
+        {
+            try
+            {
+                _lastCleanup = DateTime.Now;
+                
+                // Clean old logs (keep 2 hours)
+                CleanOldLogs(2);
+                
+                // Check database size and perform maintenance if needed
+                var dbSize = _dbManager.GetDatabaseSize();
+                if (dbSize > 100 * 1024 * 1024) // If larger than 100MB
+                {
+                    Debug.LogWarning($"[ConsoleLogCapture] Database size ({dbSize / (1024f * 1024f):F2} MB) exceeds threshold. Running maintenance...");
+                    _dbManager.PerformFullMaintenance(2);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ConsoleLogCapture] Failed periodic cleanup: {ex.Message}");
             }
         }
         

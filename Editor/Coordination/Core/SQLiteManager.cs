@@ -634,11 +634,174 @@ namespace PerSpec.Editor.Coordination
         {
             try
             {
-                _connection.Execute("DELETE FROM console_logs WHERE timestamp < ?", cutoffTime);
+                int deleted = _connection.Execute("DELETE FROM console_logs WHERE timestamp < ?", cutoffTime);
+                if (deleted > 0)
+                {
+                    Debug.Log($"[SQLiteManager] Deleted {deleted} old console logs");
+                }
             }
             catch (Exception e)
             {
                 Debug.LogError($"[SQLiteManager] Error deleting old console logs: {e.Message}");
+            }
+        }
+        
+        // Database Maintenance Methods
+        public void DeleteOldTestResults(int hoursToKeep = 2)
+        {
+            try
+            {
+                var cutoffTime = DateTime.Now.AddHours(-hoursToKeep);
+                
+                // Delete old test results
+                int deletedResults = _connection.Execute("DELETE FROM test_results WHERE created_at < ?", cutoffTime);
+                
+                // Delete old test requests
+                int deletedRequests = _connection.Execute("DELETE FROM test_requests WHERE created_at < ? AND status IN ('completed', 'failed', 'cancelled', 'inconclusive')", cutoffTime);
+                
+                if (deletedResults > 0 || deletedRequests > 0)
+                {
+                    Debug.Log($"[SQLiteManager] Deleted {deletedResults} test results and {deletedRequests} test requests older than {hoursToKeep} hours");
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[SQLiteManager] Error deleting old test data: {e.Message}");
+            }
+        }
+        
+        public void DeleteOldExecutionLogs(int hoursToKeep = 2)
+        {
+            try
+            {
+                var cutoffTime = DateTime.Now.AddHours(-hoursToKeep);
+                int deleted = _connection.Execute("DELETE FROM execution_log WHERE created_at < ?", cutoffTime);
+                
+                if (deleted > 0)
+                {
+                    Debug.Log($"[SQLiteManager] Deleted {deleted} execution logs older than {hoursToKeep} hours");
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[SQLiteManager] Error deleting old execution logs: {e.Message}");
+            }
+        }
+        
+        public void DeleteOldRefreshRequests(int hoursToKeep = 2)
+        {
+            try
+            {
+                var cutoffTime = DateTime.Now.AddHours(-hoursToKeep);
+                int deleted = _connection.Execute("DELETE FROM asset_refresh_requests WHERE created_at < ? AND status IN ('completed', 'failed', 'cancelled')", cutoffTime);
+                
+                if (deleted > 0)
+                {
+                    Debug.Log($"[SQLiteManager] Deleted {deleted} old refresh requests");
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[SQLiteManager] Error deleting old refresh requests: {e.Message}");
+            }
+        }
+        
+        public void VacuumDatabase()
+        {
+            try
+            {
+                Debug.Log("[SQLiteManager] Starting database VACUUM...");
+                _connection.Execute("VACUUM");
+                Debug.Log("[SQLiteManager] Database VACUUM completed successfully");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[SQLiteManager] Error performing VACUUM: {e.Message}");
+            }
+        }
+        
+        public long GetDatabaseSize()
+        {
+            try
+            {
+                var dbPath = Path.Combine(Application.dataPath, "..", "PerSpec", "test_coordination.db");
+                if (File.Exists(dbPath))
+                {
+                    var fileInfo = new FileInfo(dbPath);
+                    return fileInfo.Length;
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[SQLiteManager] Error getting database size: {e.Message}");
+            }
+            return 0;
+        }
+        
+        public void PerformFullMaintenance(int hoursToKeep = 2)
+        {
+            try
+            {
+                Debug.Log("[SQLiteManager] Starting full database maintenance...");
+                
+                // Get size before
+                long sizeBefore = GetDatabaseSize();
+                
+                // Delete old data
+                DeleteOldConsoleLogs(DateTime.Now.AddHours(-hoursToKeep));
+                DeleteOldTestResults(hoursToKeep);
+                DeleteOldExecutionLogs(hoursToKeep);
+                DeleteOldRefreshRequests(hoursToKeep);
+                
+                // Vacuum to reclaim space
+                VacuumDatabase();
+                
+                // Get size after
+                long sizeAfter = GetDatabaseSize();
+                
+                // Report results
+                long savedBytes = sizeBefore - sizeAfter;
+                if (savedBytes > 0)
+                {
+                    float savedMB = savedBytes / (1024f * 1024f);
+                    Debug.Log($"[SQLiteManager] Maintenance complete. Freed {savedMB:F2} MB (from {sizeBefore / (1024f * 1024f):F2} MB to {sizeAfter / (1024f * 1024f):F2} MB)");
+                }
+                else
+                {
+                    Debug.Log($"[SQLiteManager] Maintenance complete. Database size: {sizeAfter / (1024f * 1024f):F2} MB");
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[SQLiteManager] Error performing full maintenance: {e.Message}");
+            }
+        }
+        
+        public void ResetDatabase()
+        {
+            try
+            {
+                Debug.LogWarning("[SQLiteManager] Resetting database - deleting ALL data...");
+                
+                // Delete everything from all tables
+                _connection.Execute("DELETE FROM console_logs");
+                _connection.Execute("DELETE FROM test_results");
+                _connection.Execute("DELETE FROM test_requests");
+                _connection.Execute("DELETE FROM execution_log");
+                _connection.Execute("DELETE FROM asset_refresh_requests");
+                _connection.Execute("DELETE FROM system_status");
+                
+                // Reset auto-increment counters
+                _connection.Execute("DELETE FROM sqlite_sequence");
+                
+                // Vacuum to reclaim all space
+                VacuumDatabase();
+                
+                Debug.Log("[SQLiteManager] Database reset complete");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[SQLiteManager] Error resetting database: {e.Message}");
             }
         }
         
