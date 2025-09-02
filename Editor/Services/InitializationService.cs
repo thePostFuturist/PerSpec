@@ -25,9 +25,14 @@ namespace PerSpec.Editor.Services
                 return;
             }
             
-            if (RefreshCoordinationScripts())
+            var result = RefreshCoordinationScripts();
+            if (!string.IsNullOrEmpty(result))
             {
-                Debug.Log("[PerSpec] Coordination scripts refreshed successfully");
+                Debug.Log($"[PerSpec] {result}");
+            }
+            else
+            {
+                Debug.LogError("[PerSpec] Failed to refresh coordination scripts");
             }
         }
         

@@ -212,9 +212,10 @@ namespace PerSpec.Editor.Windows
                 
                 if (GUILayout.Button("Update Scripts", GUILayout.Height(40)))
                 {
-                    if (InitializationService.RefreshCoordinationScripts())
+                    var result = InitializationService.RefreshCoordinationScripts();
+                    if (!string.IsNullOrEmpty(result))
                     {
-                        ShowNotification(new GUIContent("Scripts updated from package"));
+                        ShowNotification(new GUIContent(result.Replace("\n", " ")), 3.0f);
                     }
                     else
                     {
@@ -916,26 +917,30 @@ PerSpecDebug.LogTestComplete(""Test passed"");";
                             "PerSpec must be initialized first.\n\nUse Tools > PerSpec > Initialize or the Initialization tab.",
                             "OK");
                     }
-                    else if (InitializationService.RefreshCoordinationScripts())
-                    {
-                        ShowNotification(new GUIContent($"Python scripts copied to PerSpec/Coordination/Scripts/"));
-                        Debug.Log($"[PerSpec] Python scripts copied to: {InitializationService.CoordinationScriptsPath}");
-                        
-                        // Show success dialog with path info
-                        EditorUtility.DisplayDialog("Scripts Copied Successfully",
-                            $"Python coordination scripts have been copied to:\n\n{InitializationService.CoordinationScriptsPath}\n\n" +
-                            "You can now run commands like:\n" +
-                            "• python PerSpec/Coordination/Scripts/quick_test.py\n" +
-                            "• python PerSpec/Coordination/Scripts/quick_logs.py\n" +
-                            "• python PerSpec/Coordination/Scripts/quick_refresh.py",
-                            "OK");
-                    }
                     else
                     {
-                        ShowNotification(new GUIContent("Failed to copy Python scripts"));
-                        EditorUtility.DisplayDialog("Copy Failed",
-                            "Failed to copy Python scripts.\n\nCheck the console for error details.",
-                            "OK");
+                        var refreshResult = InitializationService.RefreshCoordinationScripts();
+                        if (!string.IsNullOrEmpty(refreshResult))
+                        {
+                            ShowNotification(new GUIContent(refreshResult.Replace("\n", " ")), 3.0f);
+                            Debug.Log($"[PerSpec] {refreshResult}");
+                            
+                            // Show success dialog with path info
+                            EditorUtility.DisplayDialog("Scripts Copied Successfully",
+                                $"Python coordination scripts have been copied to:\n\n{InitializationService.CoordinationScriptsPath}\n\n" +
+                                "You can now run commands like:\n" +
+                                "• python PerSpec/Coordination/Scripts/quick_test.py\n" +
+                                "• python PerSpec/Coordination/Scripts/quick_logs.py\n" +
+                                "• python PerSpec/Coordination/Scripts/quick_refresh.py",
+                                "OK");
+                        }
+                        else
+                        {
+                            ShowNotification(new GUIContent("Failed to copy Python scripts"));
+                            EditorUtility.DisplayDialog("Copy Failed",
+                                "Failed to copy Python scripts.\n\nCheck the console for error details.",
+                                "OK");
+                        }
                     }
                 }
             });

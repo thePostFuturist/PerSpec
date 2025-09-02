@@ -182,10 +182,11 @@ namespace PerSpec.Editor.Initialization
             {
                 if (InitializationService.IsInitialized)
                 {
-                    if (InitializationService.RefreshCoordinationScripts())
+                    var result = InitializationService.RefreshCoordinationScripts();
+                    if (!string.IsNullOrEmpty(result))
                     {
-                        ShowNotification(new GUIContent("✓ Scripts refreshed successfully!"));
-                        Debug.Log("[PerSpec] Coordination scripts refreshed with latest version");
+                        ShowNotification(new GUIContent($"✓ {result}"));
+                        Debug.Log($"[PerSpec] {result}");
                     }
                     else
                     {
