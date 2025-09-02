@@ -394,7 +394,7 @@ namespace PerSpec.Editor.Coordination
         {
             if (!_isMonitoring || _hasCompletedViaCallback) 
             {
-                Debug.Log($"[TestExecutor-FM] Monitor skipped - isMonitoring: {_isMonitoring}, hasCompleted: {_hasCompletedViaCallback}");
+                // Silently skip - this gets called every frame when complete
                 return;
             }
             
