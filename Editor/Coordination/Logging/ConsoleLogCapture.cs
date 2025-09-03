@@ -399,13 +399,13 @@ namespace PerSpec.Editor.Coordination
         }
         
         // Method now accessed via Control Center
-        public static void ShowSessionInfo()
+        public static string GetSessionInfo()
         {
-            Debug.Log($"[ConsoleLogCapture] Session ID: {SessionId}");
-            Debug.Log($"  Capture: {(_isCapturing ? "ENABLED" : "DISABLED")}");
-            Debug.Log($"  Queue Size: {_logQueue.Count}");
-            Debug.Log($"  Max Stack Frames: {_maxStackFrames}");
-            Debug.Log($"  Max Line Length: {_maxLineLength}");
+            return $"Session ID: {SessionId}\n" +
+                   $"Capture: {(_isCapturing ? "ENABLED" : "DISABLED")}\n" +
+                   $"Queue Size: {_logQueue.Count}\n" +
+                   $"Max Stack Frames: {_maxStackFrames}\n" +
+                   $"Max Line Length: {_maxLineLength}";
         }
         
         // Method now accessed via Control Center

@@ -115,16 +115,18 @@ namespace PerSpec.Editor.Services
         /// </summary>
         public static string GetSessionInfo()
         {
-            ConsoleLogCapture.ShowSessionInfo();
-            
             if (!IsCaptureEnabled)
                 return "No active capture session";
                 
+            // Get detailed session info from ConsoleLogCapture
+            string captureInfo = ConsoleLogCapture.GetSessionInfo();
+            
             return $"Session: {SessionId}\n" +
                    $"Total Logs: {CapturedLogCount}\n" +
                    $"Errors: {ErrorCount}\n" +
                    $"Warnings: {WarningCount}\n" +
-                   $"Info: {CapturedLogCount - ErrorCount - WarningCount}";
+                   $"Info: {CapturedLogCount - ErrorCount - WarningCount}\n\n" +
+                   $"=== Capture Details ===\n{captureInfo}";
         }
         
         /// <summary>
