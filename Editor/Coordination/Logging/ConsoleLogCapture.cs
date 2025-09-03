@@ -45,6 +45,23 @@ namespace PerSpec.Editor.Coordination
             @"TestCoordination\.ConsoleLogCapture"
         };
         
+        // System message prefixes to filter out entirely (not stored in database)
+        // Keep [PerSpec] messages as they may be user-relevant
+        private static readonly string[] SystemMessagePrefixes = new[]
+        {
+            "[ConsoleLogCapture]",
+            "[SQLiteManager]",
+            "[DatabaseMaintenanceService]",
+            "[PlayModeTestCompletionChecker]",
+            "[PackagePathResolver]",
+            "[PerSpecDebugSettings]",
+            "[PackageLocationTracker]",
+            "[InitializationService]",
+            "[LLMPermissionManager]",
+            "[BuildProfileHelper]",
+            "[DebugService]"
+        };
+        
         // Unity source file patterns to preserve
         private static readonly string[] ImportantPatterns = new[]
         {
@@ -95,6 +112,15 @@ namespace PerSpec.Editor.Coordination
         private static void OnLogMessageReceived(string message, string stackTrace, LogType logType)
         {
             if (!_isCapturing) return;
+            
+            // Filter out internal system messages (but keep [PerSpec] messages)
+            foreach (var prefix in SystemMessagePrefixes)
+            {
+                if (message.StartsWith(prefix))
+                {
+                    return; // Skip this message entirely
+                }
+            }
             
             try
             {

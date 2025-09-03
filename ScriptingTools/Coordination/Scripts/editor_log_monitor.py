@@ -183,11 +183,11 @@ class EditorLogMonitor:
         conn.close()
     
     def _mark_old_errors_stale(self):
-        """Mark errors older than 5 minutes as stale"""
+        """Mark errors older than 1 second as stale"""
         conn = sqlite3.connect(str(self.db_path))
         cursor = conn.cursor()
         
-        cutoff_time = (datetime.now() - timedelta(minutes=5)).isoformat()
+        cutoff_time = (datetime.now() - timedelta(seconds=1)).isoformat()
         cursor.execute("""
             UPDATE compilation_errors 
             SET is_stale = 1 
