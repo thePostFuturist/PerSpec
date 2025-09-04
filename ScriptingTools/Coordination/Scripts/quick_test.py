@@ -130,7 +130,7 @@ def main():
                 
                 if has_errors:
                     print("\n" + "="*60)
-                    print("⚠️  COMPILATION ERRORS DETECTED!")
+                    print("WARNING: COMPILATION ERRORS DETECTED!")
                     print("="*60)
                     print(f"\n{error_msg}")
                     print("\nTests cannot run with compilation errors.")
@@ -146,7 +146,7 @@ def main():
                     print("="*60)
                     sys.exit(2)  # Exit code 2 for compilation errors
                 else:
-                    print("✓ No compilation errors found")
+                    print("[OK] No compilation errors found")
             
             # Focus Unity BEFORE submitting request for immediate processing
             if args.focus:
