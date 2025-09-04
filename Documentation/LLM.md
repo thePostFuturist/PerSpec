@@ -40,16 +40,25 @@ Packages/com.digitraver.perspec/    # Package location
 
 ## 🚀 TDD Workflow
 
-### 📌 4-Step Process (REQUIRED)
+### 📌 4-Step Process (REQUIRED - DO NOT SKIP STEPS!)
 ```bash
 # 1. Write tests & code
 # 2. Refresh Unity
 python PerSpec/Coordination/Scripts/quick_refresh.py full --wait
-# 3. Check compilation
+
+# 3. ⚠️ MANDATORY: Check compilation errors
 python PerSpec/Coordination/Scripts/quick_logs.py errors
-# 4. Run tests
+# STOP HERE if any errors! Fix compilation FIRST!
+# Tests will be INCONCLUSIVE if code doesn't compile
+
+# 4. Run tests ONLY after successful compilation
 python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait
 ```
+
+**🚨 CRITICAL**: If compilation errors exist:
+- Tests cannot run and will be marked INCONCLUSIVE
+- You MUST fix compilation errors before running tests
+- Check errors with: `python PerSpec/Coordination/Scripts/quick_logs.py errors`
 
 ### 🎯 Test Execution
 ```bash
@@ -325,6 +334,20 @@ PerSpecDebug.LogError("error message - always important");
 ❌ Skip TDD steps  
 
 ## 📊 Quick Reference
+
+### Compilation Error Handling
+| Situation | Action | Command |
+|-----------|--------|---------|
+| After refresh | ALWAYS check errors | `quick_logs.py errors` |
+| Errors found | FIX before testing | Do NOT run tests |
+| Tests show "inconclusive" | Check compilation | `quick_logs.py errors` |
+| Tests timeout | Check Unity focus + errors | Click Unity + check errors |
+
+**Test Result States:**
+- **PASSED**: Test executed and succeeded
+- **FAILED**: Test executed but assertion failed  
+- **INCONCLUSIVE**: Test couldn't run (compilation error/timeout)
+- **SKIPPED**: Test intentionally not run
 
 ### Error Fixes
 | Error | Solution |
