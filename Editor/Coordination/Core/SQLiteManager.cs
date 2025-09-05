@@ -552,6 +552,13 @@ namespace PerSpec.Editor.Coordination
         {
             try
             {
+                // Check if table exists first
+                if (!TableExists("menu_item_requests"))
+                {
+                    // Table doesn't exist - this is expected for projects that haven't migrated yet
+                    return null;
+                }
+                
                 var query = _connection.Table<MenuItemRequest>()
                     .Where(r => r.Status == "pending")
                     .OrderByDescending(r => r.Priority)
@@ -562,8 +569,8 @@ namespace PerSpec.Editor.Coordination
             }
             catch (Exception e)
             {
-                Debug.LogError($"[SQLiteManager] Error getting pending menu request: {e.Message}");
-                return null;
+                // Re-throw to let MenuItemCoordinator handle it
+                throw;
             }
         }
         
@@ -738,6 +745,25 @@ namespace PerSpec.Editor.Coordination
             catch (Exception e)
             {
                 Debug.LogError($"[SQLiteManager] Error deleting old console logs: {e.Message}");
+            }
+        }
+        
+        // Database Utility Methods
+        public bool TableExists(string tableName)
+        {
+            if (!_isInitialized) return false;
+            
+            try
+            {
+                var result = _connection.ExecuteScalar<int>(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?", 
+                    tableName);
+                return result > 0;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[SQLiteManager] Error checking table existence: {e.Message}");
+                return false;
             }
         }
         

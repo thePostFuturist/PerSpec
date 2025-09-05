@@ -91,7 +91,20 @@ namespace PerSpec.Editor.Coordination
             }
             catch (Exception e)
             {
-                Debug.LogError($"[MenuItemCoordinator] Error checking for requests: {e.Message}");
+                // Check if error is due to missing table
+                if (e.Message.Contains("no such table: menu_item_requests"))
+                {
+                    Debug.LogWarning("[MenuItemCoordinator] Menu execution table missing after package update.\n" +
+                                   "To enable menu execution features, run:\n" +
+                                   "  python PerSpec/Coordination/Scripts/db_migrate.py\n" +
+                                   "This is a one-time migration after updating the PerSpec package.");
+                    _pollingEnabled = false; // Disable polling to avoid spam
+                    EditorApplication.update -= OnEditorUpdate; // Unsubscribe from updates
+                }
+                else
+                {
+                    Debug.LogError($"[MenuItemCoordinator] Error checking for requests: {e.Message}");
+                }
             }
         }
         
