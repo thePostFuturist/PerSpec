@@ -24,7 +24,7 @@ namespace PerSpec.Editor.Coordination
         private static int _maxStackFrames = 10;
         private static int _maxLineLength = 200;
         private static DateTime _lastCleanup = DateTime.MinValue;
-        private static readonly TimeSpan _cleanupInterval = TimeSpan.FromHours(1);
+        private static readonly TimeSpan _cleanupInterval = TimeSpan.FromMinutes(15); // Check every 15 minutes
         
         // Patterns to filter out from stack traces
         private static readonly string[] FrameworkPatterns = new[]
@@ -101,7 +101,7 @@ namespace PerSpec.Editor.Coordination
                 Debug.Log($"[ConsoleLogCapture] Started capture session: {SessionId}");
                 
                 // Clear old logs on startup (aggressive cleanup to prevent bloat)
-                CleanOldLogs(2); // Keep only last 2 hours
+                CleanOldLogs(0.5f); // Keep only last 30 minutes
             }
             catch (Exception)
             {
@@ -201,15 +201,15 @@ namespace PerSpec.Editor.Coordination
             {
                 _lastCleanup = DateTime.Now;
                 
-                // Clean old logs (keep 2 hours)
-                CleanOldLogs(2);
+                // Clean old logs (keep 30 minutes)
+                CleanOldLogs(0.5f);
                 
                 // Check database size and perform maintenance if needed
                 var dbSize = _dbManager.GetDatabaseSize();
-                if (dbSize > 100 * 1024 * 1024) // If larger than 100MB
+                if (dbSize > 50 * 1024 * 1024) // If larger than 50MB
                 {
                     Debug.LogWarning($"[ConsoleLogCapture] Database size ({dbSize / (1024f * 1024f):F2} MB) exceeds threshold. Running maintenance...");
-                    _dbManager.PerformFullMaintenance(2);
+                    _dbManager.PerformFullMaintenance(0.5f); // Keep only 30 minutes during maintenance
                 }
             }
             catch (Exception ex)
@@ -364,7 +364,7 @@ namespace PerSpec.Editor.Coordination
             }
         }
         
-        private static void CleanOldLogs(int hoursToKeep)
+        private static void CleanOldLogs(float hoursToKeep)
         {
             try
             {

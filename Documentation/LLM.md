@@ -32,6 +32,8 @@ Packages/com.digitraver.perspec/    # Package location
 | "test results" | `cat $(ls -t PerSpec/TestResults/*.xml 2>/dev/null \| head -1)` |
 | "open console" | `python PerSpec/Coordination/Scripts/quick_menu.py execute "Window/General/Console" --wait` |
 | "save project" | `python PerSpec/Coordination/Scripts/quick_menu.py execute "File/Save Project" --wait` |
+| "clear logs" | `python PerSpec/Coordination/Scripts/quick_clean.py quick` |
+| "clean database" | `python PerSpec/Coordination/Scripts/quick_clean.py all --keep 0.5` |
 
 **Intent Mapping:**
 - "Something wrong" → Check errors
@@ -39,6 +41,35 @@ Packages/com.digitraver.perspec/    # Package location
 - "Unity not responding" → Refresh Unity
 - **Timeout?** → Tell user to click Unity window for focus
 - **DOTS world null?** → Ensure using DOTSTestBase
+- **Database too large?** → Run: `quick_clean.py quick`
+
+## 🗑️ Database Maintenance
+
+### Manual Cleanup Commands
+```bash
+# Quick cleanup (clear all logs + compact database)
+python PerSpec/Coordination/Scripts/quick_clean.py quick
+
+# Clear only console logs
+python PerSpec/Coordination/Scripts/quick_clean.py logs --keep 0
+
+# Clean all old data (keep last 30 minutes)
+python PerSpec/Coordination/Scripts/quick_clean.py all --keep 0.5
+
+# Show database statistics
+python PerSpec/Coordination/Scripts/quick_clean.py stats
+```
+
+### Automatic Settings
+- Console logs retention: **30 minutes**
+- Cleanup frequency: **Every 15 minutes**
+- Database size trigger: **50 MB**
+
+### After Package Updates
+```bash
+# Run migration to add new tables
+python PerSpec/Coordination/Scripts/db_migrate.py
+```
 
 ## 🚀 TDD Workflow
 

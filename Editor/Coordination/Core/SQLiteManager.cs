@@ -859,7 +859,7 @@ namespace PerSpec.Editor.Coordination
             return 0;
         }
         
-        public void PerformFullMaintenance(int hoursToKeep = 2)
+        public void PerformFullMaintenance(float hoursToKeep = 2)
         {
             try
             {
@@ -870,9 +870,9 @@ namespace PerSpec.Editor.Coordination
                 
                 // Delete old data
                 DeleteOldConsoleLogs(DateTime.Now.AddHours(-hoursToKeep));
-                DeleteOldTestResults(hoursToKeep);
-                DeleteOldExecutionLogs(hoursToKeep);
-                DeleteOldRefreshRequests(hoursToKeep);
+                DeleteOldTestResults((int)Math.Ceiling(hoursToKeep));
+                DeleteOldExecutionLogs((int)Math.Ceiling(hoursToKeep));
+                DeleteOldRefreshRequests((int)Math.Ceiling(hoursToKeep));
                 
                 // Vacuum to reclaim space
                 VacuumDatabase();

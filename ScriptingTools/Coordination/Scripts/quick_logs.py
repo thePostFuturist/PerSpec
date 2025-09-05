@@ -13,9 +13,10 @@ os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
 import argparse
 import sys
 import json
+import sqlite3
 from pathlib import Path
 from datetime import datetime
-from console_log_reader import ConsoleLogReader, LogLevel
+from console_log_reader import ConsoleLogReader, LogLevel, get_db_path
 
 def cmd_latest(args):
     """Show latest logs"""
@@ -44,21 +45,74 @@ def cmd_latest(args):
     return 0
 
 def cmd_errors(args):
-    """Show error logs"""
-    reader = ConsoleLogReader()
+    """Show compilation errors from Editor.log"""
+    # Try to get compilation errors from the compilation_errors table
+    conn = sqlite3.connect(str(get_db_path()))
+    cursor = conn.cursor()
     
-    errors = reader.get_error_logs(
-        limit=args.count,
-        include_exceptions=not args.errors_only
-    )
-    
-    if args.json:
-        print(json.dumps(errors, indent=2, default=str))
-    else:
-        reader.print_logs(errors, show_stack=not args.no_stack)
-    
-    # Return non-zero if errors found (useful for CI)
-    return 1 if errors else 0
+    try:
+        # Check if compilation_errors table exists
+        cursor.execute("""
+            SELECT name FROM sqlite_master 
+            WHERE type='table' AND name='compilation_errors'
+        """)
+        
+        if cursor.fetchone():
+            # Get non-stale compilation errors from current session
+            cursor.execute("""
+                SELECT * FROM compilation_errors 
+                WHERE is_stale = 0
+                ORDER BY detected_at DESC
+                LIMIT ?
+            """, (args.count,))
+            
+            errors = cursor.fetchall()
+            
+            if errors:
+                if args.json:
+                    # Convert to dict for JSON output
+                    error_list = []
+                    for err in errors:
+                        error_list.append({
+                            'file_path': err[2],
+                            'line': err[3],
+                            'column': err[4],
+                            'error_code': err[1],
+                            'message': err[5],
+                            'full_text': err[6]
+                        })
+                    print(json.dumps(error_list, indent=2))
+                else:
+                    print(f"\n[COMPILATION ERRORS] Found {len(errors)} error(s)\n")
+                    for err in errors:
+                        file_path = err[2] or "Unknown"
+                        line = err[3] or 0
+                        col = err[4] or 0
+                        code = err[1] or ""
+                        msg = err[5] or err[6]  # Use message or full_text
+                        print(f"{file_path}({line},{col}): {code}: {msg}")
+                return 1
+            else:
+                if not args.json:
+                    print("No compilation errors found.")
+                return 0
+        else:
+            # Fallback to console_logs if compilation_errors table doesn't exist
+            reader = ConsoleLogReader()
+            errors = reader.get_error_logs(
+                limit=args.count,
+                include_exceptions=not args.errors_only
+            )
+            
+            if args.json:
+                print(json.dumps(errors, indent=2, default=str))
+            else:
+                reader.print_logs(errors, show_stack=not args.no_stack)
+            
+            return 1 if errors else 0
+            
+    finally:
+        conn.close()
 
 def cmd_warnings(args):
     """Show warning logs"""

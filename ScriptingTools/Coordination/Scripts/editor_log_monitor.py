@@ -53,7 +53,7 @@ def get_db_path() -> Path:
 
 class CompilationError:
     """Represents a parsed compilation error"""
-    def __init__(self, full_text: str):
+    def __init__(self, full_text: str, session_id: str = ""):
         self.full_text = full_text
         self.file_path = ""
         self.line_number = 0
@@ -62,6 +62,7 @@ class CompilationError:
         self.error_message = ""
         self.detected_at = datetime.now()
         self.batch_id = ""
+        self.session_id = session_id
         
         self._parse()
     
@@ -92,6 +93,7 @@ class CompilationError:
             'full_text': self.full_text,
             'detected_at': self.detected_at.isoformat(),
             'batch_id': self.batch_id,
+            'session_id': self.session_id,
             'is_stale': 0
         }
     
@@ -107,6 +109,7 @@ class EditorLogMonitor:
         self.last_position = 0
         self.last_error_time = None
         self.current_batch_id = None
+        self.current_session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.seen_errors = set()  # Track error hashes to avoid duplicates
         
         if not self.log_path.exists():
@@ -131,7 +134,8 @@ class EditorLogMonitor:
                 full_text TEXT,
                 detected_at TIMESTAMP,
                 batch_id TEXT,
-                is_stale INTEGER DEFAULT 0
+                is_stale INTEGER DEFAULT 0,
+                session_id TEXT
             )
         """)
         
@@ -183,16 +187,34 @@ class EditorLogMonitor:
         conn.close()
     
     def _mark_old_errors_stale(self):
-        """Mark errors older than 1 second as stale"""
+        """Mark errors older than 30 seconds as stale"""
         conn = sqlite3.connect(str(self.db_path))
         cursor = conn.cursor()
         
-        cutoff_time = (datetime.now() - timedelta(seconds=1)).isoformat()
+        cutoff_time = (datetime.now() - timedelta(seconds=30)).isoformat()
         cursor.execute("""
             UPDATE compilation_errors 
             SET is_stale = 1 
             WHERE detected_at < ? AND is_stale = 0
         """, (cutoff_time,))
+        
+        conn.commit()
+        conn.close()
+    
+    def _mark_all_errors_stale(self):
+        """Mark ALL errors as stale (used when new compilation starts)"""
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            UPDATE compilation_errors 
+            SET is_stale = 1 
+            WHERE is_stale = 0
+        """)
+        
+        updated = cursor.rowcount
+        if updated > 0:
+            print(f"[INFO] Marked {updated} errors as stale (new compilation detected)")
         
         conn.commit()
         conn.close()
@@ -213,12 +235,12 @@ class EditorLogMonitor:
         cursor.execute("""
             INSERT INTO compilation_errors 
             (error_code, file_path, line_number, column_number, error_message, 
-             full_text, detected_at, batch_id, is_stale)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             full_text, detected_at, batch_id, session_id, is_stale)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             data['error_code'], data['file_path'], data['line_number'],
             data['column_number'], data['error_message'], data['full_text'],
-            data['detected_at'], data['batch_id'], data['is_stale']
+            data['detected_at'], data['batch_id'], data['session_id'], data['is_stale']
         ))
         
         conn.commit()
@@ -246,6 +268,10 @@ class EditorLogMonitor:
             "Starting recompilation",
             "Compiling editor scripts",
             "- Starting script compilation",
+            "Reloading assemblies for play mode",
+            "Compiling Scripts",
+            "-----CompilerOutput:-stdout",  # Compilation output starts
+            "Reload assemblies time:",  # Compilation ended
         ]
         
         return any(marker in line for marker in markers)
@@ -279,16 +305,18 @@ class EditorLogMonitor:
             
             # Check for refresh marker (new compilation)
             if self._is_refresh_marker(line):
-                # Mark all previous errors as stale
-                self._mark_old_errors_stale()
+                # Mark ALL previous errors as stale when new compilation starts
+                self._mark_all_errors_stale()
                 self.seen_errors.clear()
                 self.current_batch_id = None
-                print(f"[INFO] New compilation detected: {line[:50]}...")
+                # Start new session for new compilation
+                self.current_session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+                print(f"[INFO] New compilation session {self.current_session_id}: {line[:50]}...")
                 continue
             
             # Check for compilation error
             if self._is_compilation_error(line):
-                error = CompilationError(line)
+                error = CompilationError(line, self.current_session_id)
                 
                 # Determine batch ID (group errors within 5 seconds)
                 if self.last_error_time and (current_time - self.last_error_time).seconds <= 5:
