@@ -183,6 +183,40 @@ namespace PerSpec.Editor.Coordination
         public string ErrorMessage { get; set; }
     }
     
+    [Table("menu_item_requests")]
+    public class MenuItemRequest
+    {
+        [PrimaryKey, AutoIncrement, Column("id")]
+        public int Id { get; set; }
+        
+        [Column("menu_path")]
+        public string MenuPath { get; set; }
+        
+        [Column("status")]
+        public string Status { get; set; }
+        
+        [Column("priority")]
+        public int Priority { get; set; }
+        
+        [Column("created_at")]
+        public DateTime CreatedAt { get; set; }
+        
+        [Column("started_at")]
+        public DateTime? StartedAt { get; set; }
+        
+        [Column("completed_at")]
+        public DateTime? CompletedAt { get; set; }
+        
+        [Column("duration_seconds")]
+        public float DurationSeconds { get; set; }
+        
+        [Column("result")]
+        public string Result { get; set; }
+        
+        [Column("error_message")]
+        public string ErrorMessage { get; set; }
+    }
+    
     public class SQLiteManager
     {
         private readonly string _dbPath;
@@ -510,6 +544,67 @@ namespace PerSpec.Editor.Coordination
             {
                 Debug.LogError($"[SQLiteManager] Error getting request by id: {e.Message}");
                 return null;
+            }
+        }
+        
+        // Menu Item Request Methods
+        public MenuItemRequest GetNextPendingMenuRequest()
+        {
+            try
+            {
+                var query = _connection.Table<MenuItemRequest>()
+                    .Where(r => r.Status == "pending")
+                    .OrderByDescending(r => r.Priority)
+                    .ThenBy(r => r.CreatedAt)
+                    .FirstOrDefault();
+                
+                return query;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[SQLiteManager] Error getting pending menu request: {e.Message}");
+                return null;
+            }
+        }
+        
+        public void UpdateMenuRequestStatus(int requestId, string status, string result = null, string errorMessage = null)
+        {
+            if (!_isInitialized) return;
+            
+            try
+            {
+                var request = _connection.Table<MenuItemRequest>().FirstOrDefault(r => r.Id == requestId);
+                
+                if (request != null)
+                {
+                    request.Status = status;
+                    
+                    if (status == "running" && request.StartedAt == null)
+                    {
+                        request.StartedAt = DateTime.Now;
+                    }
+                    else if (status == "completed" || status == "failed")
+                    {
+                        request.CompletedAt = DateTime.Now;
+                        
+                        if (request.StartedAt.HasValue)
+                        {
+                            request.DurationSeconds = (float)(request.CompletedAt.Value - request.StartedAt.Value).TotalSeconds;
+                        }
+                        
+                        if (result != null)
+                            request.Result = result;
+                        
+                        if (errorMessage != null)
+                            request.ErrorMessage = errorMessage;
+                    }
+                    
+                    _connection.Update(request);
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[SQLiteManager] Error updating menu request status: {e.Message}");
             }
         }
         

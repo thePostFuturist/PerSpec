@@ -30,6 +30,8 @@ Packages/com.digitraver.perspec/    # Package location
 | "show logs" | `python PerSpec/Coordination/Scripts/quick_logs.py latest -n 50` |
 | "export logs" | `python PerSpec/Coordination/Scripts/quick_logs.py export` |
 | "test results" | `cat $(ls -t PerSpec/TestResults/*.xml 2>/dev/null \| head -1)` |
+| "open console" | `python PerSpec/Coordination/Scripts/quick_menu.py execute "Window/General/Console" --wait` |
+| "save project" | `python PerSpec/Coordination/Scripts/quick_menu.py execute "File/Save Project" --wait` |
 
 **Intent Mapping:**
 - "Something wrong" → Check errors
@@ -332,6 +334,42 @@ PerSpecDebug.LogError("error message - always important");
 ❌ Reflection for private access  
 ❌ Compiler directives in tests  
 ❌ Skip TDD steps  
+
+## 🎮 Unity Menu Execution
+
+### Execute Unity Menu Items from Python
+```bash
+# List available menu items
+python PerSpec/Coordination/Scripts/quick_menu.py list
+
+# Execute a menu item
+python PerSpec/Coordination/Scripts/quick_menu.py execute "Menu/Path" --wait
+
+# Check status of request
+python PerSpec/Coordination/Scripts/quick_menu.py status <request_id>
+
+# Cancel pending request
+python PerSpec/Coordination/Scripts/quick_menu.py cancel <request_id>
+```
+
+### Common Menu Items
+| Menu Path | Purpose |
+|-----------|---------|
+| `Assets/Refresh` | Refresh asset database |
+| `Assets/Create/C# Script` | Create new C# script |
+| `Assets/Create/Folder` | Create new folder |
+| `File/Save Project` | Save all project files |
+| `Edit/Play` | Enter play mode |
+| `Edit/Pause` | Pause play mode |
+| `Edit/Stop` | Exit play mode |
+| `Window/General/Console` | Open console window |
+| `Window/General/Test Runner` | Open test runner |
+
+**Notes:**
+- Menu items that open dialogs will timeout after 30 seconds
+- Use `--wait` flag to wait for completion
+- Use `--timeout N` to set custom timeout in seconds
+- Higher priority requests execute first
 
 ## 📊 Quick Reference
 

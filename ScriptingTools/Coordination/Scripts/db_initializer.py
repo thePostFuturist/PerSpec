@@ -144,6 +144,22 @@ def create_database():
             )
         """)
         
+        # Create menu_item_requests table for Unity menu item execution
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS menu_item_requests (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                menu_path TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'running', 'completed', 'failed', 'cancelled')),
+                priority INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                started_at TIMESTAMP,
+                completed_at TIMESTAMP,
+                duration_seconds REAL DEFAULT 0.0,
+                result TEXT,
+                error_message TEXT
+            )
+        """)
+        
         # Create indexes for better query performance
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_requests_status ON test_requests(status)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_requests_created ON test_requests(created_at DESC)")
@@ -157,6 +173,10 @@ def create_database():
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_console_logs_session ON console_logs(session_id, timestamp DESC)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_console_logs_level ON console_logs(log_level, timestamp DESC)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_console_logs_request ON console_logs(request_id, timestamp DESC)")
+        
+        # Menu item request indexes
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_menu_status ON menu_item_requests(status)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_menu_created ON menu_item_requests(created_at DESC)")
         
         # Insert initial system status
         cursor.execute("""
@@ -173,6 +193,7 @@ def create_database():
         print("  - execution_log")
         print("  - asset_refresh_requests")
         print("  - console_logs")
+        print("  - menu_item_requests")
         
     except sqlite3.Error as e:
         print(f"Error creating database: {e}")
@@ -203,7 +224,7 @@ def verify_database():
         """)
         tables = cursor.fetchall()
         
-        expected_tables = {'execution_log', 'system_status', 'test_requests', 'test_results', 'asset_refresh_requests', 'console_logs'}
+        expected_tables = {'execution_log', 'system_status', 'test_requests', 'test_results', 'asset_refresh_requests', 'console_logs', 'menu_item_requests'}
         actual_tables = {table[0] for table in tables}
         
         if expected_tables.issubset(actual_tables):
