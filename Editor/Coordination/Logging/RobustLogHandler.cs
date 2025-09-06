@@ -306,13 +306,30 @@ namespace PerSpec.Editor.Coordination
             switch (state)
             {
                 case PlayModeStateChange.ExitingEditMode:
-                    LogFormat(LogType.Log, null, "[RobustLogHandler] Entering Play Mode");
+                    LogFormat(LogType.Log, null, "[RobustLogHandler] Entering Play Mode - Editor logging will continue");
                     PersistAllBufferedLogs();
+                    // Keep the handler active during PlayMode for Editor-side logs
+                    break;
+                    
+                case PlayModeStateChange.EnteredPlayMode:
+                    // PlayMode runtime logging is handled by PlayModeLogCapture
+                    LogFormat(LogType.Log, null, "[RobustLogHandler] PlayMode active - Runtime logs handled by PlayModeLogCapture");
+                    break;
+                    
+                case PlayModeStateChange.ExitingPlayMode:
+                    LogFormat(LogType.Log, null, "[RobustLogHandler] Exiting Play Mode");
+                    // Ensure any buffered logs are processed
+                    ProcessBufferedLogs();
                     break;
                     
                 case PlayModeStateChange.EnteredEditMode:
                     LogFormat(LogType.Log, null, "[RobustLogHandler] Returned to Edit Mode");
                     RestorePersistentLogs();
+                    // Re-establish as primary log handler
+                    if (Debug.unityLogger.logHandler != this)
+                    {
+                        Debug.unityLogger.logHandler = this;
+                    }
                     break;
             }
         }

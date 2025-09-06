@@ -12,22 +12,11 @@
 
 > **Organize your LLM's code chaos generator into testable, maintainable chunks**
 > 
-> 🚫 **NO MCP SERVERS REQUIRED** - Uses rock-solid SQLite + Python instead!
+> 🚫 **NO MCP SERVERS REQUIRED** - Rock-solid SQLite + Python instead
 >
 > ⚔️ **BATTLE-TESTED** - Powering production Unity development at [DigitRaver](https://digitraver.com)
 
-## 👥 Who This Is For
 
-**PerSpec is for intermediate-to-advanced developers** who want to make AI-generated Unity code more manageable:
-
-- ✅ **You understand** that frontier models still produce buggy, inefficient code
-- ✅ **You can review** and fix AI-generated code when it goes wrong  
-- ✅ **You know** basic TDD principles and Unity patterns
-- ✅ **You want** AI code organized into testable, maintainable chunks
-- ❌ **NOT for** unsupervised "vibe coding" - you still need to guide and review
-- ❌ **NOT a magic fix** - frontier models remain the bottleneck
-
-**Bottom line**: PerSpec doesn't fix AI's coding abilities. It just makes the inevitable mess more organized and testable.
 
 ## 🎯 The Problem with LLMs
 
@@ -41,8 +30,6 @@ Recognize any of these characters during your vibe code?
 
 You end up spending more time untangling AI-generated code than if you'd written it yourself.
 
-**Reality check**: These problems exist because frontier models aren't great coders yet. PerSpec doesn't fix the AI - it just organizes the output into smaller, testable pieces you can actually debug and maintain.
-
 ## 🚀 Why We Don't Use MCP (Model Context Protocol)
 
 **PerSpec avoids MCP servers** in favor of a more reliable SQLite + Python approach:
@@ -51,7 +38,7 @@ You end up spending more time untangling AI-generated code than if you'd written
 MCP servers promise LLM-Unity communication but deliver headaches:
 - **Constant disconnections** breaking your workflow
 - **Port conflicts** with other development tools
-- **Security vulnerabilities** from exposed network services
+- **Security vulnerabilities** from exposed network services as well as restrictive corporate firewalls
 - **Complex setup** requiring server maintenance
 - **State loss** when servers crash or restart
 
@@ -76,27 +63,9 @@ We use **SQLite database + Python scripts** for more reliable Unity coordination
 | **Unity Integration** | ❌ External process coordination | ⚠️ Requires editor focus for full speed |
 | **Vendor Lock-in** | ⚠️ Depends on specific MCP server implementation | ✅ Works with Claude, Cursor, OpenAI, Gemini, OpenRouter |
 
-### Important: Unity Focus Limitations
-
-**While our solution avoids MCP's network issues, it still has Unity-specific constraints:**
-
-- **Polling Delay**: Commands are checked every 1 second (not instant like direct API calls)
-- **Focus Throttling**: Unity's main thread operations slow down when the editor loses focus
-- **Queued Execution**: Operations queue up when Unity is minimized and execute when it regains focus
-- **Not Real-Time**: This is a pragmatic workaround, not true real-time coordination
-
 ✨ **Auto-Focus**: PerSpec automatically brings the Unity Editor to the foreground on Windows and macOS when operations need to execute. No manual clicking required - commands run at full speed automatically!
 
 ### How It Works
-```python
-# Simple, reliable Python-Unity communication
-import sqlite3
-conn = sqlite3.connect("test_coordination.db")
-conn.execute("INSERT INTO commands (type, data) VALUES ('refresh', 'full')")
-conn.commit()
-# Unity polls database every second (even when not in focus)
-# PerSpec automatically focuses Unity when operations are ready
-```
 
 The Unity editor uses a background timer to poll the SQLite database:
 - **Commands are queued** when Unity isn't the active window
@@ -204,25 +173,7 @@ This creates your working directory with SQLite database and Python tools.
 
 ### 3. Configure Your LLM
 
-Copy the LLM instructions to your project:
-
-**For Claude (create `CLAUDE.md` in project root):**
-```bash
-cp Packages/com.digitraver.perspec/Documentation/LLM.md ./CLAUDE.md
-```
-
-**For Cursor (create `.cursorrules` in project root):**
-```bash
-cp Packages/com.digitraver.perspec/Documentation/LLM.md ./.cursorrules
-```
-
-**For any LLM:** Just copy the contents of `LLM.md` to wherever your LLM reads instructions.
-
-### 4. Copy Agent Definitions
-
-```bash
-cp -r Packages/com.digitraver.perspec/Documentation/agents ./.claude/agents
-```
+Copy the LLM instructions to your project using `Tools > PerSpec > Control Panel ` then choose `LLM Setup`
 
 ### 5. Start the TDD Workflow
 
@@ -246,7 +197,7 @@ This is the heart of PerSpec - your LLM will follow this automatically:
 python PerSpec/Coordination/Scripts/quick_refresh.py full --wait
 
 # Step 3: Check for errors (must be clean!)
-python PerSpec/Coordination/Scripts/quick_logs.py errors
+python PerSpec/Coordination/Scripts/monitor_logs.py errors
 
 # Step 4: Run tests
 python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait
@@ -308,14 +259,14 @@ See the full documentation at [https://github.com/thePostFuturist/PerSpec](https
 ## 🏢 About
 
 <div style="text-align: center;">
-  <img src="Editor/Resources/Icons/digitraver.png" width="64" height="64" alt="DigitRaver"/>
-  
+  <img src="Editor/Resources/Icons/digitraver.png" width="256" height="256" alt="DigitRaver"/>
+  </div>
   **Made in San Francisco**  
   By Valentin Burov
   
   Fork & contribute at [https://github.com/thePostFuturist/PerSpec](https://github.com/thePostFuturist/PerSpec)  
   Join us at [https://digitRaver.com](https://digitRaver.com)
-</div>
+
 
 ## 🤝 Contributing
 
