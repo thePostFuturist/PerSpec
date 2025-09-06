@@ -15,6 +15,10 @@ namespace PerSpec.Runtime.Logging
         private readonly object _queueLock = new object();
         private bool _isCapturing = false;
         
+        // Thread-safe frame count caching
+        private int _cachedFrameCount = 0;
+        private readonly object _frameCountLock = new object();
+        
         // SQLite connection info passed from Editor
         private string _databasePath;
         private string _sessionId;
@@ -57,6 +61,23 @@ namespace PerSpec.Runtime.Logging
         {
             if (_isCapturing) return;
             
+            // Initialize cached frame count
+            try
+            {
+                lock (_frameCountLock)
+                {
+                    _cachedFrameCount = Time.frameCount;
+                }
+            }
+            catch
+            {
+                // If Time.frameCount fails during initialization, start at 0
+                lock (_frameCountLock)
+                {
+                    _cachedFrameCount = 0;
+                }
+            }
+            
             Application.logMessageReceived += OnLogMessageReceived;
             Application.logMessageReceivedThreaded += OnLogMessageReceivedThreaded;
             _isCapturing = true;
@@ -90,6 +111,37 @@ namespace PerSpec.Runtime.Logging
         
         private void CaptureLog(string logString, string stackTrace, LogType type, bool isThreaded)
         {
+            // Handle frame count safely for threaded vs non-threaded contexts
+            int frameCount;
+            if (isThreaded)
+            {
+                // From background thread - use cached value
+                lock (_frameCountLock)
+                {
+                    frameCount = _cachedFrameCount;
+                }
+            }
+            else
+            {
+                // From main thread - get current value and update cache
+                try
+                {
+                    frameCount = Time.frameCount;
+                    lock (_frameCountLock)
+                    {
+                        _cachedFrameCount = frameCount;
+                    }
+                }
+                catch
+                {
+                    // Fallback if Time.frameCount fails (e.g., during initialization)
+                    lock (_frameCountLock)
+                    {
+                        frameCount = _cachedFrameCount;
+                    }
+                }
+            }
+            
             var entry = new LogEntry
             {
                 Message = logString,
@@ -97,7 +149,7 @@ namespace PerSpec.Runtime.Logging
                 LogType = type,
                 Timestamp = DateTime.Now,
                 IsThreaded = isThreaded,
-                FrameCount = Time.frameCount
+                FrameCount = frameCount
             };
             
             lock (_queueLock)
@@ -114,6 +166,12 @@ namespace PerSpec.Runtime.Logging
         
         private void Update()
         {
+            // Update cached frame count for thread-safe access
+            lock (_frameCountLock)
+            {
+                _cachedFrameCount = Time.frameCount;
+            }
+            
             // Process log queue periodically
             if (Time.frameCount % 30 == 0) // Every 30 frames (roughly 0.5 seconds at 60fps)
             {
