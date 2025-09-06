@@ -732,6 +732,22 @@ namespace PerSpec.Editor.Coordination
             }
         }
         
+        public void DeleteOldSessionLogs(string sessionId)
+        {
+            try
+            {
+                int deleted = _connection.Execute("DELETE FROM console_logs WHERE session_id != ?", sessionId);
+                if (deleted > 0)
+                {
+                    Debug.Log($"[SQLiteManager] Deleted {deleted} logs from old sessions");
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[SQLiteManager] Error deleting old session logs: {e.Message}");
+            }
+        }
+        
         public void DeleteOldConsoleLogs(DateTime cutoffTime)
         {
             try
@@ -745,6 +761,204 @@ namespace PerSpec.Editor.Coordination
             catch (Exception e)
             {
                 Debug.LogError($"[SQLiteManager] Error deleting old console logs: {e.Message}");
+            }
+        }
+        
+        public List<ConsoleLogEntry> GetRecentConsoleLogs(DateTime cutoffTime, int maxCount = 1000)
+        {
+            try
+            {
+                var query = _connection.Table<ConsoleLogEntry>()
+                    .Where(log => log.Timestamp > cutoffTime)
+                    .OrderByDescending(log => log.Timestamp)
+                    .Take(maxCount);
+                
+                return query.ToList();
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[SQLiteManager] Error getting recent console logs: {e.Message}");
+                return new List<ConsoleLogEntry>();
+            }
+        }
+        
+        public List<ConsoleLogEntry> GetCurrentSessionLogs(string sessionId, int maxCount = 1000)
+        {
+            try
+            {
+                var query = _connection.Table<ConsoleLogEntry>()
+                    .Where(log => log.SessionId == sessionId)
+                    .OrderByDescending(log => log.Timestamp)
+                    .Take(maxCount);
+                
+                return query.ToList();
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[SQLiteManager] Error getting current session logs: {e.Message}");
+                return new List<ConsoleLogEntry>();
+            }
+        }
+        
+        public void StartConsoleSession(string sessionId, string reason)
+        {
+            try
+            {
+                // Ensure table exists
+                _connection.Execute(@"
+                    CREATE TABLE IF NOT EXISTS console_sessions (
+                        session_id TEXT PRIMARY KEY,
+                        start_time INTEGER,
+                        end_time INTEGER,
+                        reason TEXT
+                    )");
+                
+                _connection.Execute(
+                    "INSERT INTO console_sessions (session_id, start_time, reason) VALUES (?, ?, ?)",
+                    sessionId, DateTime.Now, reason);
+                
+                // Clean up old sessions - keep only current + 3 historical
+                CleanupOldSessions(sessionId);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[SQLiteManager] Error starting console session: {ex.Message}");
+            }
+        }
+        
+        public void EndConsoleSession(string sessionId)
+        {
+            try
+            {
+                _connection.Execute(
+                    "UPDATE console_sessions SET end_time = ? WHERE session_id = ?",
+                    DateTime.Now, sessionId);
+            }
+            catch (Exception e)
+            {
+                // Ignore - session tracking is optional
+            }
+        }
+        
+        public bool HasCompilationErrors()
+        {
+            try
+            {
+                // Check if recent logs contain compilation errors
+                var recentTime = DateTime.Now.AddMinutes(-1);
+                var count = _connection.ExecuteScalar<int>(
+                    "SELECT COUNT(*) FROM console_logs WHERE timestamp > ? AND message LIKE '%error CS%'",
+                    recentTime);
+                return count > 0;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+        
+        private class SessionResult
+        {
+            public string session_id { get; set; }
+        }
+        
+        private void CleanupOldSessions(string currentSessionId)
+        {
+            try
+            {
+                // Get all sessions ordered by most recent first
+                var sessionResults = _connection.Query<SessionResult>(@"
+                    SELECT session_id 
+                    FROM (
+                        SELECT session_id, MAX(id) as max_id
+                        FROM console_logs 
+                        WHERE session_id != ?
+                        GROUP BY session_id
+                    )
+                    ORDER BY max_id DESC", currentSessionId).ToList();
+                
+                var sessions = sessionResults.Select(s => s.session_id).ToList();
+                
+                // Keep only 3 most recent historical sessions
+                if (sessions.Count > 3)
+                {
+                    var sessionsToDelete = sessions.Skip(3).ToList();
+                    
+                    foreach (var sessionId in sessionsToDelete)
+                    {
+                        // Delete logs from old session
+                        int deletedLogs = _connection.Execute(
+                            "DELETE FROM console_logs WHERE session_id = ?", 
+                            sessionId);
+                        
+                        // Delete session record
+                        _connection.Execute(
+                            "DELETE FROM console_sessions WHERE session_id = ?", 
+                            sessionId);
+                        
+                        if (deletedLogs > 0)
+                        {
+                            Debug.Log($"[SQLiteManager] Cleaned up old session {sessionId} ({deletedLogs} logs)");
+                        }
+                    }
+                    
+                    // Vacuum to reclaim space if significant data was deleted
+                    if (sessionsToDelete.Count > 10)
+                    {
+                        VacuumDatabase();
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[SQLiteManager] Error cleaning up old sessions: {e.Message}");
+            }
+        }
+        
+        public List<string> GetRecentSessions(int count = 4)
+        {
+            try
+            {
+                var sessionResults = _connection.Query<SessionResult>(@"
+                    SELECT session_id 
+                    FROM (
+                        SELECT session_id, MAX(id) as max_id
+                        FROM console_logs 
+                        GROUP BY session_id
+                    )
+                    ORDER BY max_id DESC 
+                    LIMIT ?", count).ToList();
+                
+                return sessionResults.Select(s => s.session_id).ToList();
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[SQLiteManager] Error getting recent sessions: {e.Message}");
+                return new List<string>();
+            }
+        }
+        
+        public Dictionary<string, int> GetSessionLogCounts()
+        {
+            try
+            {
+                var result = new Dictionary<string, int>();
+                var sessions = GetRecentSessions();
+                
+                foreach (var sessionId in sessions)
+                {
+                    var count = _connection.ExecuteScalar<int>(
+                        "SELECT COUNT(*) FROM console_logs WHERE session_id = ?",
+                        sessionId);
+                    result[sessionId] = count;
+                }
+                
+                return result;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[SQLiteManager] Error getting session log counts: {e.Message}");
+                return new Dictionary<string, int>();
             }
         }
         

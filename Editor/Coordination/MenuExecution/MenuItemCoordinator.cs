@@ -220,7 +220,7 @@ namespace PerSpec.Editor.Coordination
         }
         
         // Menu commands for testing
-        [MenuItem("PerSpec/Coordination/Test Menu Execution")]
+        [MenuItem("Tools/PerSpec/Debug/Coordination/Test Menu Execution")]
         public static void TestMenuExecution()
         {
             Debug.Log("[MenuItemCoordinator] Testing menu execution - submitting test request via database");
