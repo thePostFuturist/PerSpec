@@ -319,33 +319,24 @@ namespace PerSpec.Editor.Services
                 int totalCopied = 0;
                 List<string> scriptNames = new List<string>();
                 
-                // Copy from ScriptingTools/Coordination/Scripts
-                string sourceScriptsPath1 = Path.Combine(packagePath, "ScriptingTools", "Coordination", "Scripts");
-                if (Directory.Exists(sourceScriptsPath1))
-                {
-                    foreach (string sourceFile in Directory.GetFiles(sourceScriptsPath1, "*.py"))
-                    {
-                        string fileName = Path.GetFileName(sourceFile);
-                        string destFile = Path.Combine(CoordinationScriptsPath, fileName);
-                        File.Copy(sourceFile, destFile, true);
-                        scriptNames.Add(fileName);
-                        totalCopied++;
-                    }
-                }
+                // Find ALL Python scripts in the package recursively
+                var allPythonFiles = Directory.GetFiles(packagePath, "*.py", SearchOption.AllDirectories);
                 
-                // Copy from Editor/Coordination/Scripts
-                string sourceScriptsPath2 = Path.Combine(packagePath, "Editor", "Coordination", "Scripts");
-                if (Directory.Exists(sourceScriptsPath2))
+                foreach (string sourceFile in allPythonFiles)
                 {
-                    foreach (string sourceFile in Directory.GetFiles(sourceScriptsPath2, "*.py"))
+                    // Skip meta files and files in certain directories
+                    if (sourceFile.Contains(".meta") || sourceFile.Contains("__pycache__"))
+                        continue;
+                    
+                    string fileName = Path.GetFileName(sourceFile);
+                    string destFile = Path.Combine(CoordinationScriptsPath, fileName);
+                    
+                    // Copy the file (overwrite if exists)
+                    File.Copy(sourceFile, destFile, true);
+                    
+                    if (!scriptNames.Contains(fileName))
                     {
-                        string fileName = Path.GetFileName(sourceFile);
-                        string destFile = Path.Combine(CoordinationScriptsPath, fileName);
-                        File.Copy(sourceFile, destFile, true);
-                        if (!scriptNames.Contains(fileName))
-                        {
-                            scriptNames.Add(fileName);
-                        }
+                        scriptNames.Add(fileName);
                         totalCopied++;
                     }
                 }
