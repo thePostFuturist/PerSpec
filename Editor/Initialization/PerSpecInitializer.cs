@@ -20,7 +20,7 @@ namespace PerSpec.Editor.Initialization
         // Version tracking
         private const string VERSION_PREF_KEY = "PerSpec_LastKnownVersion";
         private const string PACKAGE_NAME = "com.digitraver.perspec";
-        private const string CURRENT_VERSION = "1.0.0";  // Should match package.json
+        private const string CURRENT_VERSION = "1.1.4";  // Should match package.json
         
         // Update detection
         private bool isUpdate = false;
@@ -86,7 +86,20 @@ namespace PerSpec.Editor.Initialization
                     Debug.Log($"[PerSpec] Package updated from {lastKnownVersion} to {detectedVersion}");
                     EditorPrefs.SetString(VERSION_PREF_KEY, detectedVersion);
                     
-                    // Show update window
+                    // Automatically refresh coordination scripts
+                    if (InitializationService.IsInitialized)
+                    {
+                        var scriptResult = InitializationService.RefreshCoordinationScripts();
+                        if (!string.IsNullOrEmpty(scriptResult))
+                        {
+                            Debug.Log($"[PerSpec] Auto-update: {scriptResult}");
+                        }
+                        
+                        // Update LLM configurations with latest instructions
+                        InitializationService.UpdateLLMConfigurations();
+                    }
+                    
+                    // Show update window for user awareness
                     ShowUpdateWindow(lastKnownVersion, detectedVersion);
                 }
             }
@@ -171,18 +184,21 @@ namespace PerSpec.Editor.Initialization
             
             // Update actions
             EditorGUILayout.HelpBox(
-                "PerSpec has been updated! It's recommended to refresh your coordination scripts to get the latest features.",
+                "PerSpec has been updated!\n\n" +
+                "✅ Coordination scripts have been automatically refreshed\n" +
+                "✅ LLM configurations have been updated with latest instructions\n" +
+                "✅ Your permission settings have been preserved",
                 MessageType.Info
             );
             
             EditorGUILayout.Space(10);
             
             GUI.backgroundColor = new Color(0.3f, 0.8f, 0.3f);
-            if (GUILayout.Button("Refresh Coordination Scripts", GUILayout.Height(35)))
+            if (GUILayout.Button("Force Refresh Scripts (Optional)", GUILayout.Height(30)))
             {
                 if (InitializationService.IsInitialized)
                 {
-                    var result = InitializationService.RefreshCoordinationScripts();
+                    var result = InitializationService.ForceUpdateCoordinationScripts();
                     if (!string.IsNullOrEmpty(result))
                     {
                         ShowNotification(new GUIContent($"✓ {result}"));
@@ -218,8 +234,9 @@ namespace PerSpec.Editor.Initialization
             // What's new section (could be populated from changelog)
             EditorGUILayout.LabelField("What's New:", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
+                "• Automatic updates: Scripts and LLM configs refresh on package update\n" +
+                "• Improved PlayMode log capture reliability\n" +
                 "• Unity focus management for Windows & macOS\n" +
-                "• Improved test coordination\n" +
                 "• Enhanced debug logging with PerSpecDebug\n" +
                 "• Better documentation and agent support",
                 MessageType.None

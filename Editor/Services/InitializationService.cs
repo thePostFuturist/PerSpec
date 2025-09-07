@@ -294,6 +294,65 @@ namespace PerSpec.Editor.Services
             return !File.Exists(testScript);
         }
         
+        /// <summary>
+        /// Update all detected LLM configuration files with latest PerSpec instructions
+        /// </summary>
+        public static void UpdateLLMConfigurations()
+        {
+            try
+            {
+                string projectPath = Directory.GetParent(Application.dataPath).FullName;
+                
+                // Get the latest LLM content from package
+                string llmPath = Path.Combine(PackagePathResolver.PackagePath, "Documentation", "LLM.md");
+                if (!File.Exists(llmPath))
+                {
+                    Debug.LogWarning("[PerSpec] LLM.md not found in package, skipping LLM config update");
+                    return;
+                }
+                
+                string llmContent = File.ReadAllText(llmPath);
+                
+                // Check for various LLM configuration files
+                var llmFiles = new Dictionary<string, string>
+                {
+                    { "Claude", "CLAUDE.md" },
+                    { "Cursor", ".cursorrules" },
+                    { "OpenAI", ".openai-codex.md" },
+                    { "Gemini", Path.Combine(".gemini", "config.md") },
+                    { "OpenRouter", ".buddyrules" }
+                };
+                
+                int updatedCount = 0;
+                
+                foreach (var llmFile in llmFiles)
+                {
+                    string fullPath = Path.Combine(projectPath, llmFile.Value);
+                    if (File.Exists(fullPath))
+                    {
+                        try
+                        {
+                            UpdateSingleLLMConfiguration(fullPath, llmContent, llmFile.Key);
+                            updatedCount++;
+                        }
+                        catch (Exception e)
+                        {
+                            Debug.LogWarning($"[PerSpec] Failed to update {llmFile.Value}: {e.Message}");
+                        }
+                    }
+                }
+                
+                if (updatedCount > 0)
+                {
+                    Debug.Log($"[PerSpec] Updated {updatedCount} LLM configuration file(s) with latest instructions");
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[PerSpec] Failed to update LLM configurations: {e.Message}");
+            }
+        }
+        
         #endregion
         
         #region Private Methods
@@ -386,6 +445,51 @@ namespace PerSpec.Editor.Services
 *.tmp";
                 File.WriteAllText(gitignorePath, content);
             }
+        }
+        
+        private static void UpdateSingleLLMConfiguration(string configPath, string llmContent, string provider)
+        {
+            string existingContent = File.ReadAllText(configPath);
+            
+            // Determine the correct markers based on file type
+            string startMarker = "<!-- PERSPEC_CONFIG_START -->";
+            string endMarker = "<!-- PERSPEC_CONFIG_END -->";
+            
+            if (configPath.EndsWith(".cursorrules") || configPath.EndsWith(".buddyrules"))
+            {
+                startMarker = "# PERSPEC_CONFIG_START";
+                endMarker = "# PERSPEC_CONFIG_END";
+            }
+            
+            // Check if content already has PerSpec block
+            if (existingContent.Contains(startMarker) && existingContent.Contains(endMarker))
+            {
+                // Replace existing content between markers
+                int startIndex = existingContent.IndexOf(startMarker);
+                int endIndex = existingContent.IndexOf(endMarker) + endMarker.Length;
+                
+                if (startIndex != -1 && endIndex > startIndex)
+                {
+                    string before = existingContent.Substring(0, startIndex);
+                    string after = existingContent.Substring(endIndex);
+                    
+                    // Build new content with markers
+                    string newBlock = startMarker + "\n" + llmContent + "\n" + endMarker;
+                    existingContent = before + newBlock + after;
+                }
+            }
+            else
+            {
+                // Append PerSpec content with markers
+                string newBlock = "\n\n" + startMarker + "\n" + llmContent + "\n" + endMarker;
+                existingContent += newBlock;
+            }
+            
+            // Apply permission block based on EditorPrefs settings
+            existingContent = LLMPermissionManager.UpdatePermissionBlock(existingContent, provider);
+            
+            // Write back the updated content
+            File.WriteAllText(configPath, existingContent);
         }
         
         /// <summary>

@@ -13,10 +13,7 @@ import os
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
-from colorama import init, Fore, Style
-
-# Initialize colorama for cross-platform colored output
-init(autoreset=True)
+# Plain text output for LLM consumption - no color dependencies
 
 class LogMonitor:
     """Monitor and analyze Unity console logs from SQLite database."""
@@ -112,7 +109,7 @@ class LogMonitor:
     def monitor_live(self, refresh_interval: float = 0.5, 
                     level_filter: List[str] = None, all_sessions: bool = False):
         """Monitor logs in real-time."""
-        print(f"{Fore.GREEN}Starting live log monitoring...{Style.RESET_ALL}")
+        print("Starting live log monitoring...")
         print(f"Refresh interval: {refresh_interval}s")
         if level_filter:
             print(f"Filtering levels: {', '.join(level_filter)}")
@@ -124,7 +121,7 @@ class LogMonitor:
         else:
             print("Showing logs from all sessions")
             
-        print(f"{Fore.YELLOW}Press Ctrl+C to stop{Style.RESET_ALL}\n")
+        print("Press Ctrl+C to stop\n")
         
         try:
             while True:
@@ -166,7 +163,7 @@ class LogMonitor:
                 time.sleep(refresh_interval)
                 
         except KeyboardInterrupt:
-            print(f"\n{Fore.YELLOW}Monitoring stopped.{Style.RESET_ALL}")
+            print("\nMonitoring stopped.")
     
     def display_log(self, log: Dict):
         """Display a single log entry with formatting."""
@@ -210,14 +207,8 @@ class LogMonitor:
         
         time_str = timestamp.strftime('%H:%M:%S.%f')[:-3]
         
-        # Color based on log level
+        # Get log level for formatting
         level = log['log_level']
-        if level == 'Error' or level == 'Exception':
-            color = Fore.RED
-        elif level == 'Warning':
-            color = Fore.YELLOW
-        else:
-            color = Fore.WHITE
         
         # Format the message
         message = log['message']
@@ -227,29 +218,27 @@ class LogMonitor:
         # Check for compilation context
         context = log.get('context', '')
         is_compilation = context and 'Compilation:True' in context
-        compilation_marker = f"{Fore.CYAN}[C]{Style.RESET_ALL} " if is_compilation else ""
+        compilation_marker = "[C] " if is_compilation else ""
         
-        print(f"{Fore.BLUE}[{time_str}]{Style.RESET_ALL} "
-              f"{compilation_marker}"
-              f"{color}[{level:7}]{Style.RESET_ALL} {message}")
+        print(f"[{time_str}] {compilation_marker}[{level:7}] {message}")
         
         # Show source location if available
         if log.get('source_file'):
-            source = f"  {Fore.CYAN}-> {log['source_file']}"
+            source = f"  -> {log['source_file']}"
             if log.get('source_line'):
                 source += f":{log['source_line']}"
             try:
-                print(source + Style.RESET_ALL)
+                print(source)
             except UnicodeEncodeError:
                 # Fallback for encoding issues
-                print(source.encode('ascii', 'replace').decode('ascii') + Style.RESET_ALL)
+                print(source.encode('ascii', 'replace').decode('ascii'))
         
         # Show truncated stack trace for errors
         if level in ['Error', 'Exception'] and log.get('truncated_stack'):
             stack_lines = log['truncated_stack'].split('\n')[:3]
             for line in stack_lines:
                 if line.strip():
-                    print(f"  {Fore.MAGENTA}  {line.strip()}{Style.RESET_ALL}")
+                    print(f"    {line.strip()}")
     
     def analyze_errors(self, hours: float = 1.0) -> Dict:
         """Analyze error patterns in recent logs."""
@@ -348,7 +337,7 @@ class LogMonitor:
                     
                     f.write("\n")
         
-        print(f"{Fore.GREEN}Exported {len(logs)} logs to {output_file}{Style.RESET_ALL}")
+        print(f"Exported {len(logs)} logs to {output_file}")
         return len(logs)
     
     def get_session_info(self) -> List[Dict]:
@@ -479,17 +468,17 @@ def main():
     elif args.command == 'analyze':
         analysis = monitor.analyze_errors(args.hours)
         
-        print(f"\n{Fore.CYAN}=== Error Analysis ({analysis['time_range_hours']} hours) ==={Style.RESET_ALL}")
+        print(f"\n=== Error Analysis ({analysis['time_range_hours']} hours) ===")
         
-        print(f"\n{Fore.YELLOW}Error Counts:{Style.RESET_ALL}")
+        print("\nError Counts:")
         for level, count in analysis['error_counts'].items():
             print(f"  {level}: {count}")
         
         if analysis['compilation_errors'] > 0:
-            print(f"\n{Fore.RED}Compilation Errors: {analysis['compilation_errors']}{Style.RESET_ALL}")
+            print(f"\nCompilation Errors: {analysis['compilation_errors']}")
         
         if analysis['top_errors']:
-            print(f"\n{Fore.YELLOW}Top Error Messages:{Style.RESET_ALL}")
+            print("\nTop Error Messages:")
             for i, error in enumerate(analysis['top_errors'], 1):
                 print(f"  {i}. ({error['count']}x) {error['message']}")
     
@@ -500,7 +489,7 @@ def main():
     elif args.command == 'sessions':
         sessions = monitor.get_session_info()
         
-        print(f"\n{Fore.CYAN}=== Logging Sessions ==={Style.RESET_ALL}")
+        print("\n=== Logging Sessions ===")
         for session in sessions:
             start = session['start_time']
             end = session['end_time']
@@ -520,7 +509,7 @@ def main():
             except Exception:
                 duration = 0
             
-            print(f"\n{Fore.GREEN}Session: {session['session_id'][:8]}...{Style.RESET_ALL}")
+            print(f"\nSession: {session['session_id'][:8]}...")
             try:
                 print(f"  Start: {start.strftime('%Y-%m-%d %H:%M:%S')}")
             except:
@@ -531,7 +520,7 @@ def main():
     
     elif args.command == 'cleanup':
         deleted = monitor.cleanup_old_logs(args.days)
-        print(f"{Fore.GREEN}Deleted {deleted} logs older than {args.days} days{Style.RESET_ALL}")
+        print(f"Deleted {deleted} logs older than {args.days} days")
     
     else:
         parser.print_help()

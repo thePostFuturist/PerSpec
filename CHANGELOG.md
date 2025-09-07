@@ -5,6 +5,28 @@ All notable changes to the PerSpec Testing Framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.4] - 2025-09-07
+
+### Added
+- Automatic package update detection with script and LLM config refresh
+- Auto-refresh of Python coordination scripts on package version change
+- Auto-update of LLM configurations (CLAUDE.md, .cursorrules, etc.) on package update
+- Preservation of user permission settings during automatic updates
+
+### Changed
+- Improved PlayMode log capture reliability with faster processing
+- Reduced log batching delay from 30 frames to 5 frames for better real-time capture
+- Increased log queue capacity from 1,000 to 10,000 entries
+- Reduced processing interval from 0.5s to 0.1s for faster log persistence
+- Removed colorama dependency from monitor_logs.py for simpler LLM-friendly output
+- monitor_logs.py now outputs plain text without color formatting
+
+### Fixed
+- PlayMode logs being missed during high-volume logging scenarios
+- Log queue overflow causing silent data loss
+- Thread safety issues with frame count access in PlayMode
+- EnhancedConsole refresh timing using EditorApplication.timeSinceStartup
+
 ## [1.1.2] - Sep 1, 2025
 
 ### Added
