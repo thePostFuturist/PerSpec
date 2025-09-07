@@ -17,7 +17,7 @@ namespace PerSpec.Editor.Coordination
         private static SQLiteManager _dbManager;
         private static bool _isProcessingLogs = false;
         private static float _lastProcessTime = 0f;
-        private const float PROCESS_INTERVAL = 0.5f; // Process logs every 0.5 seconds
+        private const float PROCESS_INTERVAL = 0.1f; // Process logs every 0.1 seconds for better responsiveness
         
         static PlayModeLogInitializer()
         {
@@ -48,7 +48,8 @@ namespace PerSpec.Editor.Coordination
                     break;
                     
                 case PlayModeStateChange.ExitingPlayMode:
-                    // Process any remaining logs before exiting
+                    // Force immediate processing of all logs
+                    Debug.Log("[PlayModeLogInitializer] Flushing all remaining logs before exit...");
                     ProcessAllRemainingLogs();
                     break;
                     
@@ -145,6 +146,10 @@ namespace PerSpec.Editor.Coordination
                 var processedKeys = new List<string>();
                 var remainingKeys = new List<string>();
                 
+                // Process up to 100 logs at a time to avoid blocking
+                int processCount = 0;
+                const int MAX_BATCH_SIZE = 100;
+                
                 foreach (var key in keys)
                 {
                     if (string.IsNullOrEmpty(key))
@@ -160,6 +165,13 @@ namespace PerSpec.Editor.Coordination
                             {
                                 SaveLogToDatabase(logData);
                                 processedKeys.Add(key);
+                                processCount++;
+                                
+                                // Break if we've processed enough for this batch
+                                if (processCount >= MAX_BATCH_SIZE)
+                                {
+                                    break;
+                                }
                             }
                         }
                         catch (Exception ex)
@@ -277,9 +289,16 @@ namespace PerSpec.Editor.Coordination
             _isProcessingLogs = false;
             
             // Process any remaining logs multiple times to ensure we get everything
-            for (int i = 0; i < 5; i++)
+            // Increased iterations to handle more logs in transit
+            for (int i = 0; i < 20; i++)
             {
                 ProcessStoredLogs();
+                
+                // Small delay between iterations to allow logs to propagate
+                if (i < 19)
+                {
+                    System.Threading.Thread.Sleep(10);
+                }
             }
         }
         

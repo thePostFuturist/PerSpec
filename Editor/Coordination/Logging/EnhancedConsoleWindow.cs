@@ -35,6 +35,8 @@ namespace PerSpec.Editor.Coordination
         private bool _autoRefresh = true;
         private float _lastRefreshTime;
         private const float REFRESH_INTERVAL = 0.5f;
+        private bool _hasFocus = false;
+        private int _lastKnownLogCount = 0;
         
         private bool _showInfo = true;
         private bool _showWarnings = true;
@@ -61,6 +63,22 @@ namespace PerSpec.Editor.Coordination
             // Subscribe to compilation events for real-time updates
             UnityEditor.Compilation.CompilationPipeline.compilationStarted += OnCompilationStarted;
             UnityEditor.Compilation.CompilationPipeline.compilationFinished += OnCompilationFinished;
+            
+            // Initialize refresh timer
+            _lastRefreshTime = (float)EditorApplication.timeSinceStartup;
+        }
+        
+        private void OnFocus()
+        {
+            _hasFocus = true;
+            // Refresh immediately when window gains focus
+            RefreshLogs();
+            _lastRefreshTime = (float)EditorApplication.timeSinceStartup;
+        }
+        
+        private void OnLostFocus()
+        {
+            _hasFocus = false;
         }
         
         private void OnDisable()
@@ -95,13 +113,25 @@ namespace PerSpec.Editor.Coordination
             
             // Log level toggles
             _infoToggle = new ToolbarToggle { text = "Info", value = _showInfo };
-            _infoToggle.RegisterValueChangedCallback(evt => { _showInfo = evt.newValue; ApplyFilters(); });
+            _infoToggle.RegisterValueChangedCallback(evt => { 
+                _showInfo = evt.newValue; 
+                ApplyFilters(); 
+                _lastRefreshTime = (float)EditorApplication.timeSinceStartup; // Reset timer for immediate update
+            });
             
             _warningToggle = new ToolbarToggle { text = "Warnings", value = _showWarnings };
-            _warningToggle.RegisterValueChangedCallback(evt => { _showWarnings = evt.newValue; ApplyFilters(); });
+            _warningToggle.RegisterValueChangedCallback(evt => { 
+                _showWarnings = evt.newValue; 
+                ApplyFilters(); 
+                _lastRefreshTime = (float)EditorApplication.timeSinceStartup;
+            });
             
             _errorToggle = new ToolbarToggle { text = "Errors", value = _showErrors };
-            _errorToggle.RegisterValueChangedCallback(evt => { _showErrors = evt.newValue; ApplyFilters(); });
+            _errorToggle.RegisterValueChangedCallback(evt => { 
+                _showErrors = evt.newValue; 
+                ApplyFilters(); 
+                _lastRefreshTime = (float)EditorApplication.timeSinceStartup;
+            });
             
             // Control buttons
             _clearButton = new ToolbarButton(() => ClearLogs()) { text = "Clear" };
@@ -519,11 +549,49 @@ namespace PerSpec.Editor.Coordination
         
         private void OnEditorUpdate()
         {
-            if (_autoRefresh && Time.realtimeSinceStartup - _lastRefreshTime > REFRESH_INTERVAL)
+            // Use EditorApplication.timeSinceStartup instead of Time.realtimeSinceStartup
+            // Time.realtimeSinceStartup may not update properly in Editor context
+            float currentTime = (float)EditorApplication.timeSinceStartup;
+            
+            // More aggressive refresh when window has focus
+            float effectiveInterval = _hasFocus ? REFRESH_INTERVAL * 0.5f : REFRESH_INTERVAL;
+            
+            if (_autoRefresh && currentTime - _lastRefreshTime > effectiveInterval)
             {
-                _lastRefreshTime = Time.realtimeSinceStartup;
-                RefreshLogs();
+                _lastRefreshTime = currentTime;
+                
+                // Only refresh if there might be new logs
+                if (ShouldRefresh())
+                {
+                    RefreshLogs();
+                }
             }
+        }
+        
+        private bool ShouldRefresh()
+        {
+            // Always refresh if database is not initialized
+            if (_dbManager == null || !_dbManager.IsInitialized)
+                return true;
+            
+            // Check if log count has changed (quick check)
+            try
+            {
+                var currentCount = _dbManager.GetTotalLogCount();
+                if (currentCount != _lastKnownLogCount)
+                {
+                    _lastKnownLogCount = currentCount;
+                    return true;
+                }
+            }
+            catch
+            {
+                // If we can't check, refresh anyway
+                return true;
+            }
+            
+            // Also refresh if filters or search changed (handled elsewhere)
+            return false;
         }
         
         private void OnCompilationStarted(object obj)
@@ -540,6 +608,8 @@ namespace PerSpec.Editor.Coordination
         private void OnDestroy()
         {
             EditorApplication.update -= OnEditorUpdate;
+            UnityEditor.Compilation.CompilationPipeline.compilationStarted -= OnCompilationStarted;
+            UnityEditor.Compilation.CompilationPipeline.compilationFinished -= OnCompilationFinished;
         }
     }
 }

@@ -156,10 +156,18 @@ namespace PerSpec.Runtime.Logging
             {
                 _logQueue.Enqueue(entry);
                 
-                // Prevent memory overflow
-                while (_logQueue.Count > 1000)
+                // Prevent memory overflow - increased limit for better capture
+                const int MAX_QUEUE_SIZE = 10000;
+                if (_logQueue.Count > MAX_QUEUE_SIZE)
                 {
-                    _logQueue.Dequeue();
+                    // Log warning about dropped messages
+                    var droppedCount = _logQueue.Count - MAX_QUEUE_SIZE + 1;
+                    Debug.LogWarning($"[PlayModeLogCapture] Queue overflow - dropping {droppedCount} oldest log(s). Consider reducing log volume.");
+                    
+                    while (_logQueue.Count > MAX_QUEUE_SIZE)
+                    {
+                        _logQueue.Dequeue();
+                    }
                 }
             }
         }
@@ -172,8 +180,8 @@ namespace PerSpec.Runtime.Logging
                 _cachedFrameCount = Time.frameCount;
             }
             
-            // Process log queue periodically
-            if (Time.frameCount % 30 == 0) // Every 30 frames (roughly 0.5 seconds at 60fps)
+            // Process log queue more frequently for better real-time capture
+            if (Time.frameCount % 5 == 0) // Every 5 frames (roughly 0.083 seconds at 60fps)
             {
                 ProcessLogQueue();
             }
@@ -238,12 +246,12 @@ namespace PerSpec.Runtime.Logging
                 keyList += "|";
             keyList += key;
             
-            // Keep only last 100 keys to prevent overflow
+            // Keep only last 500 keys to prevent overflow while allowing more logs
             var keys = keyList.Split('|');
-            if (keys.Length > 100)
+            if (keys.Length > 500)
             {
-                var recentKeys = new string[100];
-                Array.Copy(keys, keys.Length - 100, recentKeys, 0, 100);
+                var recentKeys = new string[500];
+                Array.Copy(keys, keys.Length - 500, recentKeys, 0, 500);
                 keyList = string.Join("|", recentKeys);
             }
             
@@ -266,23 +274,21 @@ namespace PerSpec.Runtime.Logging
         
         private void OnDestroy()
         {
+            // Force immediate processing of all remaining logs
+            ProcessLogQueue();
             StopCapture();
         }
         
         private void OnApplicationPause(bool pauseStatus)
         {
-            if (!pauseStatus)
-            {
-                ProcessLogQueue();
-            }
+            // Process logs immediately on both pause and resume
+            ProcessLogQueue();
         }
         
         private void OnApplicationFocus(bool hasFocus)
         {
-            if (hasFocus)
-            {
-                ProcessLogQueue();
-            }
+            // Process logs immediately on both focus and unfocus
+            ProcessLogQueue();
         }
         
         [Serializable]

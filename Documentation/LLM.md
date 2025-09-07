@@ -22,19 +22,19 @@ Packages/com.digitraver.perspec/    # Package location
 
 ## 🗣️ Natural Language Commands
 
-| User Says | Execute |
-|-----------|---------|
-| "show/get errors" | `python PerSpec/Coordination/Scripts/monitor_logs.py recent -m 10 --level Error` |
-| "run tests" | `python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait` |
-| "refresh Unity" | `python PerSpec/Coordination/Scripts/quick_refresh.py full --wait` |
-| "show logs" | `python PerSpec/Coordination/Scripts/monitor_logs.py recent -m 60 -n 50` |
-| "export logs" | `python PerSpec/Coordination/Scripts/monitor_logs.py export -o logs.json` |
-| "monitor logs live" | `python PerSpec/Coordination/Scripts/monitor_logs.py live -r 1` |
-| "test results" | `cat $(ls -t PerSpec/TestResults/*.xml 2>/dev/null \| head -1)` |
-| "open console" | `python PerSpec/Coordination/Scripts/quick_menu.py execute "Window/General/Console" --wait` |
-| "save project" | `python PerSpec/Coordination/Scripts/quick_menu.py execute "File/Save Project" --wait` |
-| "clear logs" | `python PerSpec/Coordination/Scripts/quick_clean.py quick` |
-| "clean database" | `python PerSpec/Coordination/Scripts/quick_clean.py all --keep 0.5` |
+| User Says           | Execute                                                                                     |
+| ------------------- | ------------------------------------------------------------------------------------------- |
+| "show/get errors"   | `python PerSpec/Coordination/Scripts/monitor_logs.py recent -m 10 --level Error`            |
+| "run tests"         | `python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait`                      |
+| "refresh Unity"     | `python PerSpec/Coordination/Scripts/quick_refresh.py full --wait`                          |
+| "show logs"         | `python PerSpec/Coordination/Scripts/monitor_logs.py recent -m 60 -n 50`                    |
+| "export logs"       | `python PerSpec/Coordination/Scripts/monitor_logs.py export -o logs.json`                   |
+| "monitor logs live" | `python PerSpec/Coordination/Scripts/monitor_logs.py live -r 1`                             |
+| "test results"      | `cat $(ls -t PerSpec/TestResults/*.xml 2>/dev/null \| head -1)`                             |
+| "open console"      | `python PerSpec/Coordination/Scripts/quick_menu.py execute "Window/General/Console" --wait` |
+| "save project"      | `python PerSpec/Coordination/Scripts/quick_menu.py execute "File/Save Project" --wait`      |
+| "clear logs"        | `python PerSpec/Coordination/Scripts/quick_clean.py quick`                                  |
+| "clean database"    | `python PerSpec/Coordination/Scripts/quick_clean.py all --keep 0.5`                         |
 
 **Intent Mapping:**
 - "Something wrong" → Check errors

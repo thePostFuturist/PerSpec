@@ -962,6 +962,19 @@ namespace PerSpec.Editor.Coordination
             }
         }
         
+        public int GetTotalLogCount()
+        {
+            try
+            {
+                return _connection.ExecuteScalar<int>("SELECT COUNT(*) FROM console_logs");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[SQLiteManager] Error getting total log count: {e.Message}");
+                return 0;
+            }
+        }
+        
         // Database Utility Methods
         public bool TableExists(string tableName)
         {
