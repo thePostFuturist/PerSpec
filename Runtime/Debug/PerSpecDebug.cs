@@ -11,6 +11,17 @@ namespace PerSpec
     /// </summary>
     public static class PerSpecDebug
     {
+        // Cache for uppercase feature names to avoid repeated string allocations
+        private static readonly System.Collections.Generic.Dictionary<string, string> _upperCaseCache = 
+            new System.Collections.Generic.Dictionary<string, string>(16);
+        
+        // Pre-formatted strings to reduce allocations
+        private const string TestSetupPrefix = "[TEST-SETUP] ";
+        private const string TestActionPrefix = "[TEST-ACT] ";
+        private const string TestAssertPrefix = "[TEST-ASSERT] ";
+        private const string TestCompletePrefix = "[TEST-COMPLETE] ";
+        private const string TestErrorPrefix = "[TEST-ERROR] ";
+        private const string AssertFailedPrefix = "[ASSERT-FAILED] ";
         #region Log Methods
         
         /// <summary>
@@ -121,7 +132,7 @@ namespace PerSpec
         [Conditional("PERSPEC_DEBUG")]
         public static void LogTestSetup(string message)
         {
-            UnityEngine.Debug.Log($"[TEST-SETUP] {message}");
+            UnityEngine.Debug.Log(TestSetupPrefix + message);
         }
         
         /// <summary>
@@ -130,7 +141,7 @@ namespace PerSpec
         [Conditional("PERSPEC_DEBUG")]
         public static void LogTestAction(string message)
         {
-            UnityEngine.Debug.Log($"[TEST-ACT] {message}");
+            UnityEngine.Debug.Log(TestActionPrefix + message);
         }
         
         /// <summary>
@@ -139,7 +150,7 @@ namespace PerSpec
         [Conditional("PERSPEC_DEBUG")]
         public static void LogTestAssert(string message)
         {
-            UnityEngine.Debug.Log($"[TEST-ASSERT] {message}");
+            UnityEngine.Debug.Log(TestAssertPrefix + message);
         }
         
         /// <summary>
@@ -148,7 +159,7 @@ namespace PerSpec
         [Conditional("PERSPEC_DEBUG")]
         public static void LogTestComplete(string message)
         {
-            UnityEngine.Debug.Log($"[TEST-COMPLETE] {message}");
+            UnityEngine.Debug.Log(TestCompletePrefix + message);
         }
         
         /// <summary>
@@ -157,7 +168,7 @@ namespace PerSpec
         [Conditional("PERSPEC_DEBUG")]
         public static void LogTestError(string message)
         {
-            UnityEngine.Debug.LogError($"[TEST-ERROR] {message}");
+            UnityEngine.Debug.LogError(TestErrorPrefix + message);
         }
         
         #endregion
@@ -170,7 +181,8 @@ namespace PerSpec
         [Conditional("PERSPEC_DEBUG")]
         public static void LogFeatureStart(string feature, string message)
         {
-            UnityEngine.Debug.Log($"[{feature.ToUpper()}-START] {message}");
+            string upperFeature = GetCachedUpperCase(feature);
+            UnityEngine.Debug.Log($"[{upperFeature}-START] {message}");
         }
         
         /// <summary>
@@ -179,7 +191,8 @@ namespace PerSpec
         [Conditional("PERSPEC_DEBUG")]
         public static void LogFeatureProgress(string feature, string message)
         {
-            UnityEngine.Debug.Log($"[{feature.ToUpper()}-PROGRESS] {message}");
+            string upperFeature = GetCachedUpperCase(feature);
+            UnityEngine.Debug.Log($"[{upperFeature}-PROGRESS] {message}");
         }
         
         /// <summary>
@@ -188,7 +201,8 @@ namespace PerSpec
         [Conditional("PERSPEC_DEBUG")]
         public static void LogFeatureComplete(string feature, string message)
         {
-            UnityEngine.Debug.Log($"[{feature.ToUpper()}-COMPLETE] {message}");
+            string upperFeature = GetCachedUpperCase(feature);
+            UnityEngine.Debug.Log($"[{upperFeature}-COMPLETE] {message}");
         }
         
         /// <summary>
@@ -197,7 +211,8 @@ namespace PerSpec
         [Conditional("PERSPEC_DEBUG")]
         public static void LogFeatureError(string feature, string message)
         {
-            UnityEngine.Debug.LogError($"[{feature.ToUpper()}-ERROR] {message}");
+            string upperFeature = GetCachedUpperCase(feature);
+            UnityEngine.Debug.LogError($"[{upperFeature}-ERROR] {message}");
         }
         
         #endregion
@@ -212,7 +227,7 @@ namespace PerSpec
         {
             if (!condition)
             {
-                UnityEngine.Debug.LogError($"[ASSERT-FAILED] {message ?? "Assertion failed"}");
+                UnityEngine.Debug.LogError(AssertFailedPrefix + (message ?? "Assertion failed"));
                 UnityEngine.Debug.Break();
             }
         }
@@ -225,9 +240,35 @@ namespace PerSpec
         {
             if (!condition)
             {
-                UnityEngine.Debug.LogErrorFormat($"[ASSERT-FAILED] {format}", args);
+                UnityEngine.Debug.LogErrorFormat(AssertFailedPrefix + format, args);
                 UnityEngine.Debug.Break();
             }
+        }
+        
+        #endregion
+        
+        #region Helper Methods
+        
+        /// <summary>
+        /// Get cached uppercase version of a string to avoid repeated allocations
+        /// </summary>
+        private static string GetCachedUpperCase(string input)
+        {
+            if (string.IsNullOrEmpty(input))
+                return string.Empty;
+                
+            if (!_upperCaseCache.TryGetValue(input, out string upper))
+            {
+                upper = input.ToUpper();
+                
+                // Limit cache size to prevent unbounded growth
+                if (_upperCaseCache.Count < 100)
+                {
+                    _upperCaseCache[input] = upper;
+                }
+            }
+            
+            return upper;
         }
         
         #endregion
