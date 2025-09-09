@@ -98,6 +98,31 @@ If Step 3 shows errors:
 
 3. Repeat from Step 2 (Refresh)
 
+## Accessing PlayMode Logs
+
+After running PlayMode tests, you can access the captured console logs:
+
+```bash
+# View PlayMode log summary
+python PerSpec/Coordination/Scripts/test_playmode_logs.py
+
+# Logs are stored in
+PerSpec/PlayModeLogs/session_*.txt
+```
+
+Each log file contains:
+- Timestamp, log level, and frame number
+- Full message text
+- Stack traces for errors and exceptions
+- Thread information (main vs background)
+
+### PlayMode Log Features
+- Logs are written to `PerSpec/PlayModeLogs/` directory
+- Directory is cleared when entering Play Mode
+- Logs are saved every 5 seconds during Play Mode
+- Final batch written when exiting Play Mode
+- No performance overhead (no PlayerPrefs, no Update method)
+
 ### Common Errors
 
 | Error | Solution |

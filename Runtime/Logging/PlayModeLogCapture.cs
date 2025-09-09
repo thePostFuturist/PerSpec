@@ -1,12 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Text;
 using UnityEngine;
 
 namespace PerSpec.Runtime.Logging
 {
     /// <summary>
     /// Runtime log capture for PlayMode tests.
-    /// Captures all Debug.Log calls during PlayMode and stores them for the monitoring system.
+    /// Captures all Debug.Log calls during PlayMode and stores them to disk.
+    /// Performance-optimized version with file-based logging.
     /// </summary>
     public class PlayModeLogCapture : MonoBehaviour
     {
@@ -15,13 +18,15 @@ namespace PerSpec.Runtime.Logging
         private readonly object _queueLock = new object();
         private bool _isCapturing = false;
         
-        // Thread-safe frame count caching
-        private int _cachedFrameCount = 0;
-        private readonly object _frameCountLock = new object();
-        
-        // SQLite connection info passed from Editor
-        private string _databasePath;
+        // File writing
+        private string _logDirectory;
         private string _sessionId;
+        private int _batchNumber = 0;
+        private StreamWriter _currentWriter;
+        private readonly StringBuilder _stringBuilder = new StringBuilder(4096);
+        
+        // Performance optimization - pre-allocated and reused
+        private readonly List<LogEntry> _processingList = new List<LogEntry>(1000);
         
         public static PlayModeLogCapture Instance
         {
@@ -40,9 +45,38 @@ namespace PerSpec.Runtime.Logging
         public static void Initialize(string databasePath, string sessionId)
         {
             var instance = Instance;
-            instance._databasePath = databasePath;
-            instance._sessionId = sessionId;
+            instance._sessionId = sessionId ?? DateTime.Now.Ticks.ToString();
+            instance.InitializeLogging();
             instance.StartCapture();
+        }
+        
+        private void InitializeLogging()
+        {
+            // Setup log directory
+            var projectRoot = Directory.GetCurrentDirectory();
+            _logDirectory = Path.Combine(projectRoot, "PerSpec", "PlayModeLogs");
+            
+            // Clear directory on Play Mode enter
+            if (Directory.Exists(_logDirectory))
+            {
+                try
+                {
+                    foreach (var file in Directory.GetFiles(_logDirectory))
+                    {
+                        File.Delete(file);
+                    }
+                }
+                catch (Exception e)
+                {
+                    Debug.LogWarning($"[PlayModeLogCapture] Could not clear log directory: {e.Message}");
+                }
+            }
+            else
+            {
+                Directory.CreateDirectory(_logDirectory);
+            }
+            
+            Debug.Log($"[PlayModeLogCapture] Initialized logging to: {_logDirectory}");
         }
         
         private void Awake()
@@ -61,26 +95,12 @@ namespace PerSpec.Runtime.Logging
         {
             if (_isCapturing) return;
             
-            // Initialize cached frame count
-            try
-            {
-                lock (_frameCountLock)
-                {
-                    _cachedFrameCount = Time.frameCount;
-                }
-            }
-            catch
-            {
-                // If Time.frameCount fails during initialization, start at 0
-                lock (_frameCountLock)
-                {
-                    _cachedFrameCount = 0;
-                }
-            }
-            
             Application.logMessageReceived += OnLogMessageReceived;
             Application.logMessageReceivedThreaded += OnLogMessageReceivedThreaded;
             _isCapturing = true;
+            
+            // Start writing every 5 seconds
+            InvokeRepeating(nameof(WriteLogBatch), 5f, 5f);
             
             Debug.Log($"[PlayModeLogCapture] Started capturing logs for session: {_sessionId}");
         }
@@ -93,8 +113,11 @@ namespace PerSpec.Runtime.Logging
             Application.logMessageReceivedThreaded -= OnLogMessageReceivedThreaded;
             _isCapturing = false;
             
-            // Process remaining logs
-            ProcessLogQueue();
+            // Cancel repeated invocation
+            CancelInvoke(nameof(WriteLogBatch));
+            
+            // Write final batch
+            WriteFinalLogs();
             
             Debug.Log("[PlayModeLogCapture] Stopped capturing logs");
         }
@@ -111,37 +134,6 @@ namespace PerSpec.Runtime.Logging
         
         private void CaptureLog(string logString, string stackTrace, LogType type, bool isThreaded)
         {
-            // Handle frame count safely for threaded vs non-threaded contexts
-            int frameCount;
-            if (isThreaded)
-            {
-                // From background thread - use cached value
-                lock (_frameCountLock)
-                {
-                    frameCount = _cachedFrameCount;
-                }
-            }
-            else
-            {
-                // From main thread - get current value and update cache
-                try
-                {
-                    frameCount = Time.frameCount;
-                    lock (_frameCountLock)
-                    {
-                        _cachedFrameCount = frameCount;
-                    }
-                }
-                catch
-                {
-                    // Fallback if Time.frameCount fails (e.g., during initialization)
-                    lock (_frameCountLock)
-                    {
-                        frameCount = _cachedFrameCount;
-                    }
-                }
-            }
-            
             var entry = new LogEntry
             {
                 Message = logString,
@@ -149,22 +141,20 @@ namespace PerSpec.Runtime.Logging
                 LogType = type,
                 Timestamp = DateTime.Now,
                 IsThreaded = isThreaded,
-                FrameCount = frameCount
+                FrameCount = isThreaded ? -1 : Time.frameCount
             };
             
             lock (_queueLock)
             {
                 _logQueue.Enqueue(entry);
                 
-                // Prevent memory overflow - increased limit for better capture
+                // Prevent memory overflow
                 const int MAX_QUEUE_SIZE = 10000;
                 if (_logQueue.Count > MAX_QUEUE_SIZE)
                 {
-                    // Log warning about dropped messages
-                    var droppedCount = _logQueue.Count - MAX_QUEUE_SIZE + 1;
-                    Debug.LogWarning($"[PlayModeLogCapture] Queue overflow - dropping {droppedCount} oldest log(s). Consider reducing log volume.");
-                    
-                    while (_logQueue.Count > MAX_QUEUE_SIZE)
+                    // Drop oldest logs
+                    var toRemove = _logQueue.Count - MAX_QUEUE_SIZE;
+                    for (int i = 0; i < toRemove; i++)
                     {
                         _logQueue.Dequeue();
                     }
@@ -172,91 +162,113 @@ namespace PerSpec.Runtime.Logging
             }
         }
         
-        private void Update()
+        private void WriteLogBatch()
         {
-            // Update cached frame count for thread-safe access
-            lock (_frameCountLock)
-            {
-                _cachedFrameCount = Time.frameCount;
-            }
-            
-            // Process log queue more frequently for better real-time capture
-            if (Time.frameCount % 5 == 0) // Every 5 frames (roughly 0.083 seconds at 60fps)
-            {
-                ProcessLogQueue();
-            }
-        }
-        
-        private void ProcessLogQueue()
-        {
-            if (string.IsNullOrEmpty(_databasePath) || string.IsNullOrEmpty(_sessionId))
-                return;
-            
-            List<LogEntry> logsToProcess = null;
-            
+            // Early exit if no logs
             lock (_queueLock)
             {
-                if (_logQueue.Count > 0)
+                if (_logQueue.Count == 0) return;
+                
+                // Move logs to processing list
+                _processingList.Clear();
+                while (_logQueue.Count > 0)
                 {
-                    logsToProcess = new List<LogEntry>(_logQueue);
-                    _logQueue.Clear();
+                    _processingList.Add(_logQueue.Dequeue());
                 }
             }
             
-            if (logsToProcess != null && logsToProcess.Count > 0)
-            {
-                // Send logs to Editor for database storage
-                SendLogsToEditor(logsToProcess);
-            }
+            // Write to file (outside of lock)
+            WriteLogsToFile(_processingList, false);
         }
         
-        private void SendLogsToEditor(List<LogEntry> logs)
+        private void WriteFinalLogs()
         {
-            // Use Unity's Editor connection to send logs back
-            // This will be picked up by the PlayModeLogReceiver in Editor
-            foreach (var log in logs)
+            lock (_queueLock)
             {
-                var data = new PlayModeLogData
-                {
-                    SessionId = _sessionId,
-                    LogLevel = ConvertLogType(log.LogType),
-                    Message = log.Message,
-                    StackTrace = log.StackTrace,
-                    Timestamp = log.Timestamp.Ticks,
-                    FrameCount = log.FrameCount,
-                    Context = $"PlayMode|Thread:{(log.IsThreaded ? "Background" : "Main")}|Frame:{log.FrameCount}"
-                };
+                if (_logQueue.Count == 0) return;
                 
-                // Store in PlayerPrefs temporarily (will be read by Editor)
-                StoreLogForEditor(data);
+                _processingList.Clear();
+                while (_logQueue.Count > 0)
+                {
+                    _processingList.Add(_logQueue.Dequeue());
+                }
             }
+            
+            // Write final batch
+            WriteLogsToFile(_processingList, true);
         }
         
-        private void StoreLogForEditor(PlayModeLogData data)
+        private void WriteLogsToFile(List<LogEntry> logs, bool isFinal)
         {
-            // Use a circular buffer in PlayerPrefs for communication
-            // This is a temporary storage that the Editor will read and clear
-            var key = $"PlayModeLog_{DateTime.Now.Ticks}_{UnityEngine.Random.Range(0, 10000)}";
-            var json = JsonUtility.ToJson(data);
-            PlayerPrefs.SetString(key, json);
+            if (logs.Count == 0 || string.IsNullOrEmpty(_logDirectory)) return;
             
-            // Store the key in a list for the Editor to find
-            var keyList = PlayerPrefs.GetString("PlayModeLogKeys", "");
-            if (!string.IsNullOrEmpty(keyList))
-                keyList += "|";
-            keyList += key;
-            
-            // Keep only last 500 keys to prevent overflow while allowing more logs
-            var keys = keyList.Split('|');
-            if (keys.Length > 500)
+            try
             {
-                var recentKeys = new string[500];
-                Array.Copy(keys, keys.Length - 500, recentKeys, 0, 500);
-                keyList = string.Join("|", recentKeys);
+                _batchNumber++;
+                var fileName = isFinal 
+                    ? $"session_{_sessionId}_final.txt"
+                    : $"session_{_sessionId}_batch_{_batchNumber:D3}.txt";
+                
+                var filePath = Path.Combine(_logDirectory, fileName);
+                
+                // Use StringBuilder for efficient string concatenation
+                _stringBuilder.Clear();
+                _stringBuilder.AppendLine($"=== PlayMode Log Batch - {DateTime.Now:yyyy-MM-dd HH:mm:ss} ===");
+                _stringBuilder.AppendLine($"Session: {_sessionId}");
+                _stringBuilder.AppendLine($"Batch: {_batchNumber}");
+                _stringBuilder.AppendLine($"Count: {logs.Count}");
+                _stringBuilder.AppendLine("=" + new string('=', 60));
+                _stringBuilder.AppendLine();
+                
+                foreach (var log in logs)
+                {
+                    // Format: [timestamp] [level] [frame] message
+                    _stringBuilder.AppendFormat("[{0:HH:mm:ss.fff}] [{1,-9}] ",
+                        log.Timestamp,
+                        ConvertLogType(log.LogType));
+                    
+                    if (log.FrameCount >= 0)
+                    {
+                        _stringBuilder.AppendFormat("[Frame:{0,5}] ", log.FrameCount);
+                    }
+                    else
+                    {
+                        _stringBuilder.Append("[Thread    ] ");
+                    }
+                    
+                    _stringBuilder.AppendLine(log.Message);
+                    
+                    // Add stack trace for errors and exceptions
+                    if (!string.IsNullOrEmpty(log.StackTrace) && 
+                        (log.LogType == LogType.Error || log.LogType == LogType.Exception || log.LogType == LogType.Assert))
+                    {
+                        // Indent stack trace
+                        var stackLines = log.StackTrace.Split('\n');
+                        foreach (var line in stackLines)
+                        {
+                            if (!string.IsNullOrWhiteSpace(line))
+                            {
+                                _stringBuilder.AppendLine($"    {line.Trim()}");
+                            }
+                        }
+                    }
+                    
+                    _stringBuilder.AppendLine();
+                }
+                
+                // Write to file
+                File.WriteAllText(filePath, _stringBuilder.ToString());
+                
+                // Log success (but don't capture this log!)
+                if (isFinal)
+                {
+                    Debug.Log($"[PlayModeLogCapture] Wrote final logs to: {fileName}");
+                }
             }
-            
-            PlayerPrefs.SetString("PlayModeLogKeys", keyList);
-            PlayerPrefs.Save();
+            catch (Exception e)
+            {
+                Debug.LogError($"[PlayModeLogCapture] Failed to write logs: {e.Message}");
+            }
         }
         
         private string ConvertLogType(LogType logType)
@@ -268,27 +280,31 @@ namespace PerSpec.Runtime.Logging
                 case LogType.Error: return "Error";
                 case LogType.Exception: return "Exception";
                 case LogType.Assert: return "Assert";
-                default: return "Info";
+                default: return "Unknown";
             }
         }
         
         private void OnDestroy()
         {
-            // Force immediate processing of all remaining logs
-            ProcessLogQueue();
             StopCapture();
         }
         
         private void OnApplicationPause(bool pauseStatus)
         {
-            // Process logs immediately on both pause and resume
-            ProcessLogQueue();
+            if (pauseStatus)
+            {
+                // Write logs when pausing
+                WriteLogBatch();
+            }
         }
         
         private void OnApplicationFocus(bool hasFocus)
         {
-            // Process logs immediately on both focus and unfocus
-            ProcessLogQueue();
+            if (!hasFocus)
+            {
+                // Write logs when losing focus
+                WriteLogBatch();
+            }
         }
         
         [Serializable]
@@ -300,18 +316,6 @@ namespace PerSpec.Runtime.Logging
             public DateTime Timestamp;
             public bool IsThreaded;
             public int FrameCount;
-        }
-        
-        [Serializable]
-        public class PlayModeLogData
-        {
-            public string SessionId;
-            public string LogLevel;
-            public string Message;
-            public string StackTrace;
-            public long Timestamp;
-            public int FrameCount;
-            public string Context;
         }
     }
 }

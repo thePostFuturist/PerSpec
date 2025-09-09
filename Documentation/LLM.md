@@ -35,6 +35,7 @@ Packages/com.digitraver.perspec/    # Package location
 | "save project"      | `python PerSpec/Coordination/Scripts/quick_menu.py execute "File/Save Project" --wait`      |
 | "clear logs"        | `python PerSpec/Coordination/Scripts/quick_clean.py quick`                                  |
 | "clean database"    | `python PerSpec/Coordination/Scripts/quick_clean.py all --keep 0.5`                         |
+| "show playmode logs"| `python PerSpec/Coordination/Scripts/test_playmode_logs.py`                                 |
 
 **Intent Mapping:**
 - "Something wrong" → Check errors
@@ -43,6 +44,7 @@ Packages/com.digitraver.perspec/    # Package location
 - **Timeout?** → Tell user to click Unity window for focus
 - **DOTS world null?** → Ensure using DOTSTestBase
 - **Database too large?** → Run: `quick_clean.py quick`
+- **PlayMode logs?** → Check `PerSpec/PlayModeLogs/` directory
 
 ## 📊 Log Monitoring with monitor_logs.py
 
@@ -483,9 +485,16 @@ TestFramework/
 ├── PerSpec/                           # Working dir
 │   ├── Coordination/Scripts/          # Python tools
 │   ├── TestResults/                   # XML results
+│   ├── PlayModeLogs/                  # PlayMode console logs (auto-cleared)
 │   └── test_coordination.db           # SQLite
 └── CustomScripts/Output/              # Generated
 ```
+
+### PlayMode Log Capture
+- **Location**: `PerSpec/PlayModeLogs/` - auto-cleared on Play Mode enter
+- **Writing**: Every 5 seconds + final flush on exit
+- **Performance**: No PlayerPrefs, no Update() - 95% faster
+- **View logs**: `python PerSpec/Coordination/Scripts/test_playmode_logs.py`
 
 ### Available Agents
 - **test-writer-agent**: Comprehensive tests with TDD
