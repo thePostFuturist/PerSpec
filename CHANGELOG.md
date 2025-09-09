@@ -5,6 +5,27 @@ All notable changes to the PerSpec Testing Framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.7] - 2025-09-09
+
+### Added
+- `--errors` flag for both EditMode and PlayMode log scripts
+- Direct error filtering without piping to grep
+- Error filtering searches across ALL session batches/files
+- Stack trace support with `-s` flag for error output
+- Error statistics showing counts by type (Error, Exception, Assert)
+- Better error messages when log directories don't exist
+
+### Changed
+- monitor_editmode_logs.py now searches all sessions (up to 3) for errors
+- test_playmode_logs.py filters errors across all batch files in session
+- Consistent command-line interface between EditMode and PlayMode logs
+- Updated documentation with new error filtering examples
+
+### Improved
+- Error filtering performance with direct flag instead of grep
+- User experience with clearer error messages and statistics
+- Command consistency across all log monitoring scripts
+
 ## [1.1.6] - 2025-09-08
 
 ### Added
