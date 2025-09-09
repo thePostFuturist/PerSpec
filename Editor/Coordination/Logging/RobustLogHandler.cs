@@ -98,7 +98,7 @@ namespace PerSpec.Editor.Coordination
                 // Regular processing
                 EditorApplication.update += ProcessLogBuffer;
                 
-                LogFormat(LogType.Log, null, "[RobustLogHandler] Initialized with ILogHandler interception");
+                Debug.Log("[RobustLogHandler] Initialized with ILogHandler interception - EditMode compilation logs will be captured");
             }
             catch (Exception ex)
             {
@@ -138,6 +138,24 @@ namespace PerSpec.Editor.Coordination
         {
             try
             {
+                // Also forward to Application.logMessageReceived for any dependent systems
+                // This ensures compatibility with systems that rely on Application.logMessageReceived
+                // Note: We use a direct delegate call to avoid infinite recursion
+                try
+                {
+                    var logMessageReceivedField = typeof(Application).GetField("logMessageReceived", 
+                        System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+                    if (logMessageReceivedField != null)
+                    {
+                        var handler = logMessageReceivedField.GetValue(null) as Application.LogCallback;
+                        handler?.Invoke(message, stackTrace ?? "", logType);
+                    }
+                }
+                catch
+                {
+                    // Silently ignore if we can't forward
+                }
+                
                 var log = new BufferedLog
                 {
                     Message = message,
@@ -224,7 +242,7 @@ namespace PerSpec.Editor.Coordination
             _isCompiling = true;
             _hasCompilationErrors = false;
             
-            LogFormat(LogType.Log, null, "[RobustLogHandler] Compilation started - buffering logs");
+            Debug.Log("[RobustLogHandler] Compilation started - buffering logs");
             
             // Save current state
             EditorPrefs.SetBool(COMPILATION_STATE_KEY, true);
@@ -234,8 +252,7 @@ namespace PerSpec.Editor.Coordination
         {
             _isCompiling = false;
             
-            LogFormat(LogType.Log, null, 
-                _hasCompilationErrors 
+            Debug.Log(_hasCompilationErrors 
                     ? "[RobustLogHandler] Compilation finished with errors - processing buffered logs" 
                     : "[RobustLogHandler] Compilation finished successfully - processing buffered logs");
             
@@ -254,10 +271,11 @@ namespace PerSpec.Editor.Coordination
                 {
                     _hasCompilationErrors = true;
                     
-                    // Capture compilation error as a log
+                    // Format compilation error to match Unity's standard format with CS error codes
+                    // This ensures SQLiteManager.HasCompilationErrors() can detect them with '%error CS%' pattern
                     var errorLog = new BufferedLog
                     {
-                        Message = $"[Compilation Error] {message.file}({message.line},{message.column}): {message.message}",
+                        Message = $"{message.file}({message.line},{message.column}): error {message.message}",
                         StackTrace = null,
                         LogType = LogType.Error,
                         Timestamp = DateTime.Now,
@@ -271,6 +289,9 @@ namespace PerSpec.Editor.Coordination
                     {
                         _compilationBuffer.Enqueue(errorLog);
                     }
+                    
+                    // Immediately save compilation errors to database for real-time detection
+                    SaveLogToDatabase(errorLog);
                 }
             }
         }

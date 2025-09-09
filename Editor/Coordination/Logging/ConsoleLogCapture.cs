@@ -12,8 +12,9 @@ namespace PerSpec.Editor.Coordination
 {
     /// <summary>
     /// Captures Unity console logs in real-time and stores them in SQLite with intelligent stack trace truncation
+    /// NOTE: Auto-initialization disabled - RobustLogHandler is now the primary log capture mechanism
     /// </summary>
-    [InitializeOnLoad]
+    // [InitializeOnLoad] // Disabled to prevent conflict with RobustLogHandler
     public static class ConsoleLogCapture
     {
         private static readonly string SessionId = Guid.NewGuid().ToString();
