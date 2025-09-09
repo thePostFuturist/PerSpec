@@ -705,100 +705,7 @@ namespace PerSpec.Editor.Coordination
             }
         }
         
-        // Console Log Methods
-        public void SaveConsoleLog(ConsoleLogEntry logEntry)
-        {
-            try
-            {
-                _connection.Insert(logEntry);
-            }
-            catch (Exception e)
-            {
-                // Don't use Debug.LogError here to avoid recursion
-                System.Diagnostics.Debug.WriteLine($"[SQLiteManager] Error saving console log: {e.Message}");
-            }
-        }
-        
-        public void DeleteSessionLogs(string sessionId)
-        {
-            try
-            {
-                _connection.Execute("DELETE FROM console_logs WHERE session_id = ?", sessionId);
-                Debug.Log($"[SQLiteManager] Deleted logs for session: {sessionId}");
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"[SQLiteManager] Error deleting session logs: {e.Message}");
-            }
-        }
-        
-        public void DeleteOldSessionLogs(string sessionId)
-        {
-            try
-            {
-                int deleted = _connection.Execute("DELETE FROM console_logs WHERE session_id != ?", sessionId);
-                if (deleted > 0)
-                {
-                    Debug.Log($"[SQLiteManager] Deleted {deleted} logs from old sessions");
-                }
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"[SQLiteManager] Error deleting old session logs: {e.Message}");
-            }
-        }
-        
-        public void DeleteOldConsoleLogs(DateTime cutoffTime)
-        {
-            try
-            {
-                int deleted = _connection.Execute("DELETE FROM console_logs WHERE timestamp < ?", cutoffTime);
-                if (deleted > 0)
-                {
-                    Debug.Log($"[SQLiteManager] Deleted {deleted} old console logs");
-                }
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"[SQLiteManager] Error deleting old console logs: {e.Message}");
-            }
-        }
-        
-        public List<ConsoleLogEntry> GetRecentConsoleLogs(DateTime cutoffTime, int maxCount = 1000)
-        {
-            try
-            {
-                var query = _connection.Table<ConsoleLogEntry>()
-                    .Where(log => log.Timestamp > cutoffTime)
-                    .OrderByDescending(log => log.Timestamp)
-                    .Take(maxCount);
-                
-                return query.ToList();
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"[SQLiteManager] Error getting recent console logs: {e.Message}");
-                return new List<ConsoleLogEntry>();
-            }
-        }
-        
-        public List<ConsoleLogEntry> GetCurrentSessionLogs(string sessionId, int maxCount = 1000)
-        {
-            try
-            {
-                var query = _connection.Table<ConsoleLogEntry>()
-                    .Where(log => log.SessionId == sessionId)
-                    .OrderByDescending(log => log.Timestamp)
-                    .Take(maxCount);
-                
-                return query.ToList();
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"[SQLiteManager] Error getting current session logs: {e.Message}");
-                return new List<ConsoleLogEntry>();
-            }
-        }
+        // Console logging removed - now using file-based EditModeLogCapture
         
         public void StartConsoleSession(string sessionId, string reason)
         {
@@ -1095,8 +1002,7 @@ namespace PerSpec.Editor.Coordination
                 // Get size before
                 long sizeBefore = GetDatabaseSize();
                 
-                // Delete old data
-                DeleteOldConsoleLogs(DateTime.Now.AddHours(-hoursToKeep));
+                // Console logs now managed by file-based EditModeLogCapture (3 session limit)
                 DeleteOldTestResults((int)Math.Ceiling(hoursToKeep));
                 DeleteOldExecutionLogs((int)Math.Ceiling(hoursToKeep));
                 DeleteOldRefreshRequests((int)Math.Ceiling(hoursToKeep));
@@ -1153,57 +1059,7 @@ namespace PerSpec.Editor.Coordination
             }
         }
         
-        public List<ConsoleLogEntry> GetConsoleLogs(string sessionId = null, string logLevel = null, int limit = 100)
-        {
-            try
-            {
-                var query = _connection.Table<ConsoleLogEntry>();
-                
-                if (!string.IsNullOrEmpty(sessionId))
-                {
-                    query = query.Where(l => l.SessionId == sessionId);
-                }
-                
-                if (!string.IsNullOrEmpty(logLevel))
-                {
-                    query = query.Where(l => l.LogLevel == logLevel);
-                }
-                
-                return query.OrderByDescending(l => l.Timestamp)
-                    .Take(limit)
-                    .ToList();
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"[SQLiteManager] Error getting console logs: {e.Message}");
-                return new List<ConsoleLogEntry>();
-            }
-        }
-        
-        public int GetConsoleLogCount(string sessionId = null, string logLevel = null)
-        {
-            try
-            {
-                var query = _connection.Table<ConsoleLogEntry>();
-                
-                if (!string.IsNullOrEmpty(sessionId))
-                {
-                    query = query.Where(l => l.SessionId == sessionId);
-                }
-                
-                if (!string.IsNullOrEmpty(logLevel))
-                {
-                    query = query.Where(l => l.LogLevel == logLevel);
-                }
-                
-                return query.Count();
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"[SQLiteManager] Error getting console log count: {e.Message}");
-                return 0;
-            }
-        }
+        // Console log query methods removed - now using file-based EditModeLogCapture
         
         ~SQLiteManager()
         {

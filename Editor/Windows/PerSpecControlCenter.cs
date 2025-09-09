@@ -29,7 +29,6 @@ namespace PerSpec.Editor.Windows
             "Dashboard",
             "Test Coordinator",
             "Debug Settings",
-            "Console Logs",
             "Initialization",
             "LLM Setup",
             "About"
@@ -106,10 +105,9 @@ namespace PerSpec.Editor.Windows
                 case 0: DrawDashboardTab(); break;
                 case 1: DrawTestCoordinatorTab(); break;
                 case 2: DrawDebugSettingsTab(); break;
-                case 3: DrawConsoleLogsTab(); break;
-                case 4: DrawInitializationTab(); break;
-                case 5: DrawLLMSetupTab(); break;
-                case 6: DrawAboutTab(); break;
+                case 3: DrawInitializationTab(); break;
+                case 4: DrawLLMSetupTab(); break;
+                case 5: DrawAboutTab(); break;
             }
             
             EditorGUILayout.EndScrollView();
@@ -175,9 +173,6 @@ namespace PerSpec.Editor.Windows
                 DrawStatusRow("Debug Logging", DebugService.DebugStatus,
                     DebugService.IsDebugEnabled ? Color.green : Color.gray);
                 
-                DrawStatusRow("Console Capture", ConsoleService.CaptureStatus,
-                    ConsoleService.IsCaptureEnabled ? Color.green : Color.gray);
-                
                 DrawStatusRow("Compiler Directives", BuildProfileHelper.ConfigurationMode,
                     BuildProfileHelper.HasActiveBuildProfile ? Color.cyan : Color.white);
             });
@@ -234,11 +229,8 @@ namespace PerSpec.Editor.Windows
                 EditorGUILayout.LabelField("Unity Version:", Application.unityVersion);
                 EditorGUILayout.LabelField("Database Size:", 
                     $"{InitializationService.DatabaseSize / 1024f:F1} KB");
-                EditorGUILayout.LabelField("Console Logs:", 
-                    $"{ConsoleService.CapturedLogCount} captured");
-                EditorGUILayout.LabelField("Errors:", 
-                    $"{ConsoleService.ErrorCount}", 
-                    ConsoleService.ErrorCount > 0 ? EditorStyles.boldLabel : EditorStyles.label);
+                EditorGUILayout.LabelField("Log Location:", 
+                    "PerSpec/EditModeLogs/");
             });
         }
         
@@ -380,8 +372,7 @@ namespace PerSpec.Editor.Windows
                                 "This will delete ALL data older than 30 minutes and vacuum the database.\n\nContinue?", 
                                 "Clean", "Cancel"))
                             {
-                                // Aggressive cleanup
-                                dbManager.DeleteOldConsoleLogs(DateTime.Now.AddMinutes(-30));
+                                // Aggressive cleanup (console logs now in files)
                                 dbManager.DeleteOldTestResults(0);
                                 dbManager.DeleteOldExecutionLogs(0);
                                 dbManager.DeleteOldRefreshRequests(0);
@@ -586,85 +577,6 @@ PerSpecDebug.LogTestSetup(""Creating prefab"");
 PerSpecDebug.LogTestComplete(""Test passed"");";
                 
                 EditorGUILayout.TextArea(code, GUILayout.Height(100));
-            });
-        }
-        
-        #endregion
-        
-        #region GUI Drawing - Console Logs Tab
-        
-        private void DrawConsoleLogsTab()
-        {
-            DrawInfoBox(
-                "Console Log Capture saves Unity console output to SQLite database for analysis. " +
-                "Captured logs can be retrieved via Python scripts for debugging and reporting."
-            );
-            
-            EditorGUILayout.Space(10);
-            
-            // Status
-            DrawSection("Capture Status", () =>
-            {
-                EditorGUILayout.LabelField("Status:", ConsoleService.CaptureStatus);
-                EditorGUILayout.LabelField("Session:", ConsoleService.SessionId);
-                
-                EditorGUILayout.Space(5);
-                
-                EditorGUILayout.BeginHorizontal();
-                EditorGUILayout.LabelField($"Total: {ConsoleService.CapturedLogCount}");
-                EditorGUILayout.LabelField($"Errors: {ConsoleService.ErrorCount}");
-                EditorGUILayout.LabelField($"Warnings: {ConsoleService.WarningCount}");
-                EditorGUILayout.EndHorizontal();
-            });
-            
-            EditorGUILayout.Space(10);
-            
-            // Controls
-            DrawSection("Console Controls", () =>
-            {
-                EditorGUILayout.BeginHorizontal();
-                
-                GUI.backgroundColor = ConsoleService.IsCaptureEnabled ? Color.red : Color.green;
-                string buttonText = ConsoleService.IsCaptureEnabled 
-                    ? "Stop Capture" 
-                    : "Start Capture";
-                    
-                if (GUILayout.Button(buttonText, GUILayout.Height(40)))
-                {
-                    ConsoleService.ToggleCapture();
-                }
-                GUI.backgroundColor = Color.white;
-                
-                EditorGUILayout.EndHorizontal();
-                
-                EditorGUILayout.Space(5);
-                
-                EditorGUILayout.BeginHorizontal();
-                
-                if (GUILayout.Button("Clear Session"))
-                {
-                    ConsoleService.ClearSession();
-                }
-                
-                if (GUILayout.Button("Export Logs"))
-                {
-                    ConsoleService.ExportLogs();
-                }
-                
-                if (GUILayout.Button("Test Logs"))
-                {
-                    ConsoleService.TestLogLevels();
-                }
-                
-                EditorGUILayout.EndHorizontal();
-            });
-            
-            EditorGUILayout.Space(10);
-            
-            // Session Info
-            DrawSection("Session Information", () =>
-            {
-                EditorGUILayout.TextArea(ConsoleService.GetSessionInfo(), GUILayout.Height(80));
             });
         }
         

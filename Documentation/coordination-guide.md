@@ -193,66 +193,49 @@ refresh_specific_paths(["Assets/Scripts"], ImportOptions.FORCE_UPDATE, wait=True
 - Import options (default/synchronous/force_update)
 - Status tracking with timing
 
-### console_logs
-- Real-time Unity console output capture
-- Intelligent stack trace truncation (removes framework calls, preserves user code)
-- Session-based tracking (current Unity session only)
-- Log levels: Info, Warning, Error, Exception, Assert
+### File-Based Logging (NEW)
+- **EditMode**: Session files in `PerSpec/EditModeLogs/` (keeps 3 sessions)
+- **PlayMode**: Time-batched files in `PerSpec/PlayModeLogs/` (5-second intervals)
+- No database dependency for logs
+- Works reliably during compilation errors
 
-## Console Log Retrieval
+## Log Retrieval
 
-### Quick Commands
+### EditMode Logs
 ```bash
-# Get latest logs (all levels)
-python PerSpec/Coordination/Scripts/quick_logs.py latest -n 20
+# View recent logs from current session
+python PerSpec/Coordination/Scripts/monitor_editmode_logs.py recent -n 50
 
-# Get only errors/exceptions
-python PerSpec/Coordination/Scripts/quick_logs.py errors
-
-# Get warnings
-python PerSpec/Coordination/Scripts/quick_logs.py warnings
-
-# Get session summary (log counts by level)
-python PerSpec/Coordination/Scripts/quick_logs.py summary
+# Show only errors and exceptions
+python PerSpec/Coordination/Scripts/monitor_editmode_logs.py errors
 
 # Monitor logs in real-time
-python PerSpec/Coordination/Scripts/quick_logs.py monitor
+python PerSpec/Coordination/Scripts/monitor_editmode_logs.py live
 
-# Export logs to file (auto-saves to PerSpec/Logs/)
-python PerSpec/Coordination/Scripts/quick_logs.py export
+# List all sessions (keeps 3 most recent)
+python PerSpec/Coordination/Scripts/monitor_editmode_logs.py sessions
 
-# Export as JSON
-python PerSpec/Coordination/Scripts/quick_logs.py export --json
-
-# Export with custom path
-python PerSpec/Coordination/Scripts/quick_logs.py export custom.txt
+# View specific session
+python PerSpec/Coordination/Scripts/monitor_editmode_logs.py show <session_id>
 ```
 
-> **Note**: Export automatically clears `PerSpec/Logs/` and saves as `ConsoleLogs_YYYYMMDD_HHMMSS.txt`
+### PlayMode Logs
+```bash
+# View PlayMode logs
+python PerSpec/Coordination/Scripts/test_playmode_logs.py
 
-### Programmatic Access
-```python
-from console_log_reader import ConsoleLogReader, LogLevel  # Located in PerSpec/Coordination/Scripts/
+# List available sessions
+python PerSpec/Coordination/Scripts/test_playmode_logs.py -l
 
-reader = ConsoleLogReader()
-
-# Get latest 50 error logs
-errors = reader.get_error_logs(limit=50)
-
-# Get logs from last 10 minutes
-recent = reader.get_latest_logs(minutes_ago=10)
-
-# Get session summary with counts
-summary = reader.get_session_summary()  # Returns dict with error_count, warning_count, etc.
+# View with stack traces
+python PerSpec/Coordination/Scripts/test_playmode_logs.py -s
 ```
 
-### Stack Trace Truncation
-Unity stack traces are automatically truncated to minimize context usage:
-- Removes Unity framework calls (UnityEngine.*, UnityEditor.*, System.Reflection)
-- Preserves user code from Assets/ and Packages/
-- Limits to 10 relevant frames
-- Shows "[N framework calls omitted]" placeholders
-- Converts absolute paths to relative
+### Log Storage
+- **EditMode**: `PerSpec/EditModeLogs/session_{id}.txt`
+- **PlayMode**: `PerSpec/PlayModeLogs/session_{id}_batch_{n}.txt`
+- Both use direct file writes (no database)
+- Automatic cleanup of old sessions
 
 ## Features
 

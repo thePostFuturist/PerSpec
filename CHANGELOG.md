@@ -5,6 +5,42 @@ All notable changes to the PerSpec Testing Framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.6] - 2025-09-08
+
+### Added
+- New file-based logging system for EditMode and PlayMode
+- EditModeLogCapture.cs for session-based logging (keeps 3 sessions)
+- CompilationErrorCapture.cs for reliable compilation error capture
+- monitor_editmode_logs.py for viewing EditMode logs
+- test_playmode_logs.py for viewing PlayMode logs
+- Immediate log writes without buffering
+- Automatic session cleanup to prevent disk bloat
+
+### Changed
+- Complete rewrite of log capture system from database to file-based
+- EditMode logs now stored in PerSpec/EditModeLogs/ as session files
+- PlayMode logs remain in PerSpec/PlayModeLogs/ with 5-second batches
+- Compilation errors now reliably captured even during Unity failures
+- Removed database dependency for all logging operations
+
+### Removed
+- ConsoleLogCapture.cs (database-based capture)
+- RobustLogHandler.cs (problematic ILogHandler interception)
+- UnityConsoleSessionManager.cs (database session management)
+- EnhancedConsoleWindow.cs (database-based viewer)
+- TestLogGenerator.cs (obsolete test generator)
+- monitor_logs.py (database log queries)
+- quick_logs.py (database log commands)
+- console_log_reader.py (database reader)
+- add_console_logs_table.py (database migration)
+
+### Performance
+- Eliminated ILogHandler overhead
+- Removed EditorPrefs persistence overhead
+- No database queries for log retrieval
+- Immediate file writes (no buffering delays)
+- Significantly improved reliability during compilation errors
+
 ## [1.1.5] - 2025-09-08
 
 ### Added

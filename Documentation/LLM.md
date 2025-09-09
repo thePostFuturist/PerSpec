@@ -24,12 +24,12 @@ Packages/com.digitraver.perspec/    # Package location
 
 | User Says           | Execute                                                                                     |
 | ------------------- | ------------------------------------------------------------------------------------------- |
-| "show/get errors"   | `python PerSpec/Coordination/Scripts/monitor_logs.py recent -m 10 --level Error`            |
+| "show/get errors"   | `python PerSpec/Coordination/Scripts/monitor_editmode_logs.py errors`                       |
 | "run tests"         | `python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait`                      |
 | "refresh Unity"     | `python PerSpec/Coordination/Scripts/quick_refresh.py full --wait`                          |
-| "show logs"         | `python PerSpec/Coordination/Scripts/monitor_logs.py recent -m 60 -n 50`                    |
-| "export logs"       | `python PerSpec/Coordination/Scripts/monitor_logs.py export -o logs.json`                   |
-| "monitor logs live" | `python PerSpec/Coordination/Scripts/monitor_logs.py live -r 1`                             |
+| "show logs"         | `python PerSpec/Coordination/Scripts/monitor_editmode_logs.py recent -n 50`                |
+| "export logs"       | `python PerSpec/Coordination/Scripts/monitor_editmode_logs.py sessions`                     |
+| "monitor logs live" | `python PerSpec/Coordination/Scripts/monitor_editmode_logs.py live`                         |
 | "test results"      | `cat $(ls -t PerSpec/TestResults/*.xml 2>/dev/null \| head -1)`                             |
 | "open console"      | `python PerSpec/Coordination/Scripts/quick_menu.py execute "Window/General/Console" --wait` |
 | "save project"      | `python PerSpec/Coordination/Scripts/quick_menu.py execute "File/Save Project" --wait`      |
@@ -46,51 +46,33 @@ Packages/com.digitraver.perspec/    # Package location
 - **Database too large?** → Run: `quick_clean.py quick`
 - **PlayMode logs?** → Check `PerSpec/PlayModeLogs/` directory
 
-## 📊 Log Monitoring with monitor_logs.py
+## 📊 Log Monitoring
 
-### Real-time Monitoring
+### EditMode Logs
 ```bash
-# Monitor logs as they happen
-python PerSpec/Coordination/Scripts/monitor_logs.py live -r 1
+# View recent logs from current session
+python PerSpec/Coordination/Scripts/monitor_editmode_logs.py recent -n 50
 
-# Filter by log level
-python PerSpec/Coordination/Scripts/monitor_logs.py live -r 1 --level Error Warning
+# Show only errors and exceptions
+python PerSpec/Coordination/Scripts/monitor_editmode_logs.py errors
 
-# Show all sessions (not just current)
-python PerSpec/Coordination/Scripts/monitor_logs.py live -r 1 --all
+# Monitor logs in real-time
+python PerSpec/Coordination/Scripts/monitor_editmode_logs.py live
+
+# List all sessions (keeps 3 most recent)
+python PerSpec/Coordination/Scripts/monitor_editmode_logs.py sessions
 ```
 
-### View Recent Logs
+### PlayMode Logs
 ```bash
-# Show last 10 minutes of logs
-python PerSpec/Coordination/Scripts/monitor_logs.py recent -m 10 -n 50
+# View PlayMode logs
+python PerSpec/Coordination/Scripts/test_playmode_logs.py
 
-# Show only errors from last 5 minutes
-python PerSpec/Coordination/Scripts/monitor_logs.py recent -m 5 --level Error
-
-# Show errors and warnings
-python PerSpec/Coordination/Scripts/monitor_logs.py recent -m 10 --level Error Warning
+# List available sessions
+python PerSpec/Coordination/Scripts/test_playmode_logs.py -l
 ```
 
-### Analyze & Export
-```bash
-# Analyze error patterns
-python PerSpec/Coordination/Scripts/monitor_logs.py analyze -h 1
-
-# Export logs to JSON
-python PerSpec/Coordination/Scripts/monitor_logs.py export -o logs.json -h 2
-
-# Export to text format
-python PerSpec/Coordination/Scripts/monitor_logs.py export -o logs.txt -h 2 -f txt
-
-# View session information
-python PerSpec/Coordination/Scripts/monitor_logs.py sessions
-
-# Clean old logs
-python PerSpec/Coordination/Scripts/monitor_logs.py cleanup -d 7
-```
-
-**Note:** Unity stores timestamps as UTC ticks. The monitor_logs script automatically handles timezone conversion for correct local time display.
+**Note:** Logs are now stored as files, not in database. EditMode keeps 3 sessions, PlayMode clears on entry.
 
 ## 🗑️ Database Maintenance
 
@@ -129,7 +111,7 @@ python PerSpec/Coordination/Scripts/db_migrate.py
 python PerSpec/Coordination/Scripts/quick_refresh.py full --wait
 
 # 3. ⚠️ MANDATORY: Check compilation errors
-python PerSpec/Coordination/Scripts/monitor_logs.py recent -m 5 --level Error
+python PerSpec/Coordination/Scripts/monitor_editmode_logs.py errors
 # STOP HERE if any errors! Fix compilation FIRST!
 # Tests will be INCONCLUSIVE if code doesn't compile
 
@@ -140,7 +122,7 @@ python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait
 **🚨 CRITICAL**: If compilation errors exist:
 - Tests cannot run and will be marked INCONCLUSIVE
 - You MUST fix compilation errors before running tests
-- Check errors with: `python PerSpec/Coordination/Scripts/monitor_logs.py recent -m 5 --level Error`
+- Check errors with: `python PerSpec/Coordination/Scripts/monitor_editmode_logs.py errors`
 
 ### 🎯 Test Execution
 ```bash
@@ -456,9 +438,9 @@ python PerSpec/Coordination/Scripts/quick_menu.py cancel <request_id>
 ### Compilation Error Handling
 | Situation | Action | Command |
 |-----------|--------|---------|
-| After refresh | ALWAYS check errors | `monitor_logs.py recent -m 5 --level Error` |
+| After refresh | ALWAYS check errors | `monitor_editmode_logs.py errors` |
 | Errors found | FIX before testing | Do NOT run tests |
-| Tests show "inconclusive" | Check compilation | `monitor_logs.py recent -m 5 --level Error` |
+| Tests show "inconclusive" | Check compilation | `monitor_editmode_logs.py errors` |
 | Tests timeout | Check Unity focus + errors | Click Unity + check errors |
 
 **Test Result States:**
@@ -495,6 +477,17 @@ TestFramework/
 - **Writing**: Every 5 seconds + final flush on exit
 - **Performance**: No PlayerPrefs, no Update() - 95% faster
 - **View logs**: `python PerSpec/Coordination/Scripts/test_playmode_logs.py`
+
+### EditMode Log Capture
+- **Location**: `PerSpec/EditModeLogs/` - session-based files
+- **Sessions**: Keeps 3 most recent sessions, older auto-deleted
+- **Writing**: Immediate on log receive (no buffering)
+- **Compilation**: Errors captured even during compilation failures
+- **View logs**: `python PerSpec/Coordination/Scripts/monitor_editmode_logs.py`
+  - `recent -n 50` - Show last 50 logs
+  - `errors` - Show only errors
+  - `live` - Monitor in real-time
+  - `sessions` - List all sessions
 
 ### Available Agents
 - **test-writer-agent**: Comprehensive tests with TDD

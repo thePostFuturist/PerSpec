@@ -123,8 +123,7 @@ namespace PerSpec.Editor.Coordination
                 {
                     Debug.LogWarning($"[DatabaseMaintenanceService] CRITICAL: Database size ({dbSize / (1024f * 1024f):F2} MB) exceeds critical threshold!");
                     
-                    // Delete everything older than 30 minutes
-                    _dbManager.DeleteOldConsoleLogs(DateTime.Now.AddMinutes(-30));
+                    // Console logs now managed by file-based EditModeLogCapture (3 session limit)
                     _dbManager.DeleteOldTestResults(0); // Delete everything except current
                     _dbManager.DeleteOldExecutionLogs(0);
                     _dbManager.DeleteOldRefreshRequests(0);
@@ -148,7 +147,7 @@ namespace PerSpec.Editor.Coordination
                 // Periodic cleanup even if under threshold
                 else if (DateTime.Now - _lastMaintenance > TimeSpan.FromHours(2))
                 {
-                    _dbManager.DeleteOldConsoleLogs(DateTime.Now.AddHours(-DataRetentionHours));
+                    // Console logs now managed by file-based EditModeLogCapture (3 session limit)
                     _dbManager.DeleteOldTestResults(DataRetentionHours);
                     _dbManager.DeleteOldExecutionLogs(DataRetentionHours);
                     _dbManager.DeleteOldRefreshRequests(DataRetentionHours);

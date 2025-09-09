@@ -44,10 +44,10 @@ python PerSpec/Coordination/Scripts/quick_refresh.py full --wait
 Verify no compilation errors exist:
 
 ```bash
-python PerSpec/Coordination/Scripts/quick_logs.py errors
+python PerSpec/Coordination/Scripts/monitor_editmode_logs.py errors
 ```
 
-**Must see:** "No error logs found" before proceeding.
+**Must see:** "No errors found in current session" before proceeding.
 
 ## Step 4: Run Tests
 
@@ -77,7 +77,7 @@ python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait
 python PerSpec/Coordination/Scripts/quick_refresh.py full --wait
 
 # 3. Check for errors (MUST be clean)
-python PerSpec/Coordination/Scripts/quick_logs.py errors
+python PerSpec/Coordination/Scripts/monitor_editmode_logs.py errors
 
 # 4. Run tests
 python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait
@@ -91,12 +91,37 @@ If Step 3 shows errors:
 
 1. Read error details:
    ```bash
-   python PerSpec/Coordination/Scripts/quick_logs.py errors -v
+   python PerSpec/Coordination/Scripts/monitor_editmode_logs.py errors -s
    ```
 
 2. Fix the errors in your code
 
 3. Repeat from Step 2 (Refresh)
+
+## Accessing EditMode Logs
+
+EditMode logs are captured to session-based files:
+
+```bash
+# View recent logs from current session
+python PerSpec/Coordination/Scripts/monitor_editmode_logs.py recent -n 50
+
+# Show only errors and exceptions
+python PerSpec/Coordination/Scripts/monitor_editmode_logs.py errors
+
+# Monitor logs in real-time
+python PerSpec/Coordination/Scripts/monitor_editmode_logs.py live
+
+# List all sessions (keeps 3 most recent)
+python PerSpec/Coordination/Scripts/monitor_editmode_logs.py sessions
+```
+
+### EditMode Log Features
+- Logs are written to `PerSpec/EditModeLogs/` directory
+- Session-based files (one per Unity session)
+- Keeps only 3 most recent sessions (auto-cleanup)
+- Immediate writes (no buffering)
+- Works during compilation errors
 
 ## Accessing PlayMode Logs
 

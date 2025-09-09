@@ -375,11 +375,37 @@ namespace PerSpec.Editor.Services
                     Directory.CreateDirectory(CoordinationScriptsPath);
                 }
                 
+                // First, get all Python scripts that should exist (from package)
+                var allPythonFiles = Directory.GetFiles(packagePath, "*.py", SearchOption.AllDirectories);
+                HashSet<string> validScriptNames = new HashSet<string>();
+                
+                foreach (string sourceFile in allPythonFiles)
+                {
+                    // Skip meta files and files in certain directories
+                    if (sourceFile.Contains(".meta") || sourceFile.Contains("__pycache__"))
+                        continue;
+                    
+                    string fileName = Path.GetFileName(sourceFile);
+                    validScriptNames.Add(fileName);
+                }
+                
+                // Remove any Python scripts in destination that are NOT in the package
+                var existingScripts = Directory.GetFiles(CoordinationScriptsPath, "*.py");
+                int removedCount = 0;
+                foreach (string existingFile in existingScripts)
+                {
+                    string fileName = Path.GetFileName(existingFile);
+                    if (!validScriptNames.Contains(fileName))
+                    {
+                        File.Delete(existingFile);
+                        removedCount++;
+                        Debug.Log($"[PerSpec] Removed obsolete script: {fileName}");
+                    }
+                }
+                
+                // Now copy all scripts from package
                 int totalCopied = 0;
                 List<string> scriptNames = new List<string>();
-                
-                // Find ALL Python scripts in the package recursively
-                var allPythonFiles = Directory.GetFiles(packagePath, "*.py", SearchOption.AllDirectories);
                 
                 foreach (string sourceFile in allPythonFiles)
                 {
@@ -401,7 +427,9 @@ namespace PerSpec.Editor.Services
                 }
                 
                 // Create detailed message
-                string message = $"Copied {totalCopied} scripts";
+                string message = removedCount > 0 
+                    ? $"Copied {totalCopied} scripts, removed {removedCount} obsolete scripts"
+                    : $"Copied {totalCopied} scripts";
                 if (scriptNames.Count > 0)
                 {
                     // Group scripts by type
