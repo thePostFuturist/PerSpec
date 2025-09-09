@@ -290,9 +290,15 @@ def main():
         
         print(f"\n=== Session: {args.session_id} ===")
         print(f"File: {session['path']}")
-        print(f"Showing {len(logs)} log entries\n")
         
-        display_logs(logs, show_stack=args.stack)
+        if logs:
+            print(f"Showing {len(logs)} log entries\n")
+            display_logs(logs, show_stack=args.stack)
+        else:
+            if args.level:
+                print(f"No logs found with level: {', '.join(args.level)}")
+            else:
+                print("No logs found to display")
     
     elif args.command == 'errors':
         # Show errors from ALL sessions
@@ -362,9 +368,15 @@ def main():
         
         print(f"\n=== Recent EditMode Logs ===")
         print(f"Session: {current_session['session_id']}")
-        print(f"Showing last {len(logs)} log entries\n")
         
-        display_logs(logs, show_stack=args.stack)
+        if logs:
+            print(f"Showing last {len(logs)} log entries\n")
+            display_logs(logs, show_stack=args.stack)
+        else:
+            if args.level:
+                print(f"No logs found with level: {', '.join(args.level)}")
+            else:
+                print("No logs found to display")
 
 if __name__ == '__main__':
     main()
