@@ -198,6 +198,11 @@ def monitor_live(level_filter=None, refresh_rate=1.0):
 def main():
     parser = argparse.ArgumentParser(description='Monitor EditMode session logs')
     
+    # Add top-level --errors flag for consistency with PlayMode logs
+    parser.add_argument('--errors', action='store_true', help='Show only errors and exceptions from all sessions')
+    parser.add_argument('-s', '--stack', action='store_true', help='Show stack traces')
+    parser.add_argument('-n', '--lines', type=int, help='Number of lines to show')
+    
     subparsers = parser.add_subparsers(dest='command', help='Commands')
     
     # Recent logs command
@@ -230,6 +235,14 @@ def main():
     errors_parser.add_argument('-s', '--stack', action='store_true', help='Show stack traces')
     
     args = parser.parse_args()
+    
+    # Handle --errors flag
+    if args.errors:
+        args.command = 'errors'
+        if not hasattr(args, 'lines'):
+            args.lines = None  # Show all errors
+        if not hasattr(args, 'stack'):
+            args.stack = False
     
     if not args.command:
         args.command = 'recent'
@@ -282,27 +295,58 @@ def main():
         display_logs(logs, show_stack=args.stack)
     
     elif args.command == 'errors':
-        # Show only errors
+        # Show errors from ALL sessions
         session_files = get_session_files()
         
         if not session_files:
             print("No sessions found.")
+            print(f"EditMode logs will be created in: {logs_dir}")
+            print("\nEditMode logs are automatically captured when:")
+            print("  1. Unity Editor is running")
+            print("  2. Compilation occurs")
+            print("\nTo filter errors when logs exist:")
+            print("  python monitor_editmode_logs.py --errors")
             return
         
-        # Get errors from current session
-        current_session = session_files[0]
-        logs = read_session_logs(current_session['path'], level_filter=['Error', 'Exception'])
+        # Collect errors from ALL sessions (up to 3 most recent)
+        all_errors = []
+        sessions_with_errors = []
         
-        if args.lines and len(logs) > args.lines:
-            logs = logs[-args.lines:]
+        for session in session_files[:3]:  # Process up to 3 most recent sessions
+            logs = read_session_logs(session['path'], level_filter=['Error', 'Exception', 'Assert'])
+            if logs:
+                sessions_with_errors.append(session['session_id'])
+                # Add session info to each log
+                for log in logs:
+                    log['session_id'] = session['session_id']
+                all_errors.extend(logs)
         
-        if logs:
-            print(f"\n=== Errors from current session ===")
-            print(f"Session: {current_session['session_id']}")
-            print(f"Found {len(logs)} errors\n")
-            display_logs(logs, show_stack=args.stack)
+        # Sort by timestamp (assuming format HH:mm:ss.fff)
+        all_errors.sort(key=lambda x: x.get('timestamp', ''))
+        
+        # Apply line limit if specified
+        if args.lines and len(all_errors) > args.lines:
+            all_errors = all_errors[-args.lines:]
+        
+        if all_errors:
+            print(f"\n=== Errors from EditMode Sessions ===")
+            print(f"Sessions searched: {len(session_files)} (showing errors from {len(sessions_with_errors)})")
+            print(f"Total errors found: {len(all_errors)}")
+            
+            # Count by type
+            error_counts = {}
+            for log in all_errors:
+                level = log.get('level', 'Unknown')
+                error_counts[level] = error_counts.get(level, 0) + 1
+            
+            print(f"Error types: ", end="")
+            for level, count in sorted(error_counts.items()):
+                print(f"{level}: {count}  ", end="")
+            print("\n")
+            
+            display_logs(all_errors, show_stack=args.stack)
         else:
-            print("No errors found in current session.")
+            print("No errors found in any EditMode session.")
     
     else:  # recent
         # Show recent logs from current session

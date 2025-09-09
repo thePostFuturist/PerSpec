@@ -79,11 +79,15 @@ def parse_log_file(filepath):
     
     return logs
 
-def display_logs(logs, show_stack=False, filter_level=None):
+def display_logs(logs, show_stack=False, filter_level=None, filter_errors=False):
     """Display logs in a formatted way."""
     for log in logs:
         # Filter by level if specified
         if filter_level and log['level'].lower() != filter_level.lower():
+            continue
+        
+        # Filter for errors/exceptions if specified
+        if filter_errors and log['level'] not in ['Error', 'Exception', 'Assert']:
             continue
             
         # Color coding for different log levels
@@ -114,11 +118,20 @@ def main():
     parser.add_argument('-n', '--lines', type=int, default=50, help='Number of lines to show (default: 50)')
     parser.add_argument('--level', choices=['Info', 'Warning', 'Error', 'Exception', 'Debug'], 
                        help='Filter by log level')
+    parser.add_argument('--errors', action='store_true', help='Show only errors and exceptions (shortcut for --level Error)')
     parser.add_argument('-s', '--stack', action='store_true', help='Show stack traces')
     parser.add_argument('-a', '--all', action='store_true', help='Show all logs (no limit)')
     parser.add_argument('--tail', action='store_true', help='Show only the most recent logs')
     
     args = parser.parse_args()
+    
+    # Handle --errors flag (override level if set)
+    if args.errors:
+        filter_errors = True
+        filter_level = None
+    else:
+        filter_errors = False
+        filter_level = args.level
     
     # Get PlayMode logs directory
     perspec_root = get_perspec_root()
@@ -131,6 +144,8 @@ def main():
         print("  1. You enter Play Mode in Unity")
         print("  2. Tests run in Play Mode")
         print("\nLogs are saved every 5 seconds and on Play Mode exit.")
+        print("\nTo filter errors when logs exist:")
+        print("  python test_playmode_logs.py --errors")
         return
     
     # Get all log files
@@ -230,7 +245,7 @@ def main():
     print("\n")
     
     # Display the logs
-    display_logs(all_logs, show_stack=args.stack, filter_level=args.level)
+    display_logs(all_logs, show_stack=args.stack, filter_level=filter_level, filter_errors=filter_errors)
     
     # Footer
     print(f"\n{'='*60}")
