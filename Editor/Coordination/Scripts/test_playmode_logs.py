@@ -130,9 +130,15 @@ def main():
     parser.add_argument('--errors', action='store_true', help='Show only errors and exceptions (shortcut for --level Error)')
     parser.add_argument('-s', '--stack', action='store_true', help='Show stack traces')
     parser.add_argument('-a', '--all', action='store_true', help='Show all logs (no limit)')
+    parser.add_argument('--no-limit', action='store_true', help='Bypass default 50 line limit (useful with grep)')
     parser.add_argument('--tail', action='store_true', help='Show only the most recent logs')
     
     args = parser.parse_args()
+    
+    # Handle --no-limit flag
+    if args.no_limit:
+        args.lines = None
+        args.all = True  # Treat --no-limit like --all
     
     # Handle --errors flag (override level if set)
     if args.errors:
