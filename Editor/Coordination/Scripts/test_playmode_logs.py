@@ -50,13 +50,16 @@ def parse_log_file(filepath):
                         timestamp = parts[0].lstrip('[')
                         level = parts[1].rstrip(']').strip()
                         
-                        # Extract frame number if present
+                        # Extract frame number or thread indicator if present
                         frame = None
                         message = parts[2]
-                        if message.startswith('Frame:'):
+                        if message.startswith('Frame:') or message.startswith('Thread'):
                             frame_parts = message.split('] ', 1)
                             if len(frame_parts) == 2:
-                                frame = frame_parts[0].replace('Frame:', '').strip()
+                                if message.startswith('Frame:'):
+                                    frame = frame_parts[0].replace('Frame:', '').strip()
+                                else:
+                                    frame = 'Thread'
                                 message = frame_parts[1]
                         
                         current_log = {
@@ -103,7 +106,13 @@ def display_logs(logs, show_stack=False, filter_level=None, filter_errors=False)
         level_color = level_colors.get(log['level'], '')
         
         # Format the output
-        frame_str = f"[Frame: {log['frame']}]" if log['frame'] else ""
+        if log['frame']:
+            if log['frame'] == 'Thread':
+                frame_str = "[Thread    ]"
+            else:
+                frame_str = f"[Frame: {log['frame']:>4}]"
+        else:
+            frame_str = ""
         print(f"{level_color}[{log['timestamp']}] [{log['level']:9}]{frame_str} {log['message']}{reset_color}")
         
         # Show stack trace if requested and available
