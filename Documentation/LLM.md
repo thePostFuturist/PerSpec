@@ -54,10 +54,13 @@ Packages/com.digitraver.perspec/    # Package location
 # View recent logs from current session
 python PerSpec/Coordination/Scripts/monitor_editmode_logs.py recent -n 50
 
-# Show only errors and exceptions from all sessions
+# Show only compilation errors (CS errors) from all sessions
 python PerSpec/Coordination/Scripts/monitor_editmode_logs.py --errors
 
-# Show errors with stack traces
+# Show ALL errors and exceptions from all sessions
+python PerSpec/Coordination/Scripts/monitor_editmode_logs.py --all-errors
+
+# Show compilation errors with stack traces
 python PerSpec/Coordination/Scripts/monitor_editmode_logs.py --errors -s
 
 # Monitor logs in real-time
@@ -75,14 +78,20 @@ python PerSpec/Coordination/Scripts/monitor_editmode_logs.py --no-limit | grep "
 # View PlayMode logs
 python PerSpec/Coordination/Scripts/test_playmode_logs.py
 
-# Show only errors and exceptions
+# Show only compilation errors (CS errors)
 python PerSpec/Coordination/Scripts/test_playmode_logs.py --errors
+
+# Show ALL errors and exceptions
+python PerSpec/Coordination/Scripts/test_playmode_logs.py --all-errors
 
 # List available sessions
 python PerSpec/Coordination/Scripts/test_playmode_logs.py -l
 
-# View with stack traces
+# View compilation errors with stack traces
 python PerSpec/Coordination/Scripts/test_playmode_logs.py -s --errors
+
+# View all errors with stack traces
+python PerSpec/Coordination/Scripts/test_playmode_logs.py -s --all-errors
 
 # Bypass default 50 line limit for grep/filtering
 python PerSpec/Coordination/Scripts/test_playmode_logs.py --no-limit | grep "PATTERN"
@@ -501,7 +510,8 @@ TestFramework/
 - **Compilation**: Errors captured even during compilation failures
 - **View logs**: `python PerSpec/Coordination/Scripts/monitor_editmode_logs.py`
   - `recent -n 50` - Show last 50 logs
-  - `errors` - Show only errors
+  - `--errors` - Show only compilation errors (CS errors)
+  - `--all-errors` - Show all errors and exceptions
   - `live` - Monitor in real-time
   - `sessions` - List all sessions
 

@@ -10,6 +10,7 @@ import argparse
 from datetime import datetime
 from pathlib import Path
 import glob
+import re
 
 def get_perspec_root():
     """Get the PerSpec root directory."""
@@ -82,6 +83,31 @@ def parse_log_file(filepath):
     
     return logs
 
+def is_compilation_error(message):
+    """Check if a log message is a compilation error (CS error)."""
+    # CS error codes: CS0001-CS9999
+    cs_pattern = r'\bCS\d{4}\b'
+    
+    # Additional compilation-specific patterns
+    compilation_patterns = [
+        r'error CS\d{4}',
+        r': error CS\d{4}',
+        r'Compiler Error',
+        r'compilation failed',
+        r'All compiler errors'
+    ]
+    
+    # Check for CS error code
+    if re.search(cs_pattern, message):
+        return True
+    
+    # Check for compilation patterns
+    for pattern in compilation_patterns:
+        if re.search(pattern, message, re.IGNORECASE):
+            return True
+    
+    return False
+
 def display_logs(logs, show_stack=False, filter_level=None, filter_errors=False):
     """Display logs in a formatted way."""
     for log in logs:
@@ -127,7 +153,8 @@ def main():
     parser.add_argument('-n', '--lines', type=int, default=50, help='Number of lines to show (default: 50)')
     parser.add_argument('--level', choices=['Info', 'Warning', 'Error', 'Exception', 'Debug'], 
                        help='Filter by log level')
-    parser.add_argument('--errors', action='store_true', help='Show only errors and exceptions (shortcut for --level Error)')
+    parser.add_argument('--errors', action='store_true', help='Show only compilation errors (CS errors)')
+    parser.add_argument('--all-errors', action='store_true', help='Show all errors and exceptions')
     parser.add_argument('-s', '--stack', action='store_true', help='Show stack traces')
     parser.add_argument('-a', '--all', action='store_true', help='Show all logs (no limit)')
     parser.add_argument('--no-limit', action='store_true', help='Bypass default 50 line limit (useful with grep)')
@@ -140,9 +167,12 @@ def main():
         args.lines = None
         args.all = True  # Treat --no-limit like --all
     
-    # Handle --errors flag (override level if set)
+    # Handle --errors and --all-errors flags
     if args.errors:
-        filter_errors = True
+        filter_errors = 'compilation'
+        filter_level = None
+    elif args.all_errors:
+        filter_errors = 'all'
         filter_level = None
     else:
         filter_errors = False
@@ -168,6 +198,9 @@ def main():
     
     if not log_files:
         print(f"No log files found in: {logs_dir}")
+        print("\nTo filter errors when logs exist:")
+        print("  python test_playmode_logs.py --errors     # Compilation errors only")
+        print("  python test_playmode_logs.py --all-errors # All errors")
         return
     
     if args.list:
@@ -242,7 +275,11 @@ def main():
     all_logs.sort(key=lambda x: x['timestamp'])
     
     # Apply error filtering BEFORE line limit and summary
-    if filter_errors:
+    if filter_errors == 'compilation':
+        # First filter to errors, then to compilation errors
+        all_logs = [log for log in all_logs if log['level'] in ['Error', 'Exception', 'Assert']]
+        all_logs = [log for log in all_logs if is_compilation_error(log.get('message', ''))]
+    elif filter_errors == 'all':
         all_logs = [log for log in all_logs if log['level'] in ['Error', 'Exception', 'Assert']]
     elif filter_level:
         all_logs = [log for log in all_logs if log['level'] == filter_level]
@@ -252,8 +289,15 @@ def main():
         all_logs = all_logs[-args.lines:]
     
     # Display summary
-    print(f"\n=== PlayMode Logs ===")
-    print(f"Total logs: {len(all_logs)}")
+    if filter_errors == 'compilation':
+        print(f"\n=== PlayMode Compilation Errors ===")
+        print(f"Compilation errors found: {len(all_logs)}")
+    elif filter_errors == 'all':
+        print(f"\n=== PlayMode All Errors ===")
+        print(f"All errors found: {len(all_logs)}")
+    else:
+        print(f"\n=== PlayMode Logs ===")
+        print(f"Total logs: {len(all_logs)}")
     
     # Count by level
     level_counts = {}
@@ -266,7 +310,12 @@ def main():
             print(f"{level}: {count}  ", end="")
         print("\n")
     else:
-        print("No logs found matching filter criteria.\n")
+        if filter_errors == 'compilation':
+            print("No compilation errors (CS errors) found.\n")
+        elif filter_errors == 'all':
+            print("No errors found.\n")
+        else:
+            print("No logs found matching filter criteria.\n")
     
     # Display the logs (no filtering needed here, already filtered above)
     display_logs(all_logs, show_stack=args.stack, filter_level=None, filter_errors=False)

@@ -10,6 +10,7 @@ import argparse
 from datetime import datetime, timedelta
 from pathlib import Path
 import time
+import re
 
 def get_perspec_root():
     """Get the PerSpec root directory."""
@@ -47,6 +48,31 @@ def parse_log_line(line):
         return {'continuation': line.strip()}
     
     return None
+
+def is_compilation_error(message):
+    """Check if a log message is a compilation error (CS error)."""
+    # CS error codes: CS0001-CS9999
+    cs_pattern = r'\bCS\d{4}\b'
+    
+    # Additional compilation-specific patterns
+    compilation_patterns = [
+        r'error CS\d{4}',
+        r': error CS\d{4}',
+        r'Compiler Error',
+        r'compilation failed',
+        r'All compiler errors'
+    ]
+    
+    # Check for CS error code
+    if re.search(cs_pattern, message):
+        return True
+    
+    # Check for compilation patterns
+    for pattern in compilation_patterns:
+        if re.search(pattern, message, re.IGNORECASE):
+            return True
+    
+    return False
 
 def get_session_files():
     """Get all session files sorted by modification time."""
@@ -199,7 +225,8 @@ def main():
     parser = argparse.ArgumentParser(description='Monitor EditMode session logs')
     
     # Add top-level --errors flag for consistency with PlayMode logs
-    parser.add_argument('--errors', action='store_true', help='Show only errors and exceptions from all sessions')
+    parser.add_argument('--errors', action='store_true', help='Show only compilation errors (CS errors) from all sessions')
+    parser.add_argument('--all-errors', action='store_true', help='Show all errors and exceptions from all sessions')
     parser.add_argument('-s', '--stack', action='store_true', help='Show stack traces')
     parser.add_argument('-n', '--lines', type=int, help='Number of lines to show')
     parser.add_argument('--no-limit', action='store_true', help='Bypass default line limits (useful with grep)')
@@ -246,10 +273,20 @@ def main():
     # Handle --errors flag
     if args.errors:
         args.command = 'errors'
+        args.compilation_only = True
         if not hasattr(args, 'lines'):
             args.lines = None  # Show all errors
         if not hasattr(args, 'stack'):
             args.stack = False
+    elif args.all_errors:
+        args.command = 'errors'
+        args.compilation_only = False
+        if not hasattr(args, 'lines'):
+            args.lines = None  # Show all errors
+        if not hasattr(args, 'stack'):
+            args.stack = False
+    else:
+        args.compilation_only = True  # Default to compilation errors only
     
     if not args.command:
         args.command = 'recent'
@@ -318,7 +355,8 @@ def main():
             print("  1. Unity Editor is running")
             print("  2. Compilation occurs")
             print("\nTo filter errors when logs exist:")
-            print("  python monitor_editmode_logs.py --errors")
+            print("  python monitor_editmode_logs.py --errors    # Compilation errors only")
+            print("  python monitor_editmode_logs.py --all-errors # All errors")
             return
         
         # Collect errors from ALL sessions (up to 3 most recent)
@@ -334,6 +372,10 @@ def main():
                     log['session_id'] = session['session_id']
                 all_errors.extend(logs)
         
+        # Filter for compilation errors if requested
+        if hasattr(args, 'compilation_only') and args.compilation_only:
+            all_errors = [e for e in all_errors if is_compilation_error(e.get('message', ''))]
+        
         # Sort by timestamp (assuming format HH:mm:ss.fff)
         all_errors.sort(key=lambda x: x.get('timestamp', ''))
         
@@ -342,9 +384,10 @@ def main():
             all_errors = all_errors[-args.lines:]
         
         if all_errors:
-            print(f"\n=== Errors from EditMode Sessions ===")
+            error_type = "Compilation errors" if hasattr(args, 'compilation_only') and args.compilation_only else "All errors"
+            print(f"\n=== {error_type} from EditMode Sessions ===")
             print(f"Sessions searched: {len(session_files)} (showing errors from {len(sessions_with_errors)})")
-            print(f"Total errors found: {len(all_errors)}")
+            print(f"{error_type} found: {len(all_errors)}")
             
             # Count by type
             error_counts = {}
@@ -359,7 +402,10 @@ def main():
             
             display_logs(all_errors, show_stack=args.stack)
         else:
-            print("No errors found in any EditMode session.")
+            if hasattr(args, 'compilation_only') and args.compilation_only:
+                print("No compilation errors (CS errors) found in any EditMode session.")
+            else:
+                print("No errors found in any EditMode session.")
     
     else:  # recent
         # Show recent logs from current session
