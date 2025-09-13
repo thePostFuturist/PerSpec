@@ -30,10 +30,17 @@ namespace PerSpec.Editor.Coordination
         private double _monitorStartTime;
         private double _lastFileCheckTime;
         private const double FILE_CHECK_INTERVAL = 2.0; // Check every 2 seconds
+        private const double FILE_STABILITY_WAIT = 3.0; // Wait for file to stabilize
         private const double MAX_WAIT_TIME = 300.0; // 5 minute timeout for batch tests
         private const double MAX_WAIT_TIME_INDIVIDUAL = 600.0; // 10 minute timeout for individual tests
         private bool _isMonitoring;
         private bool _hasCompletedViaCallback;
+        private bool _testsStarted;
+        private int _testsCompleted;
+        private int _expectedTestCount;
+        private string _lastDetectedFile;
+        private long _lastFileSize;
+        private double _fileStableTime;
         
         public TestExecutor(SQLiteManager dbManager)
         {
@@ -54,6 +61,9 @@ namespace PerSpec.Editor.Coordination
             _testResults.Clear();
             _startTime = Time.realtimeSinceStartup;
             _hasCompletedViaCallback = false;
+            _testsStarted = false;
+            _testsCompleted = 0;
+            _expectedTestCount = 0;
             
             try
             {
@@ -124,11 +134,16 @@ namespace PerSpec.Editor.Coordination
                 
                 if (_currentRequest != null)
                 {
-                    _dbManager.LogExecution(_currentRequest.Id, "INFO", "TestExecutor", "Test run started via callback");
+                    _testsStarted = true;
+                    _expectedTestCount = CountTests(testsToRun);
+                    _currentSummary.TotalTests = _expectedTestCount;
                     
-                    // Count total tests
-                    _currentSummary.TotalTests = CountTests(testsToRun);
-                    Debug.Log($"[TestExecutor] Total tests to run: {_currentSummary.TotalTests}");
+                    // Update status to executing
+                    _dbManager.UpdateRequestStatus(_currentRequest.Id, "executing");
+                    _dbManager.LogExecution(_currentRequest.Id, "INFO", "TestExecutor", 
+                        $"Test execution started - {_expectedTestCount} tests to run");
+                    
+                    Debug.Log($"[TestExecutor] Test run started - Total tests: {_expectedTestCount}");
                 }
             }
             catch (Exception e)
@@ -161,18 +176,23 @@ namespace PerSpec.Editor.Coordination
                     // Calculate duration
                     _currentSummary.Duration = Time.realtimeSinceStartup - _startTime;
                     
+                    // Update to finalizing status
+                    _dbManager.UpdateRequestStatus(_currentRequest.Id, "finalizing");
+                    _dbManager.LogExecution(_currentRequest.Id, "INFO", "TestExecutor", "Finalizing test results");
+                    
                     // Process all test results
                     ProcessTestResults(result);
                     
-                    // Log completion
+                    // Save individual test results to database
+                    SaveTestResultsToDatabase();
+                    
+                    // Now mark as fully completed
+                    _dbManager.UpdateRequestStatus(_currentRequest.Id, "completed");
                     _dbManager.LogExecution(_currentRequest.Id, "INFO", "TestExecutor", 
-                        $"Test run completed via callback: {_currentSummary.PassedTests}/{_currentSummary.TotalTests} passed");
+                        $"Test execution completed: {_currentSummary.PassedTests}/{_currentSummary.TotalTests} passed");
                     
                     Debug.Log($"[TestExecutor] Test results - Passed: {_currentSummary.PassedTests}, " +
                              $"Failed: {_currentSummary.FailedTests}, Skipped: {_currentSummary.SkippedTests}");
-                    
-                    // Save individual test results to database
-                    SaveTestResultsToDatabase();
                     
                     // Notify completion
                     if (_onComplete != null)
@@ -216,7 +236,16 @@ namespace PerSpec.Editor.Coordination
             {
                 if (result.Test.Method != null)
                 {
-                    Debug.Log($"[TestExecutor] Test finished: {result.Test.FullName} - {result.TestStatus}");
+                    _testsCompleted++;
+                    Debug.Log($"[TestExecutor] Test finished ({_testsCompleted}/{_expectedTestCount}): {result.Test.FullName} - {result.TestStatus}");
+                    
+                    // Update progress in database
+                    if (_currentRequest != null && _expectedTestCount > 0)
+                    {
+                        float progress = (float)_testsCompleted / _expectedTestCount * 100;
+                        _dbManager.LogExecution(_currentRequest.Id, "INFO", "TestExecutor", 
+                            $"Progress: {_testsCompleted}/{_expectedTestCount} tests completed ({progress:F1}%)");
+                    }
                     
                     // Store test result
                     _testResults[result.Test.FullName] = new TestResult
@@ -435,20 +464,31 @@ namespace PerSpec.Editor.Coordination
             Debug.Log($"[TestExecutor-FM] Latest file: {latestFile ?? "NULL"}");
             Debug.Log($"[TestExecutor-FM] Initial snapshot: {_initialResultSnapshot ?? "NULL"}");
             
-            // Check if a new file appeared
+            // Check if a new file appeared or existing file changed
             if (!string.IsNullOrEmpty(latestFile) && latestFile != _initialResultSnapshot)
             {
-                Debug.Log($"[TestExecutor-FM] NEW FILE DETECTED: {latestFile}");
+                var fileInfo = new FileInfo(latestFile);
+                long currentSize = fileInfo.Exists ? fileInfo.Length : 0;
                 
-                // Wait a bit for file to be fully written
-                EditorApplication.delayCall += () =>
+                // Check if this is a new file or if the size has changed
+                if (latestFile != _lastDetectedFile || currentSize != _lastFileSize)
                 {
-                    Debug.Log($"[TestExecutor-FM] DelayCall triggered - monitoring: {_isMonitoring}, completed: {_hasCompletedViaCallback}");
-                    if (_isMonitoring && !_hasCompletedViaCallback)
+                    Debug.Log($"[TestExecutor-FM] File change detected: {latestFile} (size: {currentSize})");
+                    _lastDetectedFile = latestFile;
+                    _lastFileSize = currentSize;
+                    _fileStableTime = EditorApplication.timeSinceStartup;
+                }
+                else if ((EditorApplication.timeSinceStartup - _fileStableTime) >= FILE_STABILITY_WAIT)
+                {
+                    // File has been stable for required time
+                    Debug.Log($"[TestExecutor-FM] File stable for {FILE_STABILITY_WAIT}s, checking if complete");
+                    
+                    // Only process if we haven't completed and tests have started
+                    if (_isMonitoring && !_hasCompletedViaCallback && _testsStarted)
                     {
-                        ParseResultsFromFile(latestFile);
+                        CheckAndProcessResultFile(latestFile);
                     }
-                };
+                }
             }
             else
             {
@@ -589,10 +629,17 @@ namespace PerSpec.Editor.Coordination
             return null;
         }
         
-        private void ParseResultsFromFile(string xmlPath)
+        private void CheckAndProcessResultFile(string xmlPath)
         {
             try
             {
+                // First validate the XML is complete
+                if (!IsXmlComplete(xmlPath))
+                {
+                    Debug.Log($"[TestExecutor-FM] XML file not complete yet, continuing to monitor");
+                    return;
+                }
+                
                 // Look for corresponding summary file
                 string summaryPath = xmlPath.Replace(".xml", ".summary.txt");
                 
@@ -605,11 +652,33 @@ namespace PerSpec.Editor.Coordination
                     ParseXmlFile(xmlPath);
                 }
                 
+                // Validate results match expectations
+                if (_expectedTestCount > 0 && _currentSummary.TotalTests != _expectedTestCount)
+                {
+                    Debug.LogWarning($"[TestExecutor-FM] Test count mismatch - Expected: {_expectedTestCount}, Found: {_currentSummary.TotalTests}");
+                    // For PlayMode, this might be okay as we rely on file monitoring
+                    if (_currentRequest?.TestPlatform != "PlayMode")
+                    {
+                        return; // Don't complete yet
+                    }
+                }
+                
                 // Mark as completed via file monitoring
-                Debug.Log($"[TestExecutor] Test results parsed from file for request {_currentRequest?.Id}");
+                Debug.Log($"[TestExecutor] Test results validated and parsed from file for request {_currentRequest?.Id}");
                 
                 if (_currentRequest != null && _onComplete != null && !_hasCompletedViaCallback)
                 {
+                    // Update status to finalizing
+                    _dbManager.UpdateRequestStatus(_currentRequest.Id, "finalizing");
+                    
+                    // Save results to database
+                    SaveTestResultsToDatabase();
+                    
+                    // Mark as completed
+                    _dbManager.UpdateRequestStatus(_currentRequest.Id, "completed");
+                    _dbManager.LogExecution(_currentRequest.Id, "INFO", "TestExecutor",
+                        $"Test execution completed via file monitoring: {_currentSummary.PassedTests}/{_currentSummary.TotalTests} passed");
+                    
                     _hasCompletedViaCallback = true;
                     _onComplete(_currentRequest, true, null, _currentSummary);
                     StopFileMonitoring();
@@ -617,7 +686,47 @@ namespace PerSpec.Editor.Coordination
             }
             catch (Exception e)
             {
-                Debug.LogError($"[TestExecutor] Error parsing result file: {e.Message}");
+                Debug.LogError($"[TestExecutor] Error processing result file: {e.Message}");
+            }
+        }
+        
+        private bool IsXmlComplete(string xmlPath)
+        {
+            try
+            {
+                // Check if file can be read and parsed
+                var doc = XDocument.Load(xmlPath);
+                var root = doc.Root;
+                
+                if (root == null) return false;
+                
+                // Check for essential attributes that indicate completion
+                var total = root.Attribute("total")?.Value;
+                var duration = root.Attribute("duration")?.Value;
+                
+                // Must have total count and duration to be considered complete
+                if (string.IsNullOrEmpty(total) || string.IsNullOrEmpty(duration))
+                {
+                    return false;
+                }
+                
+                // Check if all test results are present
+                int totalCount = int.Parse(total);
+                int resultCount = root.Descendants("test-case").Count();
+                
+                // For empty test runs (no tests found), this is still complete
+                if (totalCount == 0 && resultCount == 0)
+                {
+                    return true;
+                }
+                
+                // Otherwise, result count should match total
+                return resultCount >= totalCount;
+            }
+            catch (Exception)
+            {
+                // File might still be writing or corrupted
+                return false;
             }
         }
         

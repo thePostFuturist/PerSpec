@@ -5,6 +5,85 @@ All notable changes to the PerSpec Testing Framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2025-09-12
+
+### Added
+- **Test Execution State Management**
+  - New granular test execution states: `processing`, `executing`, `finalizing`, `timeout`
+  - Real-time progress tracking with percentage updates during test execution
+  - Per-test completion monitoring with count tracking
+  - Progress logging to database for visibility
+
+- **Test Results Viewer** (`test_results.py`)
+  - View latest test results with detailed summary
+  - List and analyze multiple test run files
+  - Filter to show only failed tests across sessions
+  - Statistics aggregation from recent test runs
+  - Clean up old result files with configurable retention
+  - JSON output support for automation
+
+- **Database Auto-Maintenance System**
+  - Automatic schema updates on package installation/update
+  - Migration system with version tracking
+  - Weekly automatic maintenance checks
+  - Manual maintenance via Unity menu: `Tools > PerSpec > Database > Run Maintenance Now`
+  - Old data cleanup (>7 days for tests, >1 hour for logs)
+  - Database optimization with VACUUM
+  - Performance indexes for faster queries
+
+- **Long-Running Test Support**
+  - Example tests demonstrating proper long-duration handling (30s, 10s, quick)
+  - Progress reporting during extended test execution
+  - Proper timeout handling for individual vs batch tests
+
+### Fixed
+- **Premature Test Completion Detection** (Critical Fix)
+  - Tests no longer incorrectly show as "failed" while still running
+  - XML file validation ensures complete results before processing
+  - File stability checking (3-second wait for size stabilization)
+  - Test count validation against expected number
+  - Proper handling of PlayMode vs EditMode completion detection
+
+- **Database Schema Constraints**
+  - Updated constraints to support new test execution states
+  - Added migration script (`db_update_status_constraint.py`) for existing projects
+  - Fixed "CHECK constraint failed" errors on status updates
+  - Backward compatibility with legacy "running" status
+
+### Changed
+- **Test Coordination Workflow**
+  - `--wait` flag now waits for full test execution completion (breaking change)
+  - Added `--wait-processing` flag for legacy behavior (backward compatibility)
+  - Status transitions now properly reflect test execution phases
+  - Improved status reporting with clear execution state messages
+  - Better distinction between request processing and test execution
+
+- **File Monitoring Logic**
+  - Enhanced detection of complete XML files with schema validation
+  - Validation of test results before marking as complete
+  - Proper handling of PlayMode vs EditMode test completion
+  - More robust error handling with retry logic
+  - File size stability checking before processing
+
+### Improved
+- **Test Status Accuracy**
+  - Clear differentiation between "processing" and "executing" states
+  - Accurate duration reporting for all test types
+  - Better handling of timeout scenarios
+  - Improved error messages for failed tests
+
+- **Database Performance**
+  - Added indexes on frequently queried columns
+  - Automatic cleanup of old data
+  - VACUUM optimization after migrations
+  - Reduced database size through regular maintenance
+
+### Documentation
+- Updated CLAUDE.md with database maintenance instructions
+- Added Test Results Viewer usage examples
+- Documented new status states and their meanings
+- Added troubleshooting guide for schema updates
+
 ## [1.1.7] - 2025-09-09
 
 ### Added

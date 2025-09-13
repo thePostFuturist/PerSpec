@@ -174,9 +174,9 @@ namespace PerSpec.Editor.Coordination
                 // Clean TestResults directory before running new tests
                 CleanTestResultsDirectory();
                 
-                // Update status to running
-                _dbManager.UpdateRequestStatus(request.Id, "running");
-                _dbManager.LogExecution(request.Id, "INFO", "Unity", $"Starting test execution for request {request.Id}");
+                // Update status to processing
+                _dbManager.UpdateRequestStatus(request.Id, "processing");
+                _dbManager.LogExecution(request.Id, "INFO", "Unity", $"Processing test request {request.Id}");
                 
                 // Create test filter based on request
                 Filter filter = CreateTestFilter(request);
