@@ -209,8 +209,10 @@ namespace PerSpec.Editor.Initialization
         
         private static string GetMaintenanceScriptPath()
         {
-            // First try the working directory (PerSpec/Coordination/Scripts)
             string projectPath = Directory.GetParent(Application.dataPath).FullName;
+            
+            // First try the working directory (PerSpec/Coordination/Scripts)
+            // This is where the script gets synced to
             string scriptPath = Path.Combine(projectPath, "PerSpec", "Coordination", "Scripts", "db_auto_maintenance.py");
             
             if (File.Exists(scriptPath))
@@ -218,11 +220,33 @@ namespace PerSpec.Editor.Initialization
                 return scriptPath;
             }
             
-            // Fallback to package location
-            string packagePath = Path.Combine(Application.dataPath, "..", "Packages", "com.digitraver.perspec");
-            scriptPath = Path.Combine(packagePath, "Editor", "Coordination", "Scripts", "db_auto_maintenance.py");
+            // Read package location from package_location.txt
+            string packageLocationFile = Path.Combine(projectPath, "PerSpec", "package_location.txt");
+            if (File.Exists(packageLocationFile))
+            {
+                try
+                {
+                    string packagePath = File.ReadAllText(packageLocationFile).Trim();
+                    // Convert relative path to absolute if needed
+                    if (!Path.IsPathRooted(packagePath))
+                    {
+                        packagePath = Path.Combine(projectPath, packagePath);
+                    }
+                    
+                    scriptPath = Path.Combine(packagePath, "Editor", "Coordination", "Scripts", "db_auto_maintenance.py");
+                    if (File.Exists(scriptPath))
+                    {
+                        return scriptPath;
+                    }
+                }
+                catch (Exception e)
+                {
+                    UnityEngine.Debug.LogWarning($"[PerSpec] Could not read package location: {e.Message}");
+                }
+            }
             
-            return scriptPath;
+            // Return the most likely path even if not found
+            return Path.Combine(projectPath, "PerSpec", "Coordination", "Scripts", "db_auto_maintenance.py");
         }
         
         private static string GetPythonExecutable()
@@ -243,18 +267,55 @@ namespace PerSpec.Editor.Initialization
         {
             try
             {
-                // Read package.json to get version
-                string packagePath = Path.Combine(Application.dataPath, "..", "Packages", "com.digitraver.perspec", "package.json");
-                if (File.Exists(packagePath))
+                // Use Unity's PackageManager API to get the version
+                var packageInfo = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(DatabaseMaintenanceRunner).Assembly);
+                if (packageInfo != null)
                 {
-                    string json = File.ReadAllText(packagePath);
-                    // Simple JSON parsing for version
-                    var versionIndex = json.IndexOf("\"version\"");
-                    if (versionIndex > 0)
+                    return packageInfo.version;
+                }
+                
+                // Fallback: Try to read package.json from known locations
+                string projectPath = Directory.GetParent(Application.dataPath).FullName;
+                string[] possiblePaths = new string[]
+                {
+                    Path.Combine(projectPath, "Packages", "com.digitraver.perspec", "package.json"),
+                    Path.Combine(projectPath, "Library", "PackageCache")
+                };
+                
+                foreach (var path in possiblePaths)
+                {
+                    if (path.Contains("PackageCache"))
                     {
-                        var start = json.IndexOf("\"", versionIndex + 9) + 1;
-                        var end = json.IndexOf("\"", start);
-                        return json.Substring(start, end - start);
+                        if (Directory.Exists(path))
+                        {
+                            var perspecDirs = Directory.GetDirectories(path, "com.digitraver.perspec*");
+                            if (perspecDirs.Length > 0)
+                            {
+                                string packageJsonPath = Path.Combine(perspecDirs[0], "package.json");
+                                if (File.Exists(packageJsonPath))
+                                {
+                                    string json = File.ReadAllText(packageJsonPath);
+                                    var versionIndex = json.IndexOf("\"version\"");
+                                    if (versionIndex > 0)
+                                    {
+                                        var start = json.IndexOf("\"", versionIndex + 9) + 1;
+                                        var end = json.IndexOf("\"", start);
+                                        return json.Substring(start, end - start);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    else if (File.Exists(path))
+                    {
+                        string json = File.ReadAllText(path);
+                        var versionIndex = json.IndexOf("\"version\"");
+                        if (versionIndex > 0)
+                        {
+                            var start = json.IndexOf("\"", versionIndex + 9) + 1;
+                            var end = json.IndexOf("\"", start);
+                            return json.Substring(start, end - start);
+                        }
                     }
                 }
             }
