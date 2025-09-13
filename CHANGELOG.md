@@ -5,6 +5,28 @@ All notable changes to the PerSpec Testing Framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2025-09-13
+
+### Fixed
+- **Test Completion Detection Reliability**
+  - Fixed issue where test status remained "processing" even after tests completed
+  - Added fallback detection when RunStarted callback doesn't fire
+  - File monitoring now processes XML files even without RunStarted callback
+  - Added delayed fallback to assume tests started after Execute() call
+  - Improved robustness for both EditMode and PlayMode tests
+
+### Improved
+- **Debug Logging**
+  - Added more detailed logging for test execution flow
+  - Better visibility into callback firing and file monitoring states
+  - Clear indication when fallback mechanisms are triggered
+  - Database status update logging for troubleshooting
+
+### Added
+- **SQLiteManager Enhancement**
+  - Added GetRequestStatus() method to check current status before updates
+  - Prevents unnecessary status transitions
+
 ## [1.2.0] - 2025-09-12
 
 ### Added

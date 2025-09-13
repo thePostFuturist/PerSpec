@@ -95,6 +95,23 @@ namespace PerSpec.Editor.Coordination
                     
                     Debug.Log($"[TestExecutor] Started test execution for request {request.Id} with file monitoring");
                     _dbManager.LogExecution(request.Id, "INFO", "TestExecutor", "Test execution started with file monitoring");
+                    
+                    // Set a delayed fallback to assume tests started if RunStarted doesn't fire
+                    EditorApplication.delayCall += () => {
+                        if (!_testsStarted && _isMonitoring && !_hasCompletedViaCallback)
+                        {
+                            Debug.LogWarning($"[TestExecutor] RunStarted callback didn't fire after delay, assuming tests started");
+                            _testsStarted = true;
+                            
+                            // Update to executing status
+                            if (_currentRequest != null)
+                            {
+                                _dbManager.UpdateRequestStatus(_currentRequest.Id, "executing");
+                                _dbManager.LogExecution(_currentRequest.Id, "INFO", "TestExecutor", 
+                                    "Test execution assumed started (callback missing)");
+                            }
+                        }
+                    };
                 }
                 catch (NullReferenceException nre)
                 {
@@ -103,6 +120,10 @@ namespace PerSpec.Editor.Coordination
                     Debug.Log($"[TestExecutor] Continuing with file monitoring for request {request.Id}");
                     _dbManager.LogExecution(request.Id, "WARNING", "TestExecutor", 
                         "PlayMode execution error - continuing with file monitoring");
+                    
+                    // Assume tests started even with the error
+                    _testsStarted = true;
+                    _dbManager.UpdateRequestStatus(request.Id, "executing");
                 }
             }
             catch (Exception e)
@@ -483,9 +504,27 @@ namespace PerSpec.Editor.Coordination
                     // File has been stable for required time
                     Debug.Log($"[TestExecutor-FM] File stable for {FILE_STABILITY_WAIT}s, checking if complete");
                     
-                    // Only process if we haven't completed and tests have started
-                    if (_isMonitoring && !_hasCompletedViaCallback && _testsStarted)
+                    // Process if we haven't completed
+                    // Allow processing even if _testsStarted is false (callback might not have fired)
+                    if (_isMonitoring && !_hasCompletedViaCallback)
                     {
+                        if (!_testsStarted)
+                        {
+                            Debug.LogWarning($"[TestExecutor-FM] Processing result file even though RunStarted didn't fire");
+                            _testsStarted = true; // Assume tests ran if we have a result file
+                            
+                            // Update status if needed
+                            if (_currentRequest != null)
+                            {
+                                var currentStatus = _dbManager.GetRequestStatus(_currentRequest.Id);
+                                if (currentStatus == "processing")
+                                {
+                                    _dbManager.UpdateRequestStatus(_currentRequest.Id, "executing");
+                                    _dbManager.LogExecution(_currentRequest.Id, "INFO", "TestExecutor",
+                                        "Test execution detected via file monitoring");
+                                }
+                            }
+                        }
                         CheckAndProcessResultFile(latestFile);
                     }
                 }
@@ -633,6 +672,8 @@ namespace PerSpec.Editor.Coordination
         {
             try
             {
+                Debug.Log($"[TestExecutor-FM] Processing result file: {xmlPath}");
+                
                 // First validate the XML is complete
                 if (!IsXmlComplete(xmlPath))
                 {
@@ -665,11 +706,13 @@ namespace PerSpec.Editor.Coordination
                 
                 // Mark as completed via file monitoring
                 Debug.Log($"[TestExecutor] Test results validated and parsed from file for request {_currentRequest?.Id}");
+                Debug.Log($"[TestExecutor] Summary - Total: {_currentSummary.TotalTests}, Passed: {_currentSummary.PassedTests}, Failed: {_currentSummary.FailedTests}");
                 
                 if (_currentRequest != null && _onComplete != null && !_hasCompletedViaCallback)
                 {
                     // Update status to finalizing
                     _dbManager.UpdateRequestStatus(_currentRequest.Id, "finalizing");
+                    _dbManager.LogExecution(_currentRequest.Id, "INFO", "TestExecutor", "Finalizing test results from XML file");
                     
                     // Save results to database
                     SaveTestResultsToDatabase();
@@ -679,9 +722,15 @@ namespace PerSpec.Editor.Coordination
                     _dbManager.LogExecution(_currentRequest.Id, "INFO", "TestExecutor",
                         $"Test execution completed via file monitoring: {_currentSummary.PassedTests}/{_currentSummary.TotalTests} passed");
                     
+                    Debug.Log($"[TestExecutor] Database status updated to 'completed' for request {_currentRequest.Id}");
+                    
                     _hasCompletedViaCallback = true;
                     _onComplete(_currentRequest, true, null, _currentSummary);
                     StopFileMonitoring();
+                }
+                else
+                {
+                    Debug.LogWarning($"[TestExecutor] Unable to complete request - Request: {_currentRequest != null}, OnComplete: {_onComplete != null}, AlreadyCompleted: {_hasCompletedViaCallback}");
                 }
             }
             catch (Exception e)

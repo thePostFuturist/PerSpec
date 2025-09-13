@@ -333,6 +333,22 @@ namespace PerSpec.Editor.Coordination
             }
         }
         
+        public string GetRequestStatus(int requestId)
+        {
+            if (!_isInitialized) return null;
+            
+            try
+            {
+                var request = _connection.Table<TestRequest>().FirstOrDefault(r => r.Id == requestId);
+                return request?.Status;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[SQLiteManager] Error getting request status: {e.Message}");
+                return null;
+            }
+        }
+        
         public void UpdateRequestStatus(int requestId, string status, string errorMessage = null)
         {
             if (!_isInitialized) return;
