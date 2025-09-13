@@ -188,35 +188,75 @@ namespace PerSpec.Editor.Coordination
     {
         [PrimaryKey, AutoIncrement, Column("id")]
         public int Id { get; set; }
-        
+
         [Column("menu_path")]
         public string MenuPath { get; set; }
-        
+
         [Column("status")]
         public string Status { get; set; }
-        
+
         [Column("priority")]
         public int Priority { get; set; }
-        
+
         [Column("created_at")]
         public DateTime CreatedAt { get; set; }
-        
+
         [Column("started_at")]
         public DateTime? StartedAt { get; set; }
-        
+
         [Column("completed_at")]
         public DateTime? CompletedAt { get; set; }
-        
+
         [Column("duration_seconds")]
         public float DurationSeconds { get; set; }
-        
+
         [Column("result")]
         public string Result { get; set; }
-        
+
         [Column("error_message")]
         public string ErrorMessage { get; set; }
     }
-    
+
+    [Table("scene_hierarchy_requests")]
+    public class SceneHierarchyRequest
+    {
+        [PrimaryKey, AutoIncrement, Column("id")]
+        public int Id { get; set; }
+
+        [Column("request_type")]
+        public string RequestType { get; set; }
+
+        [Column("target_path")]
+        public string TargetPath { get; set; }
+
+        [Column("include_inactive")]
+        public bool IncludeInactive { get; set; }
+
+        [Column("include_components")]
+        public bool IncludeComponents { get; set; }
+
+        [Column("status")]
+        public string Status { get; set; }
+
+        [Column("priority")]
+        public int Priority { get; set; }
+
+        [Column("created_at")]
+        public DateTime CreatedAt { get; set; }
+
+        [Column("started_at")]
+        public DateTime? StartedAt { get; set; }
+
+        [Column("completed_at")]
+        public DateTime? CompletedAt { get; set; }
+
+        [Column("output_file")]
+        public string OutputFile { get; set; }
+
+        [Column("error_message")]
+        public string ErrorMessage { get; set; }
+    }
+
     public class SQLiteManager
     {
         private readonly string _dbPath;
@@ -583,7 +623,7 @@ namespace PerSpec.Editor.Coordination
                 
                 return query;
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 // Re-throw to let MenuItemCoordinator handle it
                 throw;
@@ -757,7 +797,7 @@ namespace PerSpec.Editor.Coordination
                     "UPDATE console_sessions SET end_time = ? WHERE session_id = ?",
                     DateTime.Now, sessionId);
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 // Ignore - session tracking is optional
             }
@@ -898,6 +938,71 @@ namespace PerSpec.Editor.Coordination
             }
         }
         
+        // Scene Hierarchy Methods
+        public SceneHierarchyRequest GetNextPendingHierarchyRequest()
+        {
+            try
+            {
+                // Check if table exists first
+                if (!TableExists("scene_hierarchy_requests"))
+                {
+                    // Table doesn't exist - this is expected for projects that haven't migrated yet
+                    return null;
+                }
+
+                var query = _connection.Table<SceneHierarchyRequest>()
+                    .Where(r => r.Status == "pending")
+                    .OrderByDescending(r => r.Priority)
+                    .ThenBy(r => r.CreatedAt)
+                    .FirstOrDefault();
+
+                return query;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[SQLiteManager] Error getting pending hierarchy request: {e.Message}");
+                return null;
+            }
+        }
+
+        public void UpdateHierarchyRequestStatus(int requestId, string status, string outputFile = null, string errorMessage = null)
+        {
+            if (!_isInitialized) return;
+
+            try
+            {
+                var request = _connection.Table<SceneHierarchyRequest>().FirstOrDefault(r => r.Id == requestId);
+
+                if (request != null)
+                {
+                    request.Status = status;
+
+                    if (status == "running" && request.StartedAt == null)
+                    {
+                        request.StartedAt = DateTime.Now;
+                    }
+                    else if (status == "completed" || status == "failed")
+                    {
+                        request.CompletedAt = DateTime.Now;
+                    }
+
+                    if (outputFile != null)
+                        request.OutputFile = outputFile;
+
+                    if (errorMessage != null)
+                        request.ErrorMessage = errorMessage;
+
+                    _connection.Update(request);
+
+                    Debug.Log($"[SQLiteManager] Updated hierarchy request {requestId} status to {status}");
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[SQLiteManager] Error updating hierarchy request status: {e.Message}");
+            }
+        }
+
         // Database Utility Methods
         public bool TableExists(string tableName)
         {

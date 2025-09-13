@@ -5,6 +5,41 @@ All notable changes to the PerSpec Testing Framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2025-01-13
+
+### Added
+- **Scene Hierarchy Export System**
+  - New functionality to export Unity scene hierarchy to JSON format
+  - Full hierarchy export with all GameObjects and components
+  - Single GameObject export with detailed component properties
+  - Component serialization with actual values (no GUIDs)
+  - Transform data export (position, rotation, scale)
+  - Support for inactive GameObjects (configurable)
+  - Automatic output directory cleanup before each export
+
+- **Database Support**
+  - Added `scene_hierarchy_requests` table for request tracking
+  - SceneHierarchyRequest model in SQLiteManager
+  - Polling-based coordination between Python and Unity
+
+- **Python CLI Tool** (`scene_hierarchy.py`)
+  - Export full scene hierarchy or single GameObject
+  - Wait for completion with timeout support
+  - List and manage export files
+  - Pretty-print JSON output
+  - Clean up old export files
+
+- **Unity Components**
+  - SceneHierarchyExporter: Core JSON serialization logic
+  - SceneHierarchyCoordinator: Database polling and request execution
+  - SerializedObject-based property extraction for accurate values
+
+### Technical Details
+- Output directory: `PerSpec/SceneHierarchy/`
+- File format: `hierarchy_YYYYMMDD_HHMMSS.json`
+- Uses Newtonsoft.Json for robust JSON serialization
+- Thread-safe file operations with proper error handling
+
 ## [1.2.1] - 2025-09-13
 
 ### Fixed
