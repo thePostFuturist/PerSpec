@@ -148,9 +148,13 @@ class TestCoordinator:
         """
         Wait for a test request to complete
         
+        NOTE: "completed" means the request was processed and results are available,
+        NOT that Unity has finished executing all tests. Tests may still be running
+        in Unity even after this returns "completed" status.
+        
         Args:
             request_id: ID of the test request
-            timeout: Maximum seconds to wait
+            timeout: Maximum seconds to wait for request processing
             poll_interval: Seconds between status checks
             
         Returns:

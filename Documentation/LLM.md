@@ -144,6 +144,20 @@ python PerSpec/Coordination/Scripts/monitor_editmode_logs.py --errors
 python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait
 ```
 
+### ⚠️ Understanding Test Status
+**IMPORTANT**: The "completed" status means:
+- ✅ Test request was processed by Unity
+- ✅ Test results XML file was found and parsed
+- ❌ NOT that tests finished executing in Unity
+
+The `--wait` flag only waits for the request to be processed, not for test execution to complete.
+Unity may still be running tests even after status shows "completed".
+
+To ensure tests are truly finished:
+1. Check Unity Test Runner window visually
+2. Look for "Test run finished" in Unity console
+3. Check if Unity Editor is still busy (spinner in tab)
+
 **🚨 CRITICAL**: If compilation errors exist:
 - Tests cannot run and will be marked INCONCLUSIVE
 - You MUST fix compilation errors before running tests
