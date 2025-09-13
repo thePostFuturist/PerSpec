@@ -57,10 +57,6 @@ namespace PerSpec.Editor.Coordination
             if (!_pollingEnabled || _dbManager == null || !_dbManager.IsInitialized)
                 return;
 
-            // Don't process during play mode
-            if (EditorApplication.isPlayingOrWillChangePlaymode)
-                return;
-
             // Check if it's time to poll for requests
             if (EditorApplication.timeSinceStartup - _lastCheckTime < _checkInterval)
                 return;
