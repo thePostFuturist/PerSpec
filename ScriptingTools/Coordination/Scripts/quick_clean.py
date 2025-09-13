@@ -140,7 +140,7 @@ class DatabaseCleaner:
             
             saved = size_before - size_after
             if saved > 0:
-                print(f"Database compacted: {size_before:.2f} MB → {size_after:.2f} MB (saved {saved:.2f} MB)")
+                print(f"Database compacted: {size_before:.2f} MB -> {size_after:.2f} MB (saved {saved:.2f} MB)")
             else:
                 print(f"Database size: {size_after:.2f} MB")
             
