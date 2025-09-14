@@ -39,6 +39,7 @@ Packages/com.digitraver.perspec/    # Package location
 | "clean database"    | `python PerSpec/Coordination/Scripts/quick_clean.py all --keep 0.5`                         |
 | "show playmode logs"| `python PerSpec/Coordination/Scripts/test_playmode_logs.py`                                 |
 | "show playmode errors"| `python PerSpec/Coordination/Scripts/test_playmode_logs.py --errors`                       |
+| "show cs errors"    | `python PerSpec/Coordination/Scripts/test_playmode_logs.py --cs-errors`                     |
 | "export scene"      | `python PerSpec/Coordination/Scripts/scene_hierarchy.py export full --wait`                 |
 | "export hierarchy"  | `python PerSpec/Coordination/Scripts/scene_hierarchy.py export full --wait --show`          |
 | "export gameobject" | `python PerSpec/Coordination/Scripts/scene_hierarchy.py export object <path> --wait`        |
@@ -82,29 +83,40 @@ python PerSpec/Coordination/Scripts/monitor_editmode_logs.py --no-limit | grep "
 
 ### PlayMode Logs
 ```bash
-# View PlayMode logs
+# View PlayMode logs (last 50 by default)
 python PerSpec/Coordination/Scripts/test_playmode_logs.py
 
-# Show only compilation errors (CS errors)
+# Show ALL errors and exceptions (runtime + compilation)
 python PerSpec/Coordination/Scripts/test_playmode_logs.py --errors
 
-# Show ALL errors and exceptions
-python PerSpec/Coordination/Scripts/test_playmode_logs.py --all-errors
+# Show ONLY compilation errors (CS errors)
+python PerSpec/Coordination/Scripts/test_playmode_logs.py --cs-errors
 
 # List available sessions
 python PerSpec/Coordination/Scripts/test_playmode_logs.py -l
 
-# View compilation errors with stack traces
-python PerSpec/Coordination/Scripts/test_playmode_logs.py -s --errors
+# View errors with stack traces
+python PerSpec/Coordination/Scripts/test_playmode_logs.py --errors -s
 
-# View all errors with stack traces
-python PerSpec/Coordination/Scripts/test_playmode_logs.py -s --all-errors
+# View compilation errors with stack traces
+python PerSpec/Coordination/Scripts/test_playmode_logs.py --cs-errors -s
+
+# Show all logs without limit
+python PerSpec/Coordination/Scripts/test_playmode_logs.py -a
 
 # Bypass default 50 line limit for grep/filtering
 python PerSpec/Coordination/Scripts/test_playmode_logs.py --no-limit | grep "PATTERN"
+
+# Show most recent session only
+python PerSpec/Coordination/Scripts/test_playmode_logs.py --tail
 ```
 
-**Note:** Logs are now stored as files, not in database. EditMode keeps 3 sessions, PlayMode clears on entry.
+**Important Changes:**
+- `--errors` now shows ALL errors (runtime + compilation) - more useful for PlayMode debugging
+- `--cs-errors` for compilation errors only (what --errors used to do)
+- `--all-errors` is deprecated (same as --errors)
+
+**Note:** Logs are stored as files in `PerSpec/PlayModeLogs/`. PlayMode logs clear on entry, captured every 5 seconds during play.
 
 ## 📈 Test Results Viewer
 
