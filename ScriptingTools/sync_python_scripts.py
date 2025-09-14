@@ -97,7 +97,8 @@ def sync_python_scripts():
 if __name__ == "__main__":
     try:
         count = sync_python_scripts()
-        sys.exit(0 if count > 0 else 1)
+        # Exit with 0 for success (regardless of count)
+        sys.exit(0)
     except Exception as e:
         print(f"Error: {e}")
         sys.exit(1)
