@@ -28,11 +28,10 @@ def sync_python_scripts():
     """Copy all Python scripts from package to PerSpec directory"""
     project_root = get_project_root()
 
-    # Define source directories in package
+    # SINGLE SOURCE OF TRUTH - Only ONE directory!
     package_base = project_root / "Packages" / "com.digitraver.perspec"
     source_dirs = [
-        package_base / "Editor" / "Coordination" / "Scripts",
-        package_base / "ScriptingTools" / "Coordination" / "Scripts"
+        package_base / "Editor" / "Coordination" / "Scripts"
     ]
 
     # Define destination directory
