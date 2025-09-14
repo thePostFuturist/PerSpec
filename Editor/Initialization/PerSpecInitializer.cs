@@ -20,7 +20,7 @@ namespace PerSpec.Editor.Initialization
         // Version tracking
         private const string VERSION_PREF_KEY = "PerSpec_LastKnownVersion";
         private const string PACKAGE_NAME = "com.digitraver.perspec";
-        private const string CURRENT_VERSION = "1.1.4";  // Should match package.json
+        private const string CURRENT_VERSION = "1.3.1";  // Should match package.json
         
         // Update detection
         private bool isUpdate = false;
@@ -234,11 +234,11 @@ namespace PerSpec.Editor.Initialization
             // What's new section (could be populated from changelog)
             EditorGUILayout.LabelField("What's New:", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
-                "• Automatic updates: Scripts and LLM configs refresh on package update\n" +
-                "• Improved PlayMode log capture reliability\n" +
-                "• Unity focus management for Windows & macOS\n" +
-                "• Enhanced debug logging with PerSpecDebug\n" +
-                "• Better documentation and agent support",
+                "• Python script synchronization from package to PerSpec\n" +
+                "• Scene hierarchy export to JSON (full serialization)\n" +
+                "• PlayMode --errors flag shows ALL errors (not just CS)\n" +
+                "• New --cs-errors flag for compilation errors only\n" +
+                "• Automatic script sync on package updates",
                 MessageType.None
             );
         }

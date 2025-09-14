@@ -5,6 +5,30 @@ All notable changes to the PerSpec Testing Framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2025-01-13
+
+### Added
+- **Python Script Synchronization System**
+  - New `sync_python_scripts.py` tool for syncing scripts from package to PerSpec directory
+  - Automatic copying of all Python scripts from package to working directory
+  - Support for multiple source directories within the package
+  - Detailed sync report showing copied files and any failures
+  - File size information in sync output for verification
+
+### Fixed
+- **PlayMode Error Filtering**
+  - Changed `--errors` flag to show ALL errors and exceptions (not just compilation errors)
+  - Added new `--cs-errors` flag specifically for compilation errors (CS errors)
+  - Aligned error filtering behavior between PlayMode and EditMode log viewers
+  - Maintained backward compatibility with `--all-errors` flag (now same as `--errors`)
+
+### Improved
+- **Python Script Management**
+  - Scripts now properly maintained in package and synced to PerSpec directory
+  - Clear separation between package source and working directory
+  - Better workflow for package updates and git operations
+  - Documentation updated with sync instructions
+
 ## [1.3.0] - 2025-01-13
 
 ### Added

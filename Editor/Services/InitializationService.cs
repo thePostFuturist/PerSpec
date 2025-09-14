@@ -368,27 +368,35 @@ namespace PerSpec.Editor.Services
                     Debug.LogError("[PerSpec] Could not find package path to copy coordination scripts");
                     return "Failed: Package path not found";
                 }
-                
+
+                // Try to use the sync_python_scripts.py if it exists
+                string syncScript = Path.Combine(packagePath, "ScriptingTools", "sync_python_scripts.py");
+                if (File.Exists(syncScript))
+                {
+                    return RunPythonSyncScript(syncScript);
+                }
+
+                // Fallback to manual copy if sync script doesn't exist
                 // Ensure destination directory exists
                 if (!Directory.Exists(CoordinationScriptsPath))
                 {
                     Directory.CreateDirectory(CoordinationScriptsPath);
                 }
-                
+
                 // First, get all Python scripts that should exist (from package)
                 var allPythonFiles = Directory.GetFiles(packagePath, "*.py", SearchOption.AllDirectories);
                 HashSet<string> validScriptNames = new HashSet<string>();
-                
+
                 foreach (string sourceFile in allPythonFiles)
                 {
                     // Skip meta files and files in certain directories
                     if (sourceFile.Contains(".meta") || sourceFile.Contains("__pycache__"))
                         continue;
-                    
+
                     string fileName = Path.GetFileName(sourceFile);
                     validScriptNames.Add(fileName);
                 }
-                
+
                 // Remove any Python scripts in destination that are NOT in the package
                 var existingScripts = Directory.GetFiles(CoordinationScriptsPath, "*.py");
                 int removedCount = 0;
@@ -402,32 +410,32 @@ namespace PerSpec.Editor.Services
                         Debug.Log($"[PerSpec] Removed obsolete script: {fileName}");
                     }
                 }
-                
+
                 // Now copy all scripts from package
                 int totalCopied = 0;
                 List<string> scriptNames = new List<string>();
-                
+
                 foreach (string sourceFile in allPythonFiles)
                 {
                     // Skip meta files and files in certain directories
                     if (sourceFile.Contains(".meta") || sourceFile.Contains("__pycache__"))
                         continue;
-                    
+
                     string fileName = Path.GetFileName(sourceFile);
                     string destFile = Path.Combine(CoordinationScriptsPath, fileName);
-                    
+
                     // Copy the file (overwrite if exists)
                     File.Copy(sourceFile, destFile, true);
-                    
+
                     if (!scriptNames.Contains(fileName))
                     {
                         scriptNames.Add(fileName);
                         totalCopied++;
                     }
                 }
-                
+
                 // Create detailed message
-                string message = removedCount > 0 
+                string message = removedCount > 0
                     ? $"Copied {totalCopied} scripts, removed {removedCount} obsolete scripts"
                     : $"Copied {totalCopied} scripts";
                 if (scriptNames.Count > 0)
@@ -437,7 +445,7 @@ namespace PerSpec.Editor.Services
                     var dbScripts = scriptNames.Where(s => s.Contains("db_") || s.Contains("database")).Select(s => s.Replace(".py", "")).ToList();
                     var otherScripts = scriptNames.Where(s => !s.StartsWith("quick_") && !s.Contains("db_") && !s.Contains("database"))
                                                 .Select(s => s.Replace(".py", "")).ToList();
-                    
+
                     List<string> details = new List<string>();
                     if (quickScripts.Count > 0)
                         details.Add($"Quick tools: {string.Join(", ", quickScripts)}");
@@ -445,11 +453,11 @@ namespace PerSpec.Editor.Services
                         details.Add($"Database: {string.Join(", ", dbScripts)}");
                     if (otherScripts.Count > 0)
                         details.Add($"Other: {string.Join(", ", otherScripts)}");
-                    
+
                     if (details.Count > 0)
                         message = $"Copied {totalCopied} scripts:\n• {string.Join("\n• ", details)}";
                 }
-                
+
                 Debug.Log($"[PerSpec] {message}");
                 return message;
             }
@@ -457,6 +465,80 @@ namespace PerSpec.Editor.Services
             {
                 Debug.LogError($"[PerSpec] Failed to copy coordination scripts: {e.Message}");
                 return $"Failed: {e.Message}";
+            }
+        }
+
+        private static string RunPythonSyncScript(string syncScript)
+        {
+            try
+            {
+                var processInfo = new ProcessStartInfo
+                {
+                    FileName = "python",
+                    Arguments = $"\"{syncScript}\"",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true,
+                    WorkingDirectory = Directory.GetParent(Application.dataPath).FullName
+                };
+
+                Debug.Log("[PerSpec] Running Python sync script...");
+
+                using (var process = Process.Start(processInfo))
+                {
+                    if (process == null)
+                    {
+                        Debug.LogError("[PerSpec] Failed to start Python sync process");
+                        return "Failed to start sync process";
+                    }
+
+                    // Wait for process to complete (10 second timeout)
+                    bool completed = process.WaitForExit(10000);
+
+                    if (!completed)
+                    {
+                        Debug.LogError("[PerSpec] Python sync script timed out");
+                        try { process.Kill(); } catch { }
+                        return "Sync script timed out";
+                    }
+
+                    string output = process.StandardOutput.ReadToEnd();
+                    string error = process.StandardError.ReadToEnd();
+
+                    if (process.ExitCode == 0)
+                    {
+                        Debug.Log($"[PerSpec] Python sync completed successfully");
+                        if (!string.IsNullOrEmpty(output))
+                        {
+                            // Parse output to get summary
+                            var lines = output.Split('\n');
+                            foreach (var line in lines)
+                            {
+                                if (line.Contains("Files copied:"))
+                                {
+                                    return line.Trim();
+                                }
+                            }
+                        }
+                        return "Scripts synchronized successfully";
+                    }
+                    else
+                    {
+                        Debug.LogError($"[PerSpec] Python sync failed with exit code {process.ExitCode}");
+                        if (!string.IsNullOrEmpty(error))
+                        {
+                            Debug.LogError($"[PerSpec] Error: {error}");
+                        }
+                        return $"Sync failed: {error}";
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[PerSpec] Could not run Python sync script: {e.Message}");
+                Debug.Log("[PerSpec] Falling back to manual copy...");
+                return null; // Will trigger fallback
             }
         }
         

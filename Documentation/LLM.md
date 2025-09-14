@@ -15,10 +15,31 @@
 
 ```bash
 # Fixed paths for reliability
-PerSpec/Coordination/Scripts/       # Python coordination tools
+PerSpec/Coordination/Scripts/       # Python coordination tools (synced from package)
 PerSpec/package_location.txt        # Package path reference
-Packages/com.digitraver.perspec/    # Package location
+Packages/com.digitraver.perspec/    # Package location (source of truth)
 ```
+
+### 🔄 Python Script Synchronization
+
+**IMPORTANT**: Python scripts are maintained in the package and synced to PerSpec for execution.
+
+```bash
+# Sync all Python scripts from package to PerSpec working directory
+python Packages/com.digitraver.perspec/ScriptingTools/sync_python_scripts.py
+
+# This copies scripts from:
+#   Packages/com.digitraver.perspec/Editor/Coordination/Scripts/
+#   Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/
+# To:
+#   PerSpec/Coordination/Scripts/
+```
+
+**When to sync:**
+- After package updates
+- After pulling from git
+- If Python scripts are missing or outdated
+- When setting up the project for the first time
 
 ## 🗣️ Natural Language Commands
 
