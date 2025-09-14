@@ -517,7 +517,9 @@ namespace PerSpec.Editor.Services
                             {
                                 if (line.Contains("Files copied:"))
                                 {
-                                    return line.Trim();
+                                    // Extract the number and create a clear message
+                                    string count = line.Split(':')[1].Trim();
+                                    return $"Successfully synced {count} Python scripts from package to PerSpec";
                                 }
                             }
                         }

@@ -1,4 +1,12 @@
 <!-- PERSPEC_CONFIG_START -->
+
+## 🔴🔴🔴 CRITICAL: PYTHON SCRIPTS - SINGLE SOURCE OF TRUTH 🔴🔴🔴
+**ETCH THIS IN YOUR FUCKING FOREHEAD:**
+- **ONLY ONE SOURCE**: `Packages/com.digitraver.perspec/Editor/Coordination/Scripts/`
+- **THIS IS THE ONLY PLACE PYTHON SCRIPTS SHOULD EXIST IN THE PACKAGE**
+- **IF A SCRIPT DOESN'T EXIST THERE, DELETE IT FROM PerSpec**
+- **NO OTHER DIRECTORIES SHOULD CONTAIN PYTHON COORDINATION SCRIPTS**
+
 # CLAUDE.md
 
 > **Purpose**: TDD guidance for Claude Code in Unity projects using PerSpec framework.
@@ -14,37 +22,39 @@
 ## 🔍 Script Locations
 
 ```bash
-# Fixed paths for reliability
-PerSpec/Coordination/Scripts/       # Python coordination tools (synced from package)
+# SINGLE SOURCE OF TRUTH
+Packages/com.digitraver.perspec/Editor/Coordination/Scripts/  # ALL PYTHON SCRIPTS HERE ONLY
+PerSpec/Coordination/Scripts/       # Working copies (auto-synced, DO NOT EDIT)
 PerSpec/package_location.txt        # Package path reference
-Packages/com.digitraver.perspec/    # Package location (source of truth)
 ```
 
-### 🔄 Python Script Synchronization
+### 🔄 Python Script Synchronization - CRITICAL!
 
-**IMPORTANT**: Python scripts are maintained in the package and synced to PerSpec for execution.
-
+**THE SYNC COMMAND YOU MUST USE:**
 ```bash
-# Sync all Python scripts from package to PerSpec working directory
+# ALWAYS run this to sync Python scripts from package to PerSpec
 python Packages/com.digitraver.perspec/ScriptingTools/sync_python_scripts.py
 
-# This copies scripts from:
-#   Packages/com.digitraver.perspec/Editor/Coordination/Scripts/
-#   Packages/com.digitraver.perspec/ScriptingTools/Coordination/Scripts/
+# This copies ALL 22 scripts from:
+#   Packages/com.digitraver.perspec/Editor/Coordination/Scripts/  (ONLY SOURCE - NO OTHER DIRS!)
 # To:
-#   PerSpec/Coordination/Scripts/
+#   PerSpec/Coordination/Scripts/  (working directory - DO NOT EDIT HERE)
 ```
 
 **When to sync:**
-- After package updates
-- After pulling from git
-- If Python scripts are missing or outdated
-- When setting up the project for the first time
+- **After package updates** - MANDATORY
+- **After pulling from git** - MANDATORY
+- **When setting up project** - FIRST THING YOU DO
+- **If scripts are missing** - RUN SYNC
+- **If --errors doesn't work** - RUN SYNC FIRST
 
 ## 🗣️ Natural Language Commands
 
 | User Says           | Execute                                                                                     |
 | ------------------- | ------------------------------------------------------------------------------------------- |
+| "sync python"       | `python Packages/com.digitraver.perspec/ScriptingTools/sync_python_scripts.py`              |
+| "copy python scripts"| `python Packages/com.digitraver.perspec/ScriptingTools/sync_python_scripts.py`              |
+| "LLM setup"         | `python Packages/com.digitraver.perspec/ScriptingTools/sync_python_scripts.py`              |
 | "show/get errors"   | `python PerSpec/Coordination/Scripts/monitor_editmode_logs.py --errors`                     |
 | "run tests"         | `python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait`                      |
 | "refresh Unity"     | `python PerSpec/Coordination/Scripts/quick_refresh.py full --wait`                          |
