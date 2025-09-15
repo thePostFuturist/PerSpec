@@ -26,6 +26,8 @@ namespace PerSpec.Editor.Initialization
         private bool isUpdate = false;
         private string previousVersion = "";
         private string currentVersion = CURRENT_VERSION;
+        private bool updateHasFailures = false;
+        private string updateFailureMessages = "";
         
         // State for inline message display
         private bool initializationAttempted = false;
@@ -63,16 +65,16 @@ namespace PerSpec.Editor.Initialization
                 // Get current package version
                 var packageInfo = UnityEditor.PackageManager.PackageInfo.FindForPackageName(PACKAGE_NAME);
                 string detectedVersion = packageInfo != null ? packageInfo.version : CURRENT_VERSION;
-                
+
                 // Get last known version from EditorPrefs
                 string lastKnownVersion = EditorPrefs.GetString(VERSION_PREF_KEY, "");
-                
+
                 if (string.IsNullOrEmpty(lastKnownVersion))
                 {
                     // First time seeing this package
                     EditorPrefs.SetString(VERSION_PREF_KEY, detectedVersion);
                     Debug.Log($"[PerSpec] Package version {detectedVersion} registered");
-                    
+
                     // If not initialized, show the setup window
                     if (!Directory.Exists(ProjectPerSpecPath) && !hasShownThisSession)
                     {
@@ -85,22 +87,48 @@ namespace PerSpec.Editor.Initialization
                     // Package was updated!
                     Debug.Log($"[PerSpec] Package updated from {lastKnownVersion} to {detectedVersion}");
                     EditorPrefs.SetString(VERSION_PREF_KEY, detectedVersion);
-                    
-                    // Automatically refresh coordination scripts
+
+                    // Perform automatic update tasks
+                    bool allSuccess = true;
+                    string failureMessages = "";
+
                     if (InitializationService.IsInitialized)
                     {
+                        // 1. Refresh coordination scripts
                         var scriptResult = InitializationService.RefreshCoordinationScripts();
-                        if (!string.IsNullOrEmpty(scriptResult))
+                        if (string.IsNullOrEmpty(scriptResult) || scriptResult.Contains("Failed"))
+                        {
+                            allSuccess = false;
+                            failureMessages += "• Failed to copy Python scripts\n";
+                            Debug.LogError("[PerSpec] Failed to auto-copy Python scripts on update");
+                        }
+                        else
                         {
                             Debug.Log($"[PerSpec] Auto-update: {scriptResult}");
                         }
-                        
-                        // Update LLM configurations with latest instructions
+
+                        // 2. Copy agent definitions
+                        bool agentsCopied = InitializationService.CopyAgentDefinitions();
+                        if (!agentsCopied)
+                        {
+                            allSuccess = false;
+                            failureMessages += "• Failed to copy agent definitions\n";
+                            Debug.LogWarning("[PerSpec] Failed to auto-copy agent definitions on update");
+                        }
+                        else
+                        {
+                            Debug.Log("[PerSpec] Agent definitions copied successfully");
+                        }
+
+                        // 3. Update LLM configurations with latest instructions
                         InitializationService.UpdateLLMConfigurations();
+
+                        // 4. Ensure .gitignore is updated
+                        InitializationService.UpdateGitIgnore();
                     }
-                    
-                    // Show update window for user awareness
-                    ShowUpdateWindow(lastKnownVersion, detectedVersion);
+
+                    // Show update window with status
+                    ShowUpdateWindow(lastKnownVersion, detectedVersion, !allSuccess, failureMessages);
                 }
             }
             catch (Exception e)
@@ -119,7 +147,7 @@ namespace PerSpec.Editor.Initialization
             window.Show();
         }
         
-        public static void ShowUpdateWindow(string oldVersion, string newVersion)
+        public static void ShowUpdateWindow(string oldVersion, string newVersion, bool hasFailures = false, string failureMessages = "")
         {
             var window = GetWindow<PerSpecInitializer>("PerSpec Updated!");
             window.minSize = new Vector2(450, 400);
@@ -127,10 +155,19 @@ namespace PerSpec.Editor.Initialization
             window.isUpdate = true;
             window.previousVersion = oldVersion;
             window.currentVersion = newVersion;
+            window.updateHasFailures = hasFailures;
+            window.updateFailureMessages = failureMessages;
             window.Show();
-            
+
             // Show notification
-            window.ShowNotification(new GUIContent($"Updated: {oldVersion} → {newVersion}"), 3f);
+            if (hasFailures)
+            {
+                window.ShowNotification(new GUIContent($"Updated with issues: {oldVersion} → {newVersion}"), 3f);
+            }
+            else
+            {
+                window.ShowNotification(new GUIContent($"Updated: {oldVersion} → {newVersion}"), 3f);
+            }
         }
         
         [MenuItem("Tools/PerSpec/Documentation", priority = 600)]
@@ -183,13 +220,63 @@ namespace PerSpec.Editor.Initialization
             EditorGUILayout.Space(20);
             
             // Update actions
-            EditorGUILayout.HelpBox(
-                "PerSpec has been updated!\n\n" +
-                "✅ Coordination scripts have been automatically refreshed\n" +
-                "✅ LLM configurations have been updated with latest instructions\n" +
-                "✅ Your permission settings have been preserved",
-                MessageType.Info
-            );
+            if (updateHasFailures)
+            {
+                EditorGUILayout.HelpBox(
+                    "PerSpec has been updated but some automatic tasks failed:\n\n" +
+                    updateFailureMessages + "\n" +
+                    "Please use the button below to manually copy the required files.",
+                    MessageType.Warning
+                );
+
+                EditorGUILayout.Space(5);
+
+                GUI.backgroundColor = Color.yellow;
+                if (GUILayout.Button("Fix: Copy Scripts and Agents", GUILayout.Height(35)))
+                {
+                    bool scriptsOk = false;
+                    bool agentsOk = false;
+
+                    // Try to copy scripts
+                    var scriptResult = InitializationService.RefreshCoordinationScripts();
+                    if (!string.IsNullOrEmpty(scriptResult) && !scriptResult.Contains("Failed"))
+                    {
+                        scriptsOk = true;
+                    }
+
+                    // Try to copy agents
+                    agentsOk = InitializationService.CopyAgentDefinitions();
+
+                    if (scriptsOk && agentsOk)
+                    {
+                        updateHasFailures = false;
+                        updateFailureMessages = "";
+                        ShowNotification(new GUIContent("✓ All files copied successfully"));
+                        Repaint();
+                    }
+                    else
+                    {
+                        string errorMsg = "Failed to copy: ";
+                        if (!scriptsOk) errorMsg += "Scripts ";
+                        if (!agentsOk) errorMsg += "Agents";
+                        ShowNotification(new GUIContent(errorMsg));
+                    }
+                }
+                GUI.backgroundColor = Color.white;
+
+                EditorGUILayout.Space(5);
+            }
+            else
+            {
+                EditorGUILayout.HelpBox(
+                    "PerSpec has been updated!\n\n" +
+                    "✅ Coordination scripts have been automatically refreshed\n" +
+                    "✅ Agent definitions have been copied\n" +
+                    "✅ LLM configurations have been updated with latest instructions\n" +
+                    "✅ Your permission settings have been preserved",
+                    MessageType.Info
+                );
+            }
             
             EditorGUILayout.Space(10);
             

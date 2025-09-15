@@ -25,6 +25,15 @@ namespace PerSpec.Editor.Coordination
         
         private static void OnPlayModeStateChanged(PlayModeStateChange state)
         {
+            // Check if PerSpec is enabled and initialized
+            bool isEnabled = EditorPrefs.GetBool("PerSpec_Enabled", true);
+            string projectPath = Directory.GetParent(Application.dataPath).FullName;
+            string perspecPath = Path.Combine(projectPath, "PerSpec");
+            if (!isEnabled || !Directory.Exists(perspecPath))
+            {
+                return; // Don't process if PerSpec is disabled or not initialized
+            }
+
             switch (state)
             {
                 case PlayModeStateChange.EnteredPlayMode:

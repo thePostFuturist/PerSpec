@@ -182,30 +182,8 @@ namespace PerSpec.Editor.Windows
             // Quick Actions
             DrawSection("Quick Actions", () =>
             {
-                EditorGUILayout.BeginHorizontal();
-                
-                if (GUILayout.Button("Run Tests", GUILayout.Height(40)))
-                {
-                    TestCoordinationService.CheckPendingTests();
-                }
-                
-                if (GUILayout.Button("Toggle Debug", GUILayout.Height(40)))
-                {
-                    DebugService.ToggleDebugLogging();
-                }
-                
-                if (GUILayout.Button("Open Directory", GUILayout.Height(40)))
-                {
-                    InitializationService.OpenWorkingDirectory();
-                }
-                
-                EditorGUILayout.EndHorizontal();
-                
-                EditorGUILayout.Space(5);
-                
-                EditorGUILayout.BeginHorizontal();
-                
-                if (GUILayout.Button("Update Scripts", GUILayout.Height(40)))
+                // Single Update Scripts button
+                if (GUILayout.Button("Update Scripts", GUILayout.Height(35)))
                 {
                     var result = InitializationService.RefreshCoordinationScripts();
                     if (!string.IsNullOrEmpty(result))
@@ -217,7 +195,67 @@ namespace PerSpec.Editor.Windows
                         ShowNotification(new GUIContent("Failed to update scripts"));
                     }
                 }
-                
+
+                EditorGUILayout.Space(5);
+
+                // Enable/Disable PerSpec toggle
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.LabelField("PerSpec Status:", GUILayout.Width(100));
+
+                bool isEnabled = PerSpecSettings.IsEnabled;
+                GUI.backgroundColor = isEnabled ? Color.green : Color.red;
+                string toggleText = isEnabled ? "Enabled" : "Disabled";
+
+                if (GUILayout.Button(toggleText, GUILayout.Height(25)))
+                {
+                    PerSpecSettings.Toggle();
+                    Repaint();
+                }
+                GUI.backgroundColor = Color.white;
+
+                EditorGUILayout.EndHorizontal();
+
+                if (!isEnabled)
+                {
+                    EditorGUILayout.HelpBox(
+                        "PerSpec is currently DISABLED. All polling, logging, and test coordination features are inactive.",
+                        MessageType.Warning
+                    );
+                }
+
+                EditorGUILayout.Space(10);
+
+                // .gitignore management
+                EditorGUILayout.BeginHorizontal();
+
+                if (GUILayout.Button("Add to .gitignore", GUILayout.Height(25)))
+                {
+                    InitializationService.UpdateGitIgnore();
+                    ShowNotification(new GUIContent("PerSpec added to .gitignore"));
+                }
+
+                GUI.backgroundColor = Color.red;
+                if (GUILayout.Button("Remove PerSpec", GUILayout.Height(25)))
+                {
+                    if (EditorUtility.DisplayDialog(
+                        "Remove PerSpec",
+                        "WARNING: This will DELETE the PerSpec directory and all its contents!\n\n" +
+                        "This includes:\n" +
+                        "• Test results\n" +
+                        "• Database\n" +
+                        "• Logs\n" +
+                        "• Scripts\n\n" +
+                        "This cannot be undone. Are you sure?",
+                        "Remove PerSpec", "Cancel"))
+                    {
+                        if (PerSpecSettings.RemovePerSpec())
+                        {
+                            Close();
+                        }
+                    }
+                }
+                GUI.backgroundColor = Color.white;
+
                 EditorGUILayout.EndHorizontal();
             });
             
@@ -269,31 +307,19 @@ namespace PerSpec.Editor.Windows
             // Controls
             DrawSection("Test Controls", () =>
             {
-                EditorGUILayout.BeginHorizontal();
-                
-                if (GUILayout.Button("Check Pending Tests", GUILayout.Height(30)))
-                {
-                    if (TestCoordinationService.CheckPendingTests())
-                        ShowNotification(new GUIContent("Started pending tests"));
-                    else
-                        ShowNotification(new GUIContent("No pending tests"));
-                }
-                
-                if (GUILayout.Button("Force Compilation", GUILayout.Height(30)))
-                {
-                    TestCoordinationService.ForceScriptCompilation();
-                }
-                
-                EditorGUILayout.EndHorizontal();
-                
-                EditorGUILayout.Space(5);
-                
                 bool polling = TestCoordinationService.PollingEnabled;
                 bool newPolling = EditorGUILayout.Toggle("Auto-Polling Enabled", polling);
                 if (newPolling != polling)
                 {
                     TestCoordinationService.PollingEnabled = newPolling;
                 }
+
+                EditorGUILayout.Space(5);
+
+                EditorGUILayout.HelpBox(
+                    "Test execution and compilation controls have been moved to the Debug Settings tab.",
+                    MessageType.Info
+                );
             });
             
             EditorGUILayout.Space(10);
@@ -424,8 +450,8 @@ namespace PerSpec.Editor.Windows
         private void DrawDebugSettingsTab()
         {
             DrawInfoBox(
-                "Debug Settings control whether PerSpec debug logging is compiled into builds. " +
-                "When disabled, all PerSpecDebug.Log() calls are completely stripped with zero runtime overhead."
+                "Debug Settings control PerSpec's debugging features, test execution, and compilation. " +
+                "When debug logging is disabled, all PerSpecDebug.Log() calls are completely stripped with zero runtime overhead."
             );
             
             EditorGUILayout.Space(10);
@@ -456,27 +482,51 @@ namespace PerSpec.Editor.Windows
             });
             
             EditorGUILayout.Space(10);
-            
-            // Controls
-            DrawSection("Debug Controls", () =>
+
+            // Test Execution Controls
+            DrawSection("Test Execution", () =>
             {
                 EditorGUILayout.BeginHorizontal();
-                
+
+                if (GUILayout.Button("Check Pending Tests", GUILayout.Height(30)))
+                {
+                    if (TestCoordinationService.CheckPendingTests())
+                        ShowNotification(new GUIContent("Started pending tests"));
+                    else
+                        ShowNotification(new GUIContent("No pending tests"));
+                }
+
+                if (GUILayout.Button("Force Compilation", GUILayout.Height(30)))
+                {
+                    TestCoordinationService.ForceScriptCompilation();
+                    ShowNotification(new GUIContent("Forcing script compilation"));
+                }
+
+                EditorGUILayout.EndHorizontal();
+            });
+
+            EditorGUILayout.Space(10);
+
+            // Debug Logging Controls
+            DrawSection("Debug Logging", () =>
+            {
+                EditorGUILayout.BeginHorizontal();
+
                 GUI.backgroundColor = DebugService.IsDebugEnabled ? Color.red : Color.green;
-                string buttonText = DebugService.IsDebugEnabled 
-                    ? "Disable Debug Logging" 
+                string buttonText = DebugService.IsDebugEnabled
+                    ? "Disable Debug Logging"
                     : "Enable Debug Logging";
-                    
+
                 if (GUILayout.Button(buttonText, GUILayout.Height(40)))
                 {
                     DebugService.ToggleDebugLogging();
                 }
                 GUI.backgroundColor = Color.white;
-                
+
                 EditorGUILayout.EndHorizontal();
-                
+
                 EditorGUILayout.Space(10);
-                
+
                 if (GUILayout.Button("Test Log Levels"))
                 {
                     DebugService.TestLogLevels();
@@ -683,53 +733,12 @@ PerSpecDebug.LogTestComplete(""Test passed"");";
                     }
                     
                     EditorGUILayout.Space(5);
-                    
-                    EditorGUILayout.BeginHorizontal();
-                    
-                    // Refresh Scripts button
-                    GUI.backgroundColor = needsRefresh ? Color.yellow : Color.white;
-                    if (GUILayout.Button(needsRefresh ? "Refresh Scripts (Recommended)" : "Refresh Scripts", 
-                        GUILayout.Height(30)))
-                    {
-                        var result = InitializationService.RefreshCoordinationScripts();
-                        if (!string.IsNullOrEmpty(result))
-                        {
-                            // Show detailed notification about what was copied
-                            ShowNotification(new GUIContent(result.Replace("\n", " ")), 3.0f);
-                            Debug.Log($"[PerSpec] {result}");
-                        }
-                        else
-                        {
-                            ShowNotification(new GUIContent("Failed to refresh scripts"));
-                        }
-                    }
-                    GUI.backgroundColor = Color.white;
-                    
-                    // Force Package Refresh button
-                    if (GUILayout.Button("Force Package Refresh", GUILayout.Height(30)))
-                    {
-                        string oldPath = PackagePathResolver.PackagePath;
-                        string newPath = PackagePathResolver.RefreshPackagePath();
-                        
-                        if (oldPath != newPath)
-                        {
-                            ShowNotification(new GUIContent("Package path updated"));
-                            Debug.Log($"[PerSpec] Package path changed from: {oldPath} to: {newPath}");
-                            
-                            // Also refresh scripts after package path change
-                            var refreshResult = InitializationService.RefreshCoordinationScripts();
-                            if (!string.IsNullOrEmpty(refreshResult))
-                            {
-                                Debug.Log($"[PerSpec] After path update: {refreshResult}");
-                            }
-                        }
-                        else
-                        {
-                            ShowNotification(new GUIContent("Package path unchanged"));
-                        }
-                    }
-                    
-                    EditorGUILayout.EndHorizontal();
+
+                    EditorGUILayout.HelpBox(
+                        "Script update functionality has been moved to the Dashboard tab.\n" +
+                        "Use the 'Update Scripts' button there to refresh all scripts.",
+                        MessageType.Info
+                    );
                     
                     EditorGUILayout.Space(5);
                     
@@ -808,53 +817,12 @@ PerSpecDebug.LogTestComplete(""Test passed"");";
                 EditorGUILayout.EndHorizontal();
                 
                 EditorGUILayout.Space(10);
-                
-                // Copy agents folder option
-                if (GUILayout.Button("Copy Agent Definitions to Project", GUILayout.Height(30)))
-                {
-                    CopyAgentDefinitions();
-                }
-                
-                EditorGUILayout.Space(5);
-                
-                // Copy Python scripts option
-                if (GUILayout.Button(new GUIContent(
-                    "Copy Python Scripts to PerSpec Root", 
-                    "Copies all Python coordination scripts from the package to PerSpec/Coordination/Scripts/ for easy command-line access"),
-                    GUILayout.Height(30)))
-                {
-                    if (!InitializationService.IsInitialized)
-                    {
-                        EditorUtility.DisplayDialog("Not Initialized",
-                            "PerSpec must be initialized first.\n\nUse Tools > PerSpec > Initialize or the Initialization tab.",
-                            "OK");
-                    }
-                    else
-                    {
-                        var refreshResult = InitializationService.RefreshCoordinationScripts();
-                        if (!string.IsNullOrEmpty(refreshResult))
-                        {
-                            ShowNotification(new GUIContent(refreshResult.Replace("\n", " ")), 3.0f);
-                            Debug.Log($"[PerSpec] {refreshResult}");
-                            
-                            // Show success dialog with path info
-                            EditorUtility.DisplayDialog("Scripts Copied Successfully",
-                                $"Python coordination scripts have been copied to:\n\n{InitializationService.CoordinationScriptsPath}\n\n" +
-                                "You can now run commands like:\n" +
-                                "• python PerSpec/Coordination/Scripts/quick_test.py\n" +
-                                "• python PerSpec/Coordination/Scripts/quick_logs.py\n" +
-                                "• python PerSpec/Coordination/Scripts/quick_refresh.py",
-                                "OK");
-                        }
-                        else
-                        {
-                            ShowNotification(new GUIContent("Failed to copy Python scripts"));
-                            EditorUtility.DisplayDialog("Copy Failed",
-                                "Failed to copy Python scripts.\n\nCheck the console for error details.",
-                                "OK");
-                        }
-                    }
-                }
+
+                EditorGUILayout.HelpBox(
+                    "Agent definitions and Python scripts are now automatically copied during initialization and updates.\n" +
+                    "If you need to manually refresh, use the 'Update Scripts' button in the Dashboard tab.",
+                    MessageType.Info
+                );
             });
             
             EditorGUILayout.Space(10);
@@ -1309,17 +1277,32 @@ Supported LLMs:
                     GUI.DrawTexture(rect, logo, ScaleMode.ScaleToFit);
                     EditorGUILayout.Space(10);
                 }
-                
+
                 // Center-aligned text
                 var centeredStyle = new GUIStyle(EditorStyles.boldLabel);
                 centeredStyle.alignment = TextAnchor.MiddleCenter;
-                
+
                 EditorGUILayout.LabelField("Made in San Francisco", centeredStyle);
                 EditorGUILayout.LabelField("By Valentin Burov", centeredStyle);
-                
+
                 EditorGUILayout.Space(10);
-                
-                EditorGUILayout.LabelField("Version:", "1.0.0");
+
+                // Get package version dynamically
+                string packageVersion = "1.3.1"; // Default fallback
+                try
+                {
+                    var packageInfo = UnityEditor.PackageManager.PackageInfo.FindForPackageName("com.digitraver.perspec");
+                    if (packageInfo != null)
+                    {
+                        packageVersion = packageInfo.version;
+                    }
+                }
+                catch (Exception)
+                {
+                    // Use fallback version if package info is not available
+                }
+
+                EditorGUILayout.LabelField("Version:", packageVersion);
                 EditorGUILayout.LabelField("Unity:", Application.unityVersion);
                 
                 EditorGUILayout.Space(10);
@@ -1350,24 +1333,6 @@ Supported LLMs:
                 {
                     Application.OpenURL("https://github.com/thePostFuturist/PerSpec/issues");
                 }
-            });
-            
-            EditorGUILayout.Space(10);
-            
-            DrawSection("4-Step TDD Workflow", () =>
-            {
-                // Use relative paths for display (these are informational, not executed)
-                string workflow = @"1. Write code and tests with TDD
-2. Refresh Unity: 
-   python quick_refresh.py full --wait
-3. Check for errors:
-   python quick_logs.py errors
-4. Run tests:
-   python quick_test.py all -p edit --wait
-
-Note: Use the convenience scripts in PerSpec/Scripts/ or run from package location";
-   
-                EditorGUILayout.TextArea(workflow, GUILayout.Height(140));
             });
         }
         

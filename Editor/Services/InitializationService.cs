@@ -123,38 +123,47 @@ namespace PerSpec.Editor.Services
                     Directory.CreateDirectory(ProjectPerSpecPath);
                     Debug.Log($"[PerSpec] Created working directory: {ProjectPerSpecPath}");
                 }
-                
+
                 // Create Coordination/Scripts subdirectory and copy scripts
                 if (!Directory.Exists(CoordinationScriptsPath))
                 {
                     Directory.CreateDirectory(CoordinationScriptsPath);
                     CopyCoordinationScripts();
                 }
-                
+
                 // Create TestResults subdirectory
                 if (!Directory.Exists(TestResultsPath))
                 {
                     Directory.CreateDirectory(TestResultsPath);
                     Debug.Log($"[PerSpec] Created TestResults directory: {TestResultsPath}");
                 }
-                
+
                 // Create .gitignore
                 CreateGitIgnore();
-                
+
+                // Add PerSpec to project .gitignore (if not already there)
+                UpdateGitIgnore();
+
                 // Create package location file
                 PackageLocationTracker.UpdateLocationFile();
-                
+
+                // Copy agent definitions automatically
+                CopyAgentDefinitions();
+
+                // Update LLM configurations automatically
+                UpdateLLMConfigurations();
+
                 // Initialize the SQLite database
                 if (!InitializeDatabase())
                 {
                     Debug.LogWarning("[PerSpec] Directories created but database initialization failed. You may need to run: python PerSpec/Coordination/Scripts/db_initializer.py");
                     // Still return true as directories were created successfully
                 }
-                
+
                 // Enable PerSpecDebug by default
                 BuildProfileHelper.AddCompilerDirective("PERSPEC_DEBUG");
                 Debug.Log("[PerSpec] PERSPEC_DEBUG symbol added - debug logging enabled");
-                
+
                 return true;
             }
             catch (Exception e)
@@ -353,8 +362,98 @@ namespace PerSpec.Editor.Services
             }
         }
         
+        /// <summary>
+        /// Copy agent definitions to .claude/agents/ directory
+        /// </summary>
+        public static bool CopyAgentDefinitions()
+        {
+            try
+            {
+                string projectPath = Directory.GetParent(Application.dataPath).FullName;
+                string targetDir = Path.Combine(projectPath, ".claude", "agents");
+                string sourceDir = Path.Combine(PackagePathResolver.PackagePath, "Documentation", "agents");
+
+                if (!Directory.Exists(sourceDir))
+                {
+                    Debug.LogWarning("[PerSpec] Agent definitions source directory not found");
+                    return false;
+                }
+
+                // Create target directory
+                Directory.CreateDirectory(targetDir);
+
+                int copiedCount = 0;
+                foreach (string file in Directory.GetFiles(sourceDir, "*.md"))
+                {
+                    string fileName = Path.GetFileName(file);
+                    string targetPath = Path.Combine(targetDir, fileName);
+                    File.Copy(file, targetPath, true);
+                    copiedCount++;
+                }
+
+                if (copiedCount > 0)
+                {
+                    Debug.Log($"[PerSpec] Copied {copiedCount} agent definition(s) to {targetDir}");
+                }
+
+                return copiedCount > 0;
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[PerSpec] Failed to copy agent definitions: {e.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Update the project's root .gitignore to include PerSpec directory
+        /// </summary>
+        public static void UpdateGitIgnore()
+        {
+            try
+            {
+                string projectPath = Directory.GetParent(Application.dataPath).FullName;
+                string gitignorePath = Path.Combine(projectPath, ".gitignore");
+
+                // Check if .gitignore exists
+                if (!File.Exists(gitignorePath))
+                {
+                    // Create a new .gitignore with PerSpec entry
+                    string content = "# PerSpec working directory\nPerSpec/\n";
+                    File.WriteAllText(gitignorePath, content);
+                    Debug.Log("[PerSpec] Created .gitignore and added PerSpec directory");
+                    return;
+                }
+
+                // Read existing .gitignore
+                string existingContent = File.ReadAllText(gitignorePath);
+
+                // Check if PerSpec is already in .gitignore
+                if (existingContent.Contains("PerSpec/") || existingContent.Contains("/PerSpec"))
+                {
+                    // Already in .gitignore
+                    return;
+                }
+
+                // Add PerSpec to .gitignore
+                string newContent = existingContent;
+                if (!existingContent.EndsWith("\n"))
+                {
+                    newContent += "\n";
+                }
+
+                newContent += "\n# PerSpec working directory\nPerSpec/\n";
+                File.WriteAllText(gitignorePath, newContent);
+                Debug.Log("[PerSpec] Added PerSpec directory to project .gitignore");
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[PerSpec] Could not update .gitignore: {e.Message}");
+            }
+        }
+
         #endregion
-        
+
         #region Private Methods
         
         private static string CopyCoordinationScripts()

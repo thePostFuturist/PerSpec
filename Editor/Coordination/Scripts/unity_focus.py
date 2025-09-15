@@ -246,14 +246,14 @@ def test_focus():
     success = focus_unity()
     
     if success:
-        print("✓ Successfully focused Unity Editor")
-        
+        print("[OK] Successfully focused Unity Editor")
+
         # Test platform-specific features
         if sys.platform == "darwin":
             print("Note: On macOS, you may need to grant accessibility permissions")
             print("System Preferences > Security & Privacy > Privacy > Accessibility")
     else:
-        print("✗ Could not focus Unity Editor")
+        print("[FAILED] Could not focus Unity Editor")
     
     return success
 

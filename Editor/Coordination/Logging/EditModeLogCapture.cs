@@ -33,19 +33,27 @@ namespace PerSpec.Editor.Coordination
         {
             try
             {
+                // Check if PerSpec is enabled and initialized
+                bool isEnabled = EditorPrefs.GetBool("PerSpec_Enabled", true);
+                var projectRoot = Directory.GetCurrentDirectory();
+                var perspecPath = Path.Combine(projectRoot, "PerSpec");
+                if (!isEnabled || !Directory.Exists(perspecPath))
+                {
+                    return; // Don't initialize if PerSpec is disabled or not initialized
+                }
+
                 // Generate unique session ID
                 SessionId = DateTime.Now.Ticks.ToString();
-                
-                // Setup log directory
-                var projectRoot = Directory.GetCurrentDirectory();
+
+                // Setup log directory (reuse projectRoot variable)
                 LogDirectory = Path.Combine(projectRoot, "PerSpec", "EditModeLogs");
-                
+
                 // Ensure directory exists
                 if (!Directory.Exists(LogDirectory))
                 {
                     Directory.CreateDirectory(LogDirectory);
                 }
-                
+
                 // Clean old sessions (keep only 3 most recent)
                 CleanOldSessions();
                 
@@ -145,7 +153,8 @@ namespace PerSpec.Editor.Coordination
         
         private static void OnLogMessageReceivedThreaded(string message, string stackTrace, LogType logType)
         {
-            if (!_isCapturing) return;
+            bool isEnabled = EditorPrefs.GetBool("PerSpec_Enabled", true);
+            if (!_isCapturing || !isEnabled) return;
             
             // Filter out our own logs to prevent recursion
             if (message.StartsWith("[EditModeLogCapture]")) return;

@@ -33,6 +33,14 @@ namespace PerSpec.Editor.Coordination
                 // Silent - PerSpecInitializer will show the prompt
                 return;
             }
+
+            // Check if PerSpec is enabled by checking EditorPrefs directly
+            bool isEnabled = EditorPrefs.GetBool("PerSpec_Enabled", true);
+            if (!isEnabled)
+            {
+                Debug.Log("[BackgroundPoller] PerSpec is disabled - background polling will not start");
+                return;
+            }
             
             Debug.Log("[BackgroundPoller] Initializing background polling system");
             
@@ -73,15 +81,23 @@ namespace PerSpec.Editor.Coordination
         {
             lock (_lockObject)
             {
+                // Check if PerSpec is enabled by checking EditorPrefs directly
+                bool isEnabled = EditorPrefs.GetBool("PerSpec_Enabled", true);
+                if (!isEnabled)
+                {
+                    Debug.Log("[BackgroundPoller] Cannot enable - PerSpec is disabled");
+                    return;
+                }
+
                 if (_isEnabled)
                 {
                     Debug.Log("[BackgroundPoller] Background polling already enabled");
                     return;
                 }
-                
+
                 _isEnabled = true;
                 _lastPollTime = DateTime.Now;
-                
+
                 // Create and start the background timer
                 _backgroundTimer = new System.Threading.Timer(
                     BackgroundPollCallback,
@@ -89,7 +105,7 @@ namespace PerSpec.Editor.Coordination
                     0, // Start immediately
                     _pollInterval // Repeat every second
                 );
-                
+
                 Debug.Log("[BackgroundPoller] Background polling ENABLED");
             }
         }
@@ -116,8 +132,9 @@ namespace PerSpec.Editor.Coordination
         
         private static void BackgroundPollCallback(object state)
         {
-            // Skip if already processing or disabled
-            if (!_isEnabled || _isProcessing)
+            // Skip if already processing, disabled, or PerSpec is disabled
+            bool perspecEnabled = EditorPrefs.GetBool("PerSpec_Enabled", true);
+            if (!_isEnabled || _isProcessing || !perspecEnabled)
             {
                 return;
             }
