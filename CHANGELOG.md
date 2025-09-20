@@ -5,6 +5,32 @@ All notable changes to the PerSpec Testing Framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.2] - 2025-01-20
+
+### Added
+- **ECS/DOTS Compilation Error Detection**
+  - BC error codes (BC0001-BC9999) for Burst Compiler errors
+  - DC error codes (DC0001-DC9999) for Domain Compilation errors
+  - SGICE error codes for Source Generator Internal Compiler Errors
+  - Detection of ECS-specific patterns (Entities.ForEach, EntityCommandBuffer, etc.)
+  - Job System error patterns (NativeArray, JobHandle, IJobParallelFor)
+  - New `--ecs-errors` flag to filter only ECS/DOTS/Burst errors
+
+### Improved
+- **Error Categorization in EditMode Logs**
+  - Error types now displayed with compilation errors (CS/BC/DC/SG/Burst/ECS/Jobs)
+  - Enhanced `is_compilation_error()` function with comprehensive patterns
+  - Better distinction between C# compiler, Burst, and Domain compilation errors
+  - Error statistics showing distribution by compilation type
+  - More accurate error filtering for ECS/DOTS development workflows
+
+### Changed
+- **EditMode Log Monitor Enhancements**
+  - Updated `--errors` flag description to include BC/DC/ECS errors
+  - Added error type prefixes when viewing compilation errors
+  - Improved error counting with categorization by type
+  - Extended compilation patterns to cover DOTS ecosystem
+
 ## [1.3.1] - 2025-01-13
 
 ### Added

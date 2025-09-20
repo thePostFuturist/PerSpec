@@ -56,28 +56,129 @@ def parse_log_line(line):
     return None
 
 def is_compilation_error(message):
-    """Check if a log message is a compilation error (CS error)."""
-    # CS error codes: CS0001-CS9999
+    """Check if a log message is a compilation error (CS/BC/DC/ECS error)."""
+    # CS error codes: CS0001-CS9999 (C# compiler)
     cs_pattern = r'\bCS\d{4}\b'
-    
+
+    # BC error codes: BC0001-BC9999 (Burst Compiler)
+    bc_pattern = r'\bBC\d{4}\b'
+
+    # DC error codes: DC0001-DC9999 (Domain Compilation)
+    dc_pattern = r'\bDC\d{4}\b'
+
     # Additional compilation-specific patterns
     compilation_patterns = [
+        # Original CS patterns
         r'error CS\d{4}',
         r': error CS\d{4}',
         r'Compiler Error',
         r'compilation failed',
-        r'All compiler errors'
+        r'All compiler errors',
+
+        # Burst Compiler patterns
+        r'error BC\d{4}',
+        r': error BC\d{4}',
+        r'Burst error',
+        r'Burst compiler.*failed',
+        r'burst\.initialize',
+        r'BuildFailedException.*Burst',
+        r'Internal compiler error.*Burst',
+
+        # Domain Compilation patterns
+        r'error DC\d{4}',
+        r': error DC\d{4}',
+        r'Domain.*compilation',
+        r'Domain reload.*failed',
+
+        # DOTS/ECS Source Generator patterns
+        r'SGICE\d{3}',  # Source Generator Internal Compiler Error
+        r'DOTS source generators',
+        r'Source generator.*error',
+        r'Entities\.ForEach.*error',
+        r'partial keyword.*system',
+
+        # ECS/DOTS specific compilation errors
+        r'NativeArray.*disposed',
+        r'JobHandle.*not.*completed',
+        r'ComponentSystem.*error',
+        r'SystemBase.*error',
+        r'ISystem.*error',
+        r'EntityCommandBuffer.*error',
+        r'SharedStatic.*unmanaged',
+        r'IJobParallelFor.*error'
     ]
-    
-    # Check for CS error code
+
+    # Check for error codes
     if re.search(cs_pattern, message):
         return True
-    
+    if re.search(bc_pattern, message):
+        return True
+    if re.search(dc_pattern, message):
+        return True
+
     # Check for compilation patterns
     for pattern in compilation_patterns:
         if re.search(pattern, message, re.IGNORECASE):
             return True
-    
+
+    return False
+
+def get_error_type(message):
+    """Determine the type of compilation error from the message."""
+    # Check for specific error code patterns
+    if re.search(r'\bCS\d{4}\b', message):
+        return 'CS'  # C# Compiler
+    elif re.search(r'\bBC\d{4}\b', message):
+        return 'BC'  # Burst Compiler
+    elif re.search(r'\bDC\d{4}\b', message):
+        return 'DC'  # Domain Compilation
+    elif re.search(r'SGICE\d{3}', message, re.IGNORECASE):
+        return 'SG'  # Source Generator
+    elif re.search(r'(Burst error|Burst compiler|burst\.)', message, re.IGNORECASE):
+        return 'Burst'
+    elif re.search(r'(Entities\.ForEach|EntityCommandBuffer|ComponentSystem|SystemBase|ISystem)', message, re.IGNORECASE):
+        return 'ECS'
+    elif re.search(r'(NativeArray|JobHandle|IJobParallelFor|SharedStatic)', message, re.IGNORECASE):
+        return 'Jobs'
+    elif re.search(r'Domain.*compilation|Domain reload', message, re.IGNORECASE):
+        return 'Domain'
+    else:
+        return 'Compile'  # Generic compilation error
+
+def is_ecs_error(message):
+    """Check if a log message is specifically an ECS/DOTS/Burst error."""
+    # BC error codes
+    if re.search(r'\bBC\d{4}\b', message):
+        return True
+
+    # DC error codes
+    if re.search(r'\bDC\d{4}\b', message):
+        return True
+
+    # ECS/DOTS/Burst specific patterns
+    ecs_patterns = [
+        r'Burst error',
+        r'Burst compiler',
+        r'burst\.initialize',
+        r'SGICE\d{3}',
+        r'DOTS source generators',
+        r'Entities\.ForEach',
+        r'EntityCommandBuffer',
+        r'ComponentSystem',
+        r'SystemBase',
+        r'ISystem',
+        r'NativeArray',
+        r'JobHandle',
+        r'IJobParallelFor',
+        r'SharedStatic',
+        r'Domain.*compilation.*ECS',
+        r'partial keyword.*system'
+    ]
+
+    for pattern in ecs_patterns:
+        if re.search(pattern, message, re.IGNORECASE):
+            return True
+
     return False
 
 def get_session_files():
@@ -148,23 +249,32 @@ def read_session_logs(file_path, tail_lines=None, level_filter=None):
     
     return logs
 
-def display_logs(logs, show_stack=False):
-    """Display logs with color coding."""
+def display_logs(logs, show_stack=False, show_error_type=False):
+    """Display logs with color coding and optional error type."""
     level_colors = {
         'error': '\033[91m',      # Red
-        'exception': '\033[91m',  # Red  
+        'exception': '\033[91m',  # Red
         'warning': '\033[93m',    # Yellow
         'info': '\033[92m',       # Green
         'debug': '\033[94m'       # Blue
     }
     reset_color = '\033[0m'
-    
+
     for log in logs:
         level = log.get('level', '').lower()
         color = level_colors.get(level, '')
-        
-        print(f"{color}[{log['timestamp']}] [{log['level']:9}] {log['message']}{reset_color}")
-        
+        message = log['message']
+
+        # Add error type prefix if it's a compilation error
+        if show_error_type and level in ['error', 'exception']:
+            if is_compilation_error(message):
+                error_type = get_error_type(message)
+                print(f"{color}[{log['timestamp']}] [{error_type:7}] [{log['level']:9}] {message}{reset_color}")
+            else:
+                print(f"{color}[{log['timestamp']}] [{log['level']:9}] {message}{reset_color}")
+        else:
+            print(f"{color}[{log['timestamp']}] [{log['level']:9}] {message}{reset_color}")
+
         if show_stack and log.get('stack_trace'):
             for line in log['stack_trace']:
                 print(f"    {line}")
@@ -231,8 +341,9 @@ def main():
     parser = argparse.ArgumentParser(description='Monitor EditMode session logs')
     
     # Add top-level --errors flag for consistency with PlayMode logs
-    parser.add_argument('--errors', action='store_true', help='Show only compilation errors (CS errors) from all sessions')
+    parser.add_argument('--errors', action='store_true', help='Show only compilation errors (CS/BC/DC/ECS errors) from all sessions')
     parser.add_argument('--all-errors', action='store_true', help='Show all errors and exceptions from all sessions')
+    parser.add_argument('--ecs-errors', action='store_true', help='Show only ECS/DOTS/Burst compilation errors from all sessions')
     parser.add_argument('-s', '--stack', action='store_true', help='Show stack traces')
     parser.add_argument('-n', '--lines', type=int, help='Number of lines to show')
     parser.add_argument('--no-limit', action='store_true', help='Bypass default line limits (useful with grep)')
@@ -276,10 +387,11 @@ def main():
         if hasattr(args, 'lines'):
             args.lines = None
     
-    # Handle --errors flag
+    # Handle error flags
     if args.errors:
         args.command = 'errors'
         args.compilation_only = True
+        args.ecs_only = False
         if not hasattr(args, 'lines'):
             args.lines = None  # Show all errors
         if not hasattr(args, 'stack'):
@@ -287,12 +399,22 @@ def main():
     elif args.all_errors:
         args.command = 'errors'
         args.compilation_only = False
+        args.ecs_only = False
+        if not hasattr(args, 'lines'):
+            args.lines = None  # Show all errors
+        if not hasattr(args, 'stack'):
+            args.stack = False
+    elif args.ecs_errors:
+        args.command = 'errors'
+        args.compilation_only = False  # We'll filter differently
+        args.ecs_only = True
         if not hasattr(args, 'lines'):
             args.lines = None  # Show all errors
         if not hasattr(args, 'stack'):
             args.stack = False
     else:
         args.compilation_only = True  # Default to compilation errors only
+        args.ecs_only = False
     
     if not args.command:
         args.command = 'recent'
@@ -343,7 +465,7 @@ def main():
         
         if logs:
             print(f"Showing {len(logs)} log entries\n")
-            display_logs(logs, show_stack=args.stack)
+            display_logs(logs, show_stack=args.stack, show_error_type=False)
         else:
             if args.level:
                 print(f"No logs found with level: {', '.join(args.level)}")
@@ -378,10 +500,14 @@ def main():
                     log['session_id'] = session['session_id']
                 all_errors.extend(logs)
         
-        # Filter for compilation errors if requested
-        if hasattr(args, 'compilation_only') and args.compilation_only:
+        # Filter errors based on flags
+        if hasattr(args, 'ecs_only') and args.ecs_only:
+            # Show only ECS/DOTS/Burst errors
+            all_errors = [e for e in all_errors if is_ecs_error(e.get('message', ''))]
+        elif hasattr(args, 'compilation_only') and args.compilation_only:
+            # Show all compilation errors (CS/BC/DC/ECS)
             all_errors = [e for e in all_errors if is_compilation_error(e.get('message', ''))]
-        
+
         # Sort by timestamp (assuming format HH:mm:ss.fff)
         all_errors.sort(key=lambda x: x.get('timestamp', ''))
         
@@ -390,26 +516,52 @@ def main():
             all_errors = all_errors[-args.lines:]
         
         if all_errors:
-            error_type = "Compilation errors" if hasattr(args, 'compilation_only') and args.compilation_only else "All errors"
+            # Determine error type description
+            if hasattr(args, 'ecs_only') and args.ecs_only:
+                error_type = "ECS/DOTS/Burst errors"
+            elif hasattr(args, 'compilation_only') and args.compilation_only:
+                error_type = "Compilation errors"
+            else:
+                error_type = "All errors"
+
             print(f"\n=== {error_type} from EditMode Sessions ===")
             print(f"Sessions searched: {len(session_files)} (showing errors from {len(sessions_with_errors)})")
             print(f"{error_type} found: {len(all_errors)}")
-            
-            # Count by type
+
+            # Count by error type and level
             error_counts = {}
+            compilation_type_counts = {}
             for log in all_errors:
                 level = log.get('level', 'Unknown')
                 error_counts[level] = error_counts.get(level, 0) + 1
-            
-            print(f"Error types: ", end="")
+
+                # Count compilation error types
+                message = log.get('message', '')
+                if is_compilation_error(message):
+                    comp_type = get_error_type(message)
+                    compilation_type_counts[comp_type] = compilation_type_counts.get(comp_type, 0) + 1
+
+            print(f"Error levels: ", end="")
             for level, count in sorted(error_counts.items()):
                 print(f"{level}: {count}  ", end="")
-            print("\n")
-            
-            display_logs(all_errors, show_stack=args.stack)
+            print()
+
+            if compilation_type_counts:
+                print(f"Compilation types: ", end="")
+                for comp_type, count in sorted(compilation_type_counts.items()):
+                    print(f"{comp_type}: {count}  ", end="")
+                print()
+
+            print()
+            # Show error types for compilation errors
+            show_types = hasattr(args, 'compilation_only') and args.compilation_only
+            show_types = show_types or (hasattr(args, 'ecs_only') and args.ecs_only)
+            display_logs(all_errors, show_stack=args.stack, show_error_type=show_types)
         else:
-            if hasattr(args, 'compilation_only') and args.compilation_only:
-                print("No compilation errors (CS errors) found in any EditMode session.")
+            if hasattr(args, 'ecs_only') and args.ecs_only:
+                print("No ECS/DOTS/Burst errors found in any EditMode session.")
+            elif hasattr(args, 'compilation_only') and args.compilation_only:
+                print("No compilation errors (CS/BC/DC/ECS errors) found in any EditMode session.")
             else:
                 print("No errors found in any EditMode session.")
     
@@ -430,7 +582,7 @@ def main():
         
         if logs:
             print(f"Showing last {len(logs)} log entries\n")
-            display_logs(logs, show_stack=args.stack)
+            display_logs(logs, show_stack=args.stack, show_error_type=False)
         else:
             if args.level:
                 print(f"No logs found with level: {', '.join(args.level)}")
