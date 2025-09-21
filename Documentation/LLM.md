@@ -403,6 +403,93 @@ public IEnumerator Should_TakeDamage() => UniTask.ToCoroutine(async () => {
 - Making private methods public
 - Test parameters in production methods
 
+## 🚫 Compilation Error Fix Guidelines
+
+### ❌ NEVER Remove Functionality to "Fix" Errors
+```csharp
+// ❌ ABSOLUTELY FORBIDDEN - Removing functionality
+public void ProcessData() {
+    // TODO: Fix compilation issue
+    // var tracker = PipelineDistortionTracker.Instance;
+    // if (tracker != null) {
+    //     tracker.Track(data);
+    // }
+}
+
+// ❌ WRONG - Commenting out broken code
+public void Initialize() {
+    // systemManager.RegisterSystem(this);  // CS0103: The name 'systemManager' does not exist
+}
+
+// ✅ CORRECT - Fix the actual issue
+public void ProcessData() {
+    var tracker = PipelineDistortionTracker.Instance;  // Add proper using statement or reference
+    if (tracker != null) {
+        tracker.Track(data);
+    }
+}
+
+// ✅ CORRECT - Resolve missing dependencies
+private SystemManager systemManager;
+public void Initialize() {
+    systemManager = GetComponent<SystemManager>();
+    systemManager.RegisterSystem(this);
+}
+```
+
+### Proper Compilation Error Resolution
+| Error Type | ❌ WRONG Approach | ✅ CORRECT Approach |
+|------------|-------------------|---------------------|
+| Missing type | Comment out code | Add using statement or assembly reference |
+| Undefined variable | Remove functionality | Declare variable or inject dependency |
+| Method not found | Delete method call | Implement method or find correct API |
+| Interface not implemented | Remove interface | Implement all required methods |
+| Ambiguous reference | Comment out usage | Use fully qualified name |
+
+### Resolution Steps for Compilation Errors
+1. **Identify the root cause** - Don't just hide the symptom
+2. **Check for missing references**:
+   - Assembly references in .asmdef
+   - Using statements at top of file
+   - NuGet packages or dependencies
+3. **Research the proper API**:
+   - Check Unity documentation
+   - Look for similar usage in codebase
+   - Verify version compatibility
+4. **Implement proper solution**:
+   - Add missing dependencies
+   - Create required methods/properties
+   - Use correct namespace
+5. **NEVER**:
+   - Leave TODO comments for compilation fixes
+   - Comment out functional code
+   - Remove features to make it compile
+
+### Example: Fixing Missing Type Error
+```csharp
+// ❌ WRONG - Removing functionality
+public class GameManager : MonoBehaviour {
+    void Start() {
+        // TODO: Fix PipelineDistortionTracker not found
+        // InitializeTracker();
+    }
+}
+
+// ✅ CORRECT - Add proper reference
+using MyGame.Analytics;  // Add missing using
+
+public class GameManager : MonoBehaviour {
+    void Start() {
+        InitializeTracker();
+    }
+
+    void InitializeTracker() {
+        var tracker = PipelineDistortionTracker.Instance;
+        tracker.Initialize();
+    }
+}
+```
+
 ## ⚠️ Critical Patterns
 
 ### CS1626 - Yield in Try-Catch
@@ -570,19 +657,22 @@ PerSpecDebug.LogError("error message - always important");
 ## 🚨 Important Rules
 
 ### ALWAYS
-✅ Use UniTask (never Task/coroutines)  
-✅ Use FindVars for components  
-✅ Stay on main thread for Unity APIs  
-✅ Use test facades for private access  
-✅ Follow 4-step TDD workflow  
+✅ Use UniTask (never Task/coroutines)
+✅ Use FindVars for components
+✅ Stay on main thread for Unity APIs
+✅ Use test facades for private access
+✅ Follow 4-step TDD workflow
+✅ Fix compilation errors properly with real solutions
 
 ### NEVER
-❌ async void → Use UniTask/UniTaskVoid  
-❌ Singleton MonoBehaviours  
-❌ Runtime GetComponent  
-❌ Reflection for private access  
-❌ Compiler directives in tests  
-❌ Skip TDD steps  
+❌ async void → Use UniTask/UniTaskVoid
+❌ Singleton MonoBehaviours
+❌ Runtime GetComponent
+❌ Reflection for private access
+❌ Compiler directives in tests
+❌ Skip TDD steps
+❌ Comment out code to "fix" compilation errors
+❌ Remove functionality instead of fixing dependencies  
 
 ## 🎮 Unity Menu Execution
 
