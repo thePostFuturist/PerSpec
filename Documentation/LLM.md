@@ -233,16 +233,20 @@ python PerSpec/Coordination/Scripts/db_update_status_constraint.py
 ### 📌 MANDATORY 4-Step Process (ALWAYS FOLLOW IN ORDER!)
 ```bash
 # 1. Write tests & code
+# 🔴 IMPORTANT: Steps 2 & 3 MUST also be run IMMEDIATELY after writing ANY code!
+# Don't wait until test time - verify compilation RIGHT AFTER coding!
 
 # 2. ⚡ ALWAYS REFRESH UNITY FIRST! (DO NOT SKIP!)
 python PerSpec/Coordination/Scripts/quick_refresh.py full --wait
 # ❌ NEVER run tests without refreshing - Unity won't see your changes!
+# 📌 Run this IMMEDIATELY after writing/editing ANY C# code!
 
 # 3. 🚨 MANDATORY: Check compilation errors (NEVER SKIP THIS!)
 python PerSpec/Coordination/Scripts/monitor_editmode_logs.py --errors
 # ⛔ STOP HERE if ANY errors exist!
 # ❌ DO NOT PROCEED to step 4 if compilation errors exist!
 # Tests will be INCONCLUSIVE if code doesn't compile
+# 📌 Run this IMMEDIATELY after EVERY refresh to verify code compiles!
 
 # 4. Run tests ONLY after steps 2 & 3 succeed
 python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait
@@ -296,6 +300,48 @@ quick_test.py class Tests.PlayMode.SimplePerSpecTest -p play --wait
 # Run specific METHOD
 quick_test.py method Tests.PlayMode.SimplePerSpecTest.Should_Pass -p play --wait
 ```
+
+## 🔍 Post-Code-Writing Verification (MANDATORY FOR LLMs)
+
+### 🚨 CRITICAL REQUIREMENT FOR ALL LLMs
+**After writing or modifying ANY C# code, you MUST IMMEDIATELY verify it compiles:**
+
+```bash
+# MANDATORY AFTER ANY CODE CHANGE - DO NOT SKIP!
+# 1. Refresh Unity to pick up changes
+python PerSpec/Coordination/Scripts/quick_refresh.py full --wait
+
+# 2. Check for compilation errors
+python PerSpec/Coordination/Scripts/monitor_editmode_logs.py --errors
+```
+
+### ⚠️ THIS APPLIES TO:
+- ✅ After creating new C# files
+- ✅ After editing existing C# code
+- ✅ After refactoring or renaming
+- ✅ After adding/removing using statements
+- ✅ After ANY code modification whatsoever
+
+### 📌 WHY THIS IS MANDATORY:
+- **Immediate feedback**: Catch errors before user discovers them
+- **Professional quality**: Ensure all delivered code compiles
+- **Time saving**: Fix issues immediately while context is fresh
+- **User trust**: Demonstrate thoroughness and professionalism
+
+### ❌ NEVER:
+- Skip verification "because it's a simple change"
+- Assume code compiles without checking
+- Wait for user to ask about errors
+- Leave compilation errors unfixed
+
+### ✅ ALWAYS:
+1. Write/modify code
+2. **IMMEDIATELY** run refresh
+3. **IMMEDIATELY** check for errors
+4. If errors exist, fix them NOW
+5. Re-verify after fixes
+
+**Remember**: The user expects working code. It's YOUR responsibility as an LLM to ensure code compiles BEFORE considering any task complete.
 
 ## 🤖 Agent Usage
 
@@ -792,10 +838,13 @@ TestFramework/
 
 ## 📝 Critical Reminders
 
-> **🔴 BEFORE RUNNING TESTS:** ALWAYS refresh Unity AND check for errors!  
-> **Pivoting?** Ask user first  
-> **New directory?** Needs asmdef  
-> **Errors?** Log with context  
-> **Test prefabs?** Use Editor scripts  
+> **🔴 AFTER WRITING CODE:** IMMEDIATELY refresh Unity AND check for errors!
+> **🔴 BEFORE RUNNING TESTS:** ALWAYS refresh Unity AND check for errors!
+> **Finished editing?** Run verification NOW (refresh + error check)
+> **Pivoting?** Ask user first
+> **New directory?** Needs asmdef
+> **Errors?** Log with context
+> **Test prefabs?** Use Editor scripts
 > **Tests failing?** Did you refresh Unity? Did you check for compilation errors?
+> **Code complete?** Did you verify it compiles? NO EXCEPTIONS!
 <!-- PERSPEC_CONFIG_END -->
