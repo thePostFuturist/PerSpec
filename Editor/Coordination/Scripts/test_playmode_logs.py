@@ -108,7 +108,50 @@ def is_compilation_error(message):
 
     return False
 
-def display_logs(logs, show_stack=False, filter_level=None, filter_errors=False):
+def highlight_text(text, search_terms, ignore_case=False):
+    """Highlight search terms in text."""
+    if not search_terms:
+        return text
+
+    highlighted = text
+    for term in search_terms:
+        if ignore_case:
+            # Case-insensitive highlighting
+            pattern = re.compile(re.escape(term), re.IGNORECASE)
+            highlighted = pattern.sub(lambda m: f'\033[103m\033[30m{m.group()}\033[0m', highlighted)
+        else:
+            # Case-sensitive highlighting
+            highlighted = highlighted.replace(term, f'\033[103m\033[30m{term}\033[0m')
+
+    return highlighted
+
+def search_logs(logs, search_terms, match_any=False, ignore_case=False):
+    """Search logs for specified terms."""
+    matching_logs = []
+
+    for log in logs:
+        # Combine message and stack trace for searching
+        search_text = log['message'] + ' '.join(log.get('stack_trace', []))
+
+        if ignore_case:
+            search_text = search_text.lower()
+            terms_to_check = [term.lower() for term in search_terms]
+        else:
+            terms_to_check = search_terms
+
+        # Check if terms match based on match_any flag
+        if match_any:
+            # At least one term must match
+            if any(term in search_text for term in terms_to_check):
+                matching_logs.append(log)
+        else:
+            # All terms must match
+            if all(term in search_text for term in terms_to_check):
+                matching_logs.append(log)
+
+    return matching_logs
+
+def display_logs(logs, show_stack=False, filter_level=None, filter_errors=False, search_terms=None, ignore_case=False):
     """Display logs in a formatted way."""
     for log in logs:
         # Filter by level if specified
@@ -139,11 +182,19 @@ def display_logs(logs, show_stack=False, filter_level=None, filter_errors=False)
                 frame_str = f"[Frame: {log['frame']:>4}]"
         else:
             frame_str = ""
-        print(f"{level_color}[{log['timestamp']}] [{log['level']:9}]{frame_str} {log['message']}{reset_color}")
+        # Highlight search terms if provided
+        message = log['message']
+        if search_terms:
+            message = highlight_text(message, search_terms, ignore_case)
+
+        print(f"{level_color}[{log['timestamp']}] [{log['level']:9}]{frame_str} {message}{reset_color}")
 
         # Show stack trace if requested and available
         if show_stack and log['stack_trace']:
             for line in log['stack_trace']:
+                # Highlight search terms in stack trace too
+                if search_terms:
+                    line = highlight_text(line, search_terms, ignore_case)
                 print(f"  {line}")
 
 def main():
@@ -160,6 +211,12 @@ def main():
     parser.add_argument('-a', '--all', action='store_true', help='Show all logs (no limit)')
     parser.add_argument('--no-limit', action='store_true', help='Bypass default 50 line limit (useful with grep)')
     parser.add_argument('--tail', action='store_true', help='Show only the most recent logs')
+    parser.add_argument('-S', '--search', nargs='+', metavar='KEYWORD',
+                       help='Search for keywords in logs (multiple keywords allowed)')
+    parser.add_argument('-i', '--ignore-case', action='store_true',
+                       help='Case-insensitive search')
+    parser.add_argument('--any', action='store_true',
+                       help='Match ANY keyword instead of ALL keywords')
 
     args = parser.parse_args()
 
@@ -193,6 +250,10 @@ def main():
         print("\nTo filter errors when logs exist:")
         print("  python test_playmode_logs.py --errors     # All errors and exceptions")
         print("  python test_playmode_logs.py --cs-errors  # Compilation errors only")
+        print("\nTo search logs:")
+        print("  python test_playmode_logs.py --search 'keyword'           # Search for single keyword")
+        print("  python test_playmode_logs.py -S 'error' 'timeout' --any   # Search for ANY of the keywords")
+        print("  python test_playmode_logs.py -S 'player' -i               # Case-insensitive search")
         return
 
     # Get all log files
@@ -203,6 +264,10 @@ def main():
         print("\nTo filter errors when logs exist:")
         print("  python test_playmode_logs.py --errors     # All errors and exceptions")
         print("  python test_playmode_logs.py --cs-errors  # Compilation errors only")
+        print("\nTo search logs:")
+        print("  python test_playmode_logs.py --search 'keyword'           # Search for single keyword")
+        print("  python test_playmode_logs.py -S 'error' 'timeout' --any   # Search for ANY of the keywords")
+        print("  python test_playmode_logs.py -S 'player' -i               # Case-insensitive search")
         return
 
     if args.list:
@@ -286,20 +351,35 @@ def main():
     elif filter_level:
         all_logs = [log for log in all_logs if log['level'] == filter_level]
 
+    # Apply search filtering if specified
+    if args.search:
+        original_count = len(all_logs)
+        all_logs = search_logs(all_logs, args.search, match_any=args.any, ignore_case=args.ignore_case)
+
+        # Show search summary
+        if args.search:
+            search_mode = "ANY" if args.any else "ALL"
+            case_mode = "case-insensitive" if args.ignore_case else "case-sensitive"
+            print(f"\n=== Search Results ===\n")
+            print(f"Keywords: {', '.join(args.search)}")
+            print(f"Mode: {search_mode} keywords must match ({case_mode})")
+            print(f"Found: {len(all_logs)} matches out of {original_count} logs\n")
+
     # Apply line limit unless --all is specified
     if not args.all and args.lines > 0:
         all_logs = all_logs[-args.lines:]
 
-    # Display summary
-    if filter_errors == 'compilation':
-        print(f"\n=== PlayMode Compilation Errors (CS Errors) ===")
-        print(f"Compilation errors found: {len(all_logs)}")
-    elif filter_errors == 'all':
-        print(f"\n=== PlayMode Errors and Exceptions ===")
-        print(f"Errors found: {len(all_logs)}")
-    else:
-        print(f"\n=== PlayMode Logs ===")
-        print(f"Total logs: {len(all_logs)}")
+    # Display summary (only if not searching, as search has its own summary)
+    if not args.search:
+        if filter_errors == 'compilation':
+            print(f"\n=== PlayMode Compilation Errors (CS Errors) ===")
+            print(f"Compilation errors found: {len(all_logs)}")
+        elif filter_errors == 'all':
+            print(f"\n=== PlayMode Errors and Exceptions ===")
+            print(f"Errors found: {len(all_logs)}")
+        else:
+            print(f"\n=== PlayMode Logs ===")
+            print(f"Total logs: {len(all_logs)}")
 
     # Count by level
     level_counts = {}
@@ -316,7 +396,7 @@ def main():
     print("-" * 80)
 
     # Display the logs
-    display_logs(all_logs, show_stack=args.stack)
+    display_logs(all_logs, show_stack=args.stack, search_terms=args.search, ignore_case=args.ignore_case)
 
 if __name__ == "__main__":
     main()

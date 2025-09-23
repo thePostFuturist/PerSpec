@@ -229,6 +229,16 @@ python PerSpec/Coordination/Scripts/test_playmode_logs.py -l
 
 # View with stack traces
 python PerSpec/Coordination/Scripts/test_playmode_logs.py -s
+
+# Search for keywords in logs
+python PerSpec/Coordination/Scripts/test_playmode_logs.py --search "error"
+python PerSpec/Coordination/Scripts/test_playmode_logs.py -S "timeout" "failed"  # ALL keywords must match
+python PerSpec/Coordination/Scripts/test_playmode_logs.py -S "player" "health" --any  # ANY keyword matches
+python PerSpec/Coordination/Scripts/test_playmode_logs.py --search "exception" -i  # Case-insensitive search
+
+# Combine search with filters
+python PerSpec/Coordination/Scripts/test_playmode_logs.py -S "null" --errors  # Search within errors only
+python PerSpec/Coordination/Scripts/test_playmode_logs.py --search "test" -a  # Search all logs without limit
 ```
 
 ### Log Storage
@@ -346,6 +356,16 @@ PerSpec/PlayModeLogs/
 ```bash
 # Check PlayMode logs
 python PerSpec/Coordination/Scripts/test_playmode_logs.py
+
+# Search for specific keywords
+python PerSpec/Coordination/Scripts/test_playmode_logs.py --search "error"
+python PerSpec/Coordination/Scripts/test_playmode_logs.py -S "timeout" -i  # Case-insensitive
+
+# Search multiple keywords (ALL must match by default)
+python PerSpec/Coordination/Scripts/test_playmode_logs.py -S "player" "health"
+
+# Search for ANY of the keywords
+python PerSpec/Coordination/Scripts/test_playmode_logs.py -S "timeout" "failed" --any
 
 # Or manually browse the directory
 ls PerSpec/PlayModeLogs/

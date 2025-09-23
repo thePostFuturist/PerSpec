@@ -5,6 +5,25 @@ All notable changes to the PerSpec Testing Framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.3] - 2025-01-22
+
+### Added
+- **PlayMode Log Search Functionality**
+  - New `--search` or `-S` flag to search for keywords across all PlayMode log files
+  - Support for multiple keywords with AND/OR logic
+  - Case-insensitive search option with `-i` or `--ignore-case`
+  - `--any` flag to match ANY keyword instead of ALL keywords
+  - Keyword highlighting in search results (yellow background)
+  - Search works in both message content and stack traces
+  - Combinable with existing filters (--errors, --cs-errors, --level)
+  - Shows search statistics including matches found and search mode
+
+### Improved
+- **PlayMode Log Viewer**
+  - Enhanced help text with search examples
+  - Better user guidance for search operations
+  - Documentation updated with search usage examples
+
 ## [1.3.2] - 2025-01-20
 
 ### Added
