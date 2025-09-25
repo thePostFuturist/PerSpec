@@ -727,7 +727,8 @@ PerSpecDebug.LogError("error message - always important");
 ❌ Compiler directives in tests
 ❌ Skip TDD steps
 ❌ Comment out code to "fix" compilation errors
-❌ Remove functionality instead of fixing dependencies  
+❌ Remove functionality instead of fixing dependencies
+❌ Generate .meta files → Unity creates these automatically  
 
 ## 🎮 Unity Menu Execution
 
