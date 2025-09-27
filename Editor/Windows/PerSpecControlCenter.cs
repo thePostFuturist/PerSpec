@@ -23,9 +23,9 @@ namespace PerSpec.Editor.Windows
         {
             "Claude (CLAUDE.md)",
             "Cursor (.cursorrules)",
-            "OpenAI Codex (.openai-codex.md)",
+            "Agents (AGENTS.md)",
             "Gemini CLI (.gemini/config.md)",
-            "OpenRouter/Buddy (.buddyrules)"
+            "Aider (Conventions.md)"
         };
         
         #endregion
@@ -955,9 +955,9 @@ Supported LLMs:
             {
                 { "Claude (CLAUDE.md)", "CLAUDE.md" },
                 { "Cursor (.cursorrules)", ".cursorrules" },
-                { "OpenAI Codex", ".openai-codex.md" },
+                { "Agents", "AGENTS.md" },
                 { "Gemini CLI", Path.Combine(".gemini", "config.md") },
-                { "OpenRouter/Buddy", ".buddyrules" }
+                { "Aider", "Conventions.md" }
             };
             
             foreach (var file in llmFiles)
@@ -1228,15 +1228,15 @@ Supported LLMs:
                     return Path.Combine(projectPath, "CLAUDE.md");
                 case 1: // Cursor
                     return Path.Combine(projectPath, ".cursorrules");
-                case 2: // OpenAI Codex
-                    return Path.Combine(projectPath, ".openai-codex.md");
+                case 2: // Agents
+                    return Path.Combine(projectPath, "AGENTS.md");
                 case 3: // Gemini CLI
                     string geminiDir = Path.Combine(projectPath, ".gemini");
                     if (!Directory.Exists(geminiDir))
                         Directory.CreateDirectory(geminiDir);
                     return Path.Combine(geminiDir, "config.md");
-                case 4: // OpenRouter/Buddy
-                    return Path.Combine(projectPath, ".buddyrules");
+                case 4: // Aider
+                    return Path.Combine(projectPath, "Conventions.md");
                 default:
                     throw new ArgumentException($"Invalid LLM index: {llmIndex}");
             }
@@ -1517,18 +1517,18 @@ Supported LLMs:
         private string GetProviderFromPath(string configPath)
         {
             string fileName = Path.GetFileName(configPath);
-            
+
             if (fileName.Contains("CLAUDE") || fileName.Contains("claude"))
                 return "Claude";
             else if (fileName.Contains("cursor"))
                 return "Cursor";
-            else if (fileName.Contains("openai-codex"))
-                return "OpenAI";
+            else if (fileName.Contains("AGENTS") || fileName.Contains("agents"))
+                return "Agents";
             else if (configPath.Contains(".gemini"))
                 return "Gemini";
-            else if (fileName.Contains("buddy"))
-                return "OpenRouter";
-            
+            else if (fileName.Contains("Conventions") || fileName.Contains("conventions"))
+                return "Aider";
+
             return "Unknown";
         }
         
@@ -1538,9 +1538,9 @@ Supported LLMs:
             {
                 case 0: return "Claude";
                 case 1: return "Cursor";
-                case 2: return "OpenAI";
+                case 2: return "Agents";
                 case 3: return "Gemini";
-                case 4: return "OpenRouter";
+                case 4: return "Aider";
                 default: return "Unknown";
             }
         }
