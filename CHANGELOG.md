@@ -5,6 +5,29 @@ All notable changes to the PerSpec Testing Framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.4] - 2025-01-27
+
+### Fixed
+- **LLM Setup Tab in Control Center**
+  - Replaced problematic dropdown with checkbox system using EditorPrefs
+  - Fixed issue where dropdown selection wouldn't persist between window reopens
+  - Added persistent state storage that survives Unity restarts and script recompiles
+  - Checkboxes now properly maintain their selected state across all sessions
+
+### Improved
+- **LLM Configuration UI**
+  - Added scrollable area for checkbox list (120px height)
+  - New "Select All" and "Clear All" buttons for bulk operations
+  - Support for creating/updating multiple LLM configurations at once
+  - Better visual feedback with clear checkbox states
+  - Window title simplified from "PerSpec Control Center" to "Control Center"
+
+### Added
+- **Multi-Selection Support**
+  - Can now select and create multiple LLM configurations simultaneously
+  - Batch processing with detailed success/error reporting
+  - Centralized configuration path management
+
 ## [1.3.3] - 2025-01-22
 
 ### Added

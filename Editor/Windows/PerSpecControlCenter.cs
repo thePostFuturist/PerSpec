@@ -16,8 +16,17 @@ namespace PerSpec.Editor.Windows
     {
         #region Constants
         
-        private const string WINDOW_TITLE = "PerSpec Control Center";
+        private const string WINDOW_TITLE = "Control Center";
         private static readonly Vector2 MIN_SIZE = new Vector2(600, 500);
+
+        private static readonly string[] LLM_OPTIONS = new string[]
+        {
+            "Claude (CLAUDE.md)",
+            "Cursor (.cursorrules)",
+            "OpenAI Codex (.openai-codex.md)",
+            "Gemini CLI (.gemini/config.md)",
+            "OpenRouter/Buddy (.buddyrules)"
+        };
         
         #endregion
         
@@ -42,6 +51,9 @@ namespace PerSpec.Editor.Windows
         // BuildProfile management
         private BuildProfileHelper.BuildProfileInfo[] scannedProfiles;
         private bool showProfilesList = false;
+
+        // LLM Setup tab
+        private Vector2 llmScrollPosition;
         
         #endregion
         
@@ -150,7 +162,7 @@ namespace PerSpec.Editor.Windows
         private void DrawHeader()
         {
             EditorGUILayout.Space(10);
-            EditorGUILayout.LabelField("PerSpec Control Center", headerStyle);
+            EditorGUILayout.LabelField("Control Center", headerStyle);
             EditorGUILayout.LabelField("Unity Test Framework with TDD & SQLite Coordination", 
                 new GUIStyle(EditorStyles.centeredGreyMiniLabel));
         }
@@ -762,12 +774,12 @@ PerSpecDebug.LogTestComplete(""Test passed"");";
         {
             // Detect existing LLM configurations (moved outside to be accessible by both sections)
             var detectedConfigs = DetectLLMConfigurations();
-            
+
             DrawSection("LLM Configuration Management", () =>
             {
                 EditorGUILayout.HelpBox("Configure your AI coding assistant with PerSpec's TDD instructions.", MessageType.Info);
                 EditorGUILayout.Space(10);
-                
+
                 if (detectedConfigs.Count > 0)
                 {
                     EditorGUILayout.LabelField("Detected Configurations:", EditorStyles.boldLabel);
@@ -775,17 +787,17 @@ PerSpecDebug.LogTestComplete(""Test passed"");";
                     {
                         EditorGUILayout.BeginHorizontal();
                         EditorGUILayout.LabelField($"• {config.Key}", GUILayout.Width(200));
-                        
+
                         if (GUILayout.Button("Update", GUILayout.Width(80)))
                         {
                             UpdateLLMConfiguration(config.Value);
                         }
-                        
+
                         if (GUILayout.Button("View", GUILayout.Width(80)))
                         {
                             EditorUtility.RevealInFinder(config.Value);
                         }
-                        
+
                         EditorGUILayout.EndHorizontal();
                     }
                 }
@@ -793,27 +805,53 @@ PerSpecDebug.LogTestComplete(""Test passed"");";
                 {
                     EditorGUILayout.HelpBox("No LLM configuration files detected in your project.", MessageType.Warning);
                 }
-                
+
                 EditorGUILayout.Space(20);
-                EditorGUILayout.LabelField("Create New Configuration:", EditorStyles.boldLabel);
-                
-                // Dropdown for LLM selection
-                string[] llmOptions = new string[] 
+                EditorGUILayout.LabelField("Select LLM Configurations to Create/Update:", EditorStyles.boldLabel);
+
+                // Checkbox list in scroll view
+                EditorGUILayout.BeginVertical(EditorStyles.helpBox, GUILayout.Height(120));
+                llmScrollPosition = EditorGUILayout.BeginScrollView(llmScrollPosition);
+
+                for (int i = 0; i < LLM_OPTIONS.Length; i++)
                 {
-                    "Claude (CLAUDE.md)",
-                    "Cursor (.cursorrules)",
-                    "OpenAI Codex (.openai-codex.md)",
-                    "Gemini CLI (.gemini/config.md)",
-                    "OpenRouter/Buddy (.buddyrules)"
-                };
-                
-                EditorGUILayout.BeginHorizontal();
-                int selectedLLM = EditorGUILayout.Popup("Select LLM:", 0, llmOptions);
-                
-                if (GUILayout.Button("Create", GUILayout.Width(100)))
-                {
-                    CreateLLMConfiguration(selectedLLM);
+                    string prefKey = $"PerSpec.LLM.Selected.{i}";
+                    bool currentValue = EditorPrefs.GetBool(prefKey, false);
+                    bool newValue = EditorGUILayout.ToggleLeft(LLM_OPTIONS[i], currentValue);
+
+                    if (newValue != currentValue)
+                    {
+                        EditorPrefs.SetBool(prefKey, newValue);
+                    }
                 }
+
+                EditorGUILayout.EndScrollView();
+                EditorGUILayout.EndVertical();
+
+                EditorGUILayout.Space(10);
+                EditorGUILayout.BeginHorizontal();
+
+                if (GUILayout.Button("Create/Update Selected", GUILayout.Height(30)))
+                {
+                    CreateOrUpdateSelectedLLMConfigurations();
+                }
+
+                if (GUILayout.Button("Select All", GUILayout.Width(80), GUILayout.Height(30)))
+                {
+                    for (int i = 0; i < LLM_OPTIONS.Length; i++)
+                    {
+                        EditorPrefs.SetBool($"PerSpec.LLM.Selected.{i}", true);
+                    }
+                }
+
+                if (GUILayout.Button("Clear All", GUILayout.Width(80), GUILayout.Height(30)))
+                {
+                    for (int i = 0; i < LLM_OPTIONS.Length; i++)
+                    {
+                        EditorPrefs.SetBool($"PerSpec.LLM.Selected.{i}", false);
+                    }
+                }
+
                 EditorGUILayout.EndHorizontal();
                 
                 EditorGUILayout.Space(10);
@@ -1124,32 +1162,89 @@ Supported LLMs:
             }
         }
         
-        private void CreateLLMConfiguration(int llmIndex)
+        private void CreateOrUpdateSelectedLLMConfigurations()
+        {
+            var selectedConfigs = new List<int>();
+            for (int i = 0; i < LLM_OPTIONS.Length; i++)
+            {
+                if (EditorPrefs.GetBool($"PerSpec.LLM.Selected.{i}", false))
+                {
+                    selectedConfigs.Add(i);
+                }
+            }
+
+            if (selectedConfigs.Count == 0)
+            {
+                EditorUtility.DisplayDialog("No Selection",
+                    "Please select at least one LLM configuration to create/update.",
+                    "OK");
+                return;
+            }
+
+            int created = 0;
+            int updated = 0;
+            var errors = new List<string>();
+
+            foreach (int index in selectedConfigs)
+            {
+                try
+                {
+                    string configPath = GetLLMConfigPath(index);
+                    bool exists = File.Exists(configPath);
+
+                    if (exists)
+                    {
+                        UpdateLLMConfiguration(configPath);
+                        updated++;
+                    }
+                    else
+                    {
+                        CreateLLMConfiguration(index);
+                        created++;
+                    }
+                }
+                catch (Exception e)
+                {
+                    errors.Add($"{LLM_OPTIONS[index]}: {e.Message}");
+                }
+            }
+
+            string message = "";
+            if (created > 0) message += $"Created {created} configuration(s)\n";
+            if (updated > 0) message += $"Updated {updated} configuration(s)\n";
+            if (errors.Count > 0) message += $"\nErrors:\n{string.Join("\n", errors)}";
+
+            EditorUtility.DisplayDialog("Operation Complete", message, "OK");
+            AssetDatabase.Refresh();
+        }
+
+        private string GetLLMConfigPath(int llmIndex)
         {
             string projectPath = Directory.GetParent(Application.dataPath).FullName;
-            string configPath = "";
-            
+
             switch (llmIndex)
             {
                 case 0: // Claude
-                    configPath = Path.Combine(projectPath, "CLAUDE.md");
-                    break;
+                    return Path.Combine(projectPath, "CLAUDE.md");
                 case 1: // Cursor
-                    configPath = Path.Combine(projectPath, ".cursorrules");
-                    break;
+                    return Path.Combine(projectPath, ".cursorrules");
                 case 2: // OpenAI Codex
-                    configPath = Path.Combine(projectPath, ".openai-codex.md");
-                    break;
+                    return Path.Combine(projectPath, ".openai-codex.md");
                 case 3: // Gemini CLI
                     string geminiDir = Path.Combine(projectPath, ".gemini");
                     if (!Directory.Exists(geminiDir))
                         Directory.CreateDirectory(geminiDir);
-                    configPath = Path.Combine(geminiDir, "config.md");
-                    break;
+                    return Path.Combine(geminiDir, "config.md");
                 case 4: // OpenRouter/Buddy
-                    configPath = Path.Combine(projectPath, ".buddyrules");
-                    break;
+                    return Path.Combine(projectPath, ".buddyrules");
+                default:
+                    throw new ArgumentException($"Invalid LLM index: {llmIndex}");
             }
+        }
+
+        private void CreateLLMConfiguration(int llmIndex)
+        {
+            string configPath = GetLLMConfigPath(llmIndex);
             
             if (File.Exists(configPath))
             {
