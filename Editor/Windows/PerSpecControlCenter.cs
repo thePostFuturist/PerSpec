@@ -24,7 +24,7 @@ namespace PerSpec.Editor.Windows
             "Claude (CLAUDE.md)",
             "Cursor (.cursorrules)",
             "Agents (AGENTS.md)",
-            "Gemini CLI (.gemini/config.md)",
+            "Gemini CLI (GEMINI.md)",
             "Aider (Conventions.md)"
         };
         
@@ -956,7 +956,7 @@ Supported LLMs:
                 { "Claude (CLAUDE.md)", "CLAUDE.md" },
                 { "Cursor (.cursorrules)", ".cursorrules" },
                 { "Agents", "AGENTS.md" },
-                { "Gemini CLI", Path.Combine(".gemini", "config.md") },
+                { "Gemini CLI", "GEMINI.md" },
                 { "Aider", "Conventions.md" }
             };
             
@@ -1231,10 +1231,7 @@ Supported LLMs:
                 case 2: // Agents
                     return Path.Combine(projectPath, "AGENTS.md");
                 case 3: // Gemini CLI
-                    string geminiDir = Path.Combine(projectPath, ".gemini");
-                    if (!Directory.Exists(geminiDir))
-                        Directory.CreateDirectory(geminiDir);
-                    return Path.Combine(geminiDir, "config.md");
+                    return Path.Combine(projectPath, "GEMINI.md");
                 case 4: // Aider
                     return Path.Combine(projectPath, "Conventions.md");
                 default:
@@ -1524,7 +1521,7 @@ Supported LLMs:
                 return "Cursor";
             else if (fileName.Contains("AGENTS") || fileName.Contains("agents"))
                 return "Agents";
-            else if (configPath.Contains(".gemini"))
+            else if (fileName.Contains("GEMINI") || fileName.Contains("gemini"))
                 return "Gemini";
             else if (fileName.Contains("Conventions") || fileName.Contains("conventions"))
                 return "Aider";
