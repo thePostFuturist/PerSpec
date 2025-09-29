@@ -246,10 +246,10 @@ namespace PerSpec
         /// <summary>
         /// Validate that debug symbols are properly configured
         /// </summary>
+#if UNITY_EDITOR
         [UnityEditor.InitializeOnLoadMethod]
         private static void ValidateDebugConfiguration()
         {
-#if UNITY_EDITOR
             bool symbolDefined = false;
 #if PERSPEC_DEBUG
             symbolDefined = true;
@@ -263,9 +263,9 @@ namespace PerSpec
             {
                 Debug.Log("[PerSpec] Debug logging is DISABLED. All PerSpecDebug calls are stripped from code.");
             }
-#endif
         }
-        
+#endif
+
         #endregion
     }
 }
