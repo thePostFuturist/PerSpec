@@ -8,7 +8,7 @@ using UnityEngine;
 using UnityEngine.TestTools;
 using Cysharp.Threading.Tasks;
 
-namespace PerSpec.Runtime.DOTS
+namespace PerSpec.Editor.DOTS
 {
     /// <summary>
     /// Base class for DOTS tests with UniTask support

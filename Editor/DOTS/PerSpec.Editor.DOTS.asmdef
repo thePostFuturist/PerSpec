@@ -1,8 +1,9 @@
 {
-    "name": "PerSpec.Runtime.DOTS",
-    "rootNamespace": "PerSpec.Runtime.DOTS",
+    "name": "PerSpec.Editor.DOTS",
+    "rootNamespace": "PerSpec.Editor.DOTS",
     "references": [
         "PerSpec.Runtime.Unity",
+        "PerSpec.Runtime.DOTS",
         "UniTask",
         "Unity.Entities",
         "Unity.Entities.Hybrid",
@@ -10,13 +11,19 @@
         "Unity.Transforms",
         "Unity.Collections",
         "Unity.Jobs",
-        "Unity.Burst"
+        "Unity.Burst",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
     ],
-    "includePlatforms": [],
+    "includePlatforms": [
+        "Editor"
+    ],
     "excludePlatforms": [],
     "allowUnsafeCode": true,
-    "overrideReferences": false,
-    "precompiledReferences": [],
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
     "autoReferenced": true,
     "defineConstraints": [],
     "versionDefines": [],
