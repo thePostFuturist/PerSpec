@@ -22,6 +22,7 @@ namespace PerSpec.Editor.Coordination
         private static readonly string SessionFilePath;
         private static readonly object FileLock = new object();
         private static bool _isCapturing = false;
+        private static bool _isPerSpecEnabled = true; // Cache the PerSpec_Enabled preference
         private static StreamWriter _writer;
         private static readonly StringBuilder _stringBuilder = new StringBuilder(2048);
         
@@ -34,10 +35,10 @@ namespace PerSpec.Editor.Coordination
             try
             {
                 // Check if PerSpec is enabled and initialized
-                bool isEnabled = EditorPrefs.GetBool("PerSpec_Enabled", true);
+                _isPerSpecEnabled = EditorPrefs.GetBool("PerSpec_Enabled", true);
                 var projectRoot = Directory.GetCurrentDirectory();
                 var perspecPath = Path.Combine(projectRoot, "PerSpec");
-                if (!isEnabled || !Directory.Exists(perspecPath))
+                if (!_isPerSpecEnabled || !Directory.Exists(perspecPath))
                 {
                     return; // Don't initialize if PerSpec is disabled or not initialized
                 }
@@ -153,8 +154,7 @@ namespace PerSpec.Editor.Coordination
         
         private static void OnLogMessageReceivedThreaded(string message, string stackTrace, LogType logType)
         {
-            bool isEnabled = EditorPrefs.GetBool("PerSpec_Enabled", true);
-            if (!_isCapturing || !isEnabled) return;
+            if (!_isCapturing || !_isPerSpecEnabled) return;
             
             // Filter out our own logs to prevent recursion
             if (message.StartsWith("[EditModeLogCapture]")) return;
