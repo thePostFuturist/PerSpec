@@ -6,7 +6,7 @@ using UnityEngine;
 using UnityEngine.TestTools;
 using Cysharp.Threading.Tasks;
 
-namespace PerSpec.Runtime.Unity
+namespace PerSpec.Editor.Unity
 {
     /// <summary>
     /// Base class for tests using UniTask for async operations
