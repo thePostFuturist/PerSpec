@@ -33,7 +33,8 @@ def parse_log_file(filepath):
     """Parse a PlayMode log file and return structured data."""
     logs = []
     try:
-        with open(filepath, 'r', encoding='utf-8') as f:
+        # Added errors='replace' to handle potential malformed characters in logs
+        with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
             current_log = None
             for line in f:
                 line = line.rstrip()
@@ -84,26 +85,35 @@ def parse_log_file(filepath):
     return logs
 
 def is_compilation_error(message):
-    """Check if a log message is a compilation error (CS error)."""
-    # CS error codes: CS0001-CS9999
-    cs_pattern = r'\bCS\d{4}\b'
-
-    # Additional compilation-specific patterns
-    compilation_patterns = [
-        r'error CS\d{4}',
-        r': error CS\d{4}',
-        r'Compiler Error',
-        r'compilation failed',
-        r'All compiler errors'
-    ]
-
-    # Check for CS error code
+    """Check if a log message is a C# compilation error."""
+    # Pattern for standard C# error codes, e.g., error CS0103:
+    cs_pattern = r'error CS\d{4}:'
     if re.search(cs_pattern, message):
         return True
+    return False
 
-    # Check for compilation patterns
-    for pattern in compilation_patterns:
-        if re.search(pattern, message, re.IGNORECASE):
+def is_general_error(log):
+    """
+    Check if a log entry is a general error, exception, or assertion.
+    This is more comprehensive than just checking the log level.
+    """
+    # First, check the log level provided by Unity
+    if log.get('level') in ['Error', 'Exception', 'Assert']:
+        return True
+
+    # Second, check the message content for common error-related keywords
+    message = log.get('message', '').lower()
+    error_keywords = [
+        'exception:',          # Catches "NullReferenceException:", etc.
+        'error:',              # Catches "Error:", "Shader error:"
+        'failed',              # Catches "Assertion failed", "Test failed"
+        'assertion failed',
+        'unhandled exception',
+        'crash'
+    ]
+
+    for keyword in error_keywords:
+        if keyword in message:
             return True
 
     return False
@@ -343,11 +353,11 @@ def main():
 
     # Apply error filtering BEFORE line limit and summary
     if filter_errors == 'compilation':
-        # First filter to errors, then to compilation errors
-        all_logs = [log for log in all_logs if log['level'] in ['Error', 'Exception', 'Assert']]
+        # Filter for compilation errors only
         all_logs = [log for log in all_logs if is_compilation_error(log.get('message', ''))]
     elif filter_errors == 'all':
-        all_logs = [log for log in all_logs if log['level'] in ['Error', 'Exception', 'Assert']]
+        # Use the new, more comprehensive general error check
+        all_logs = [log for log in all_logs if is_general_error(log)]
     elif filter_level:
         all_logs = [log for log in all_logs if log['level'] == filter_level]
 
