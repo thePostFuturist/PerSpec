@@ -25,7 +25,10 @@ namespace PerSpec.Editor.Windows
             "Cursor (.cursorrules)",
             "Agents (AGENTS.md)",
             "Gemini CLI (GEMINI.md)",
-            "Aider (Conventions.md)"
+            "Aider (Conventions.md)",
+            "Windsurf (.windsurf/rules/)",
+            "OpenAI (.openai.md)",
+            "DeepSeek (.deepseek.md)"
         };
         
         #endregion
@@ -938,10 +941,14 @@ PerSpecDebug.LogTestComplete(""Test passed"");";
 Supported LLMs:
 • Claude Code - CLAUDE.md
 • Cursor - .cursorrules
-• OpenAI Codex - .openai-codex.md
-• Gemini CLI - .gemini/config.md";
-                
-                EditorGUILayout.TextArea(instructions, GUILayout.Height(180));
+• Agents - AGENTS.md
+• Gemini CLI - GEMINI.md
+• Aider - Conventions.md
+• Windsurf - .windsurf/rules/
+• OpenAI - .openai.md
+• DeepSeek - .deepseek.md";
+
+                EditorGUILayout.TextArea(instructions, GUILayout.Height(220));
             });
         }
         
@@ -949,7 +956,7 @@ Supported LLMs:
         {
             var configs = new Dictionary<string, string>();
             string projectPath = Directory.GetParent(Application.dataPath).FullName;
-            
+
             // Check for various LLM configuration files
             var llmFiles = new Dictionary<string, string>
             {
@@ -957,9 +964,11 @@ Supported LLMs:
                 { "Cursor (.cursorrules)", ".cursorrules" },
                 { "Agents", "AGENTS.md" },
                 { "Gemini CLI", "GEMINI.md" },
-                { "Aider", "Conventions.md" }
+                { "Aider", "Conventions.md" },
+                { "OpenAI", ".openai.md" },
+                { "DeepSeek", ".deepseek.md" }
             };
-            
+
             foreach (var file in llmFiles)
             {
                 string fullPath = Path.Combine(projectPath, file.Value);
@@ -968,7 +977,14 @@ Supported LLMs:
                     configs[file.Key] = fullPath;
                 }
             }
-            
+
+            // Special case: Check for Windsurf directory
+            string windsurfRulesPath = Path.Combine(projectPath, ".windsurf", "rules");
+            if (Directory.Exists(windsurfRulesPath))
+            {
+                configs["Windsurf"] = windsurfRulesPath;
+            }
+
             return configs;
         }
         
@@ -1107,51 +1123,75 @@ Supported LLMs:
         {
             try
             {
-                string llmContent = GetLLMContent();
-                string existingContent = File.ReadAllText(configPath);
-                
+                string actualFilePath = configPath;
+
+                // Special handling for Windsurf (directory-based config)
+                if (Directory.Exists(configPath) && configPath.Contains(".windsurf"))
+                {
+                    // Find perspec.md in the directory, or create it
+                    actualFilePath = Path.Combine(configPath, "perspec.md");
+
+                    if (!File.Exists(actualFilePath))
+                    {
+                        // Create new file if it doesn't exist
+                        string llmContent = GetLLMContent();
+                        string provider = "Windsurf";
+                        llmContent = LLMPermissionManager.UpdatePermissionBlock(llmContent, provider);
+                        File.WriteAllText(actualFilePath, llmContent);
+
+                        EditorUtility.DisplayDialog("Success",
+                            "Created perspec.md in .windsurf/rules/ with PerSpec instructions.",
+                            "OK");
+                        AssetDatabase.Refresh();
+                        return;
+                    }
+                }
+
+                string llmContent2 = GetLLMContent();
+                string existingContent = File.ReadAllText(actualFilePath);
+
                 // Determine provider from config path
-                string provider = GetProviderFromPath(configPath);
-                
+                string provider2 = GetProviderFromPath(actualFilePath);
+
                 // Check for existing block markers
-                string startMarker = GetStartMarker(configPath);
-                string endMarker = GetEndMarker(configPath);
-                
+                string startMarker = GetStartMarker(actualFilePath);
+                string endMarker = GetEndMarker(actualFilePath);
+
                 if (existingContent.Contains(startMarker) && existingContent.Contains(endMarker))
                 {
                     // Replace existing content between markers
                     string updatedContent = ReplaceContentBetweenMarkers(
-                        existingContent, 
-                        llmContent, 
-                        startMarker, 
+                        existingContent,
+                        llmContent2,
+                        startMarker,
                         endMarker
                     );
-                    
+
                     // Add permission block if enabled
-                    updatedContent = LLMPermissionManager.UpdatePermissionBlock(updatedContent, provider);
-                    
-                    File.WriteAllText(configPath, updatedContent);
-                    
+                    updatedContent = LLMPermissionManager.UpdatePermissionBlock(updatedContent, provider2);
+
+                    File.WriteAllText(actualFilePath, updatedContent);
+
                     EditorUtility.DisplayDialog("Success",
-                        $"Updated {Path.GetFileName(configPath)} with latest PerSpec instructions.",
+                        $"Updated {Path.GetFileName(actualFilePath)} with latest PerSpec instructions.",
                         "OK");
                 }
                 else
                 {
                     // No markers found - just append with markers at the end
                     string separator = "\n\n";
-                    string contentWithMarkers = $"{separator}{startMarker}\n{llmContent}\n{endMarker}";
+                    string contentWithMarkers = $"{separator}{startMarker}\n{llmContent2}\n{endMarker}";
                     // Add permission block if enabled
                     string fullContent = existingContent + contentWithMarkers;
-                    fullContent = LLMPermissionManager.UpdatePermissionBlock(fullContent, provider);
-                    
-                    File.WriteAllText(configPath, fullContent);
-                    
+                    fullContent = LLMPermissionManager.UpdatePermissionBlock(fullContent, provider2);
+
+                    File.WriteAllText(actualFilePath, fullContent);
+
                     EditorUtility.DisplayDialog("Success",
-                        $"Added PerSpec instructions to {Path.GetFileName(configPath)}.",
+                        $"Added PerSpec instructions to {Path.GetFileName(actualFilePath)}.",
                         "OK");
                 }
-                
+
                 AssetDatabase.Refresh();
             }
             catch (Exception e)
@@ -1234,6 +1274,12 @@ Supported LLMs:
                     return Path.Combine(projectPath, "GEMINI.md");
                 case 4: // Aider
                     return Path.Combine(projectPath, "Conventions.md");
+                case 5: // Windsurf
+                    return Path.Combine(projectPath, ".windsurf", "rules");
+                case 6: // OpenAI
+                    return Path.Combine(projectPath, ".openai.md");
+                case 7: // DeepSeek
+                    return Path.Combine(projectPath, ".deepseek.md");
                 default:
                     throw new ArgumentException($"Invalid LLM index: {llmIndex}");
             }
@@ -1242,31 +1288,47 @@ Supported LLMs:
         private void CreateLLMConfiguration(int llmIndex)
         {
             string configPath = GetLLMConfigPath(llmIndex);
-            
-            if (File.Exists(configPath))
+            string actualFilePath = configPath;
+
+            // Special handling for Windsurf (directory-based config)
+            if (llmIndex == 5) // Windsurf
+            {
+                // Create directory if it doesn't exist
+                if (!Directory.Exists(configPath))
+                {
+                    Directory.CreateDirectory(configPath);
+                }
+
+                // Create a file inside the directory
+                actualFilePath = Path.Combine(configPath, "perspec.md");
+            }
+
+            if (File.Exists(actualFilePath))
             {
                 if (!EditorUtility.DisplayDialog("File Exists",
-                    $"Configuration file already exists at:\n{configPath}\n\nOverwrite?",
+                    $"Configuration file already exists at:\n{actualFilePath}\n\nOverwrite?",
                     "Overwrite", "Cancel"))
                 {
                     return;
                 }
             }
-            
+
             try
             {
                 string llmContent = GetLLMContent();
-                
+
                 // Add permission block if enabled
                 string providerName = GetProviderFromIndex(llmIndex);
                 llmContent = LLMPermissionManager.UpdatePermissionBlock(llmContent, providerName);
-                
-                File.WriteAllText(configPath, llmContent);
-                
-                EditorUtility.DisplayDialog("Success",
-                    $"Created {Path.GetFileName(configPath)} with PerSpec instructions.",
-                    "OK");
-                
+
+                File.WriteAllText(actualFilePath, llmContent);
+
+                string successMessage = llmIndex == 5
+                    ? $"Created {Path.GetFileName(actualFilePath)} in .windsurf/rules/ with PerSpec instructions."
+                    : $"Created {Path.GetFileName(actualFilePath)} with PerSpec instructions.";
+
+                EditorUtility.DisplayDialog("Success", successMessage, "OK");
+
                 AssetDatabase.Refresh();
             }
             catch (Exception e)
@@ -1525,6 +1587,12 @@ Supported LLMs:
                 return "Gemini";
             else if (fileName.Contains("Conventions") || fileName.Contains("conventions"))
                 return "Aider";
+            else if (fileName.Contains("windsurf") || configPath.Contains(".windsurf"))
+                return "Windsurf";
+            else if (fileName.Contains("openai") || fileName.Contains("OpenAI"))
+                return "OpenAI";
+            else if (fileName.Contains("deepseek") || fileName.Contains("DeepSeek"))
+                return "DeepSeek";
 
             return "Unknown";
         }
@@ -1538,6 +1606,9 @@ Supported LLMs:
                 case 2: return "Agents";
                 case 3: return "Gemini";
                 case 4: return "Aider";
+                case 5: return "Windsurf";
+                case 6: return "OpenAI";
+                case 7: return "DeepSeek";
                 default: return "Unknown";
             }
         }

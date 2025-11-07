@@ -5,6 +5,28 @@ All notable changes to the PerSpec Testing Framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2025-11-07
+
+### Added
+- **New LLM Provider Support**
+  - Added Windsurf IDE support with directory-based configuration (`.windsurf/rules/`)
+  - Added OpenAI direct API support (`.openai.md`)
+  - Added DeepSeek model support (`.deepseek.md`)
+  - Total of 8 supported LLM providers now available in Control Center
+
+### Improved
+- **LLM Configuration Management**
+  - Enhanced `CreateLLMConfiguration()` to handle directory-based configs (Windsurf)
+  - Updated `UpdateLLMConfiguration()` with special handling for Windsurf directory structure
+  - Improved `DetectLLMConfigurations()` to detect directory-based configs
+  - Better provider detection logic in `GetProviderFromPath()` for all new providers
+
+### Changed
+- **Control Center UI**
+  - Updated LLM Setup tab instructions to list all 8 supported providers
+  - Increased instructions text area height to 220px for better readability
+  - Enhanced provider selection interface with new options
+
 ## [1.3.4] - 2025-01-27
 
 ### Fixed
