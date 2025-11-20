@@ -10,7 +10,6 @@
         "Unity.Mathematics",
         "Unity.Transforms",
         "Unity.Collections",
-        "Unity.Jobs",
         "Unity.Burst",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
@@ -25,7 +24,9 @@
         "nunit.framework.dll"
     ],
     "autoReferenced": true,
-    "defineConstraints": [],
+    "defineConstraints": [
+        "PERSPEC_DOTS_ENABLED"
+    ],
     "versionDefines": [],
     "noEngineReferences": false
 }

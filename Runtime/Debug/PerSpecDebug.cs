@@ -11,10 +11,6 @@ namespace PerSpec
     /// </summary>
     public static class PerSpecDebug
     {
-        // Cache for uppercase feature names to avoid repeated string allocations
-        private static readonly System.Collections.Generic.Dictionary<string, string> _upperCaseCache = 
-            new System.Collections.Generic.Dictionary<string, string>(16);
-        
         // Pre-formatted strings to reduce allocations
         private const string TestSetupPrefix = "[TEST-SETUP] ";
         private const string TestActionPrefix = "[TEST-ACT] ";
@@ -181,38 +177,34 @@ namespace PerSpec
         [Conditional("PERSPEC_DEBUG")]
         public static void LogFeatureStart(string feature, string message)
         {
-            string upperFeature = GetCachedUpperCase(feature);
-            UnityEngine.Debug.Log($"[{upperFeature}-START] {message}");
+            UnityEngine.Debug.Log($"[{feature.ToUpper()}-START] {message}");
         }
-        
+
         /// <summary>
         /// Logs a feature progress message (stripped in production)
         /// </summary>
         [Conditional("PERSPEC_DEBUG")]
         public static void LogFeatureProgress(string feature, string message)
         {
-            string upperFeature = GetCachedUpperCase(feature);
-            UnityEngine.Debug.Log($"[{upperFeature}-PROGRESS] {message}");
+            UnityEngine.Debug.Log($"[{feature.ToUpper()}-PROGRESS] {message}");
         }
-        
+
         /// <summary>
         /// Logs a feature completion message (stripped in production)
         /// </summary>
         [Conditional("PERSPEC_DEBUG")]
         public static void LogFeatureComplete(string feature, string message)
         {
-            string upperFeature = GetCachedUpperCase(feature);
-            UnityEngine.Debug.Log($"[{upperFeature}-COMPLETE] {message}");
+            UnityEngine.Debug.Log($"[{feature.ToUpper()}-COMPLETE] {message}");
         }
-        
+
         /// <summary>
         /// Logs a feature error message (stripped in production)
         /// </summary>
         [Conditional("PERSPEC_DEBUG")]
         public static void LogFeatureError(string feature, string message)
         {
-            string upperFeature = GetCachedUpperCase(feature);
-            UnityEngine.Debug.LogError($"[{upperFeature}-ERROR] {message}");
+            UnityEngine.Debug.LogError($"[{feature.ToUpper()}-ERROR] {message}");
         }
         
         #endregion
@@ -247,30 +239,22 @@ namespace PerSpec
         
         #endregion
         
-        #region Helper Methods
-        
+        #region Verification Methods
+
         /// <summary>
-        /// Get cached uppercase version of a string to avoid repeated allocations
+        /// Verifies that debug logging is enabled. Always outputs to console regardless of PERSPEC_DEBUG.
+        /// Use this to confirm logging is working correctly.
         /// </summary>
-        private static string GetCachedUpperCase(string input)
+        public static void VerifyEnabled()
         {
-            if (string.IsNullOrEmpty(input))
-                return string.Empty;
-                
-            if (!_upperCaseCache.TryGetValue(input, out string upper))
-            {
-                upper = input.ToUpper();
-                
-                // Limit cache size to prevent unbounded growth
-                if (_upperCaseCache.Count < 100)
-                {
-                    _upperCaseCache[input] = upper;
-                }
-            }
-            
-            return upper;
+#if PERSPEC_DEBUG
+            UnityEngine.Debug.Log("[PerSpec] Debug logging is ACTIVE (PERSPEC_DEBUG defined)");
+#else
+            UnityEngine.Debug.LogWarning("[PerSpec] Debug logging is INACTIVE - PERSPEC_DEBUG not defined.\n" +
+                "To enable: Create 'Assets/csc.rsp' file with contents: -define:PERSPEC_DEBUG");
+#endif
         }
-        
+
         #endregion
     }
 }

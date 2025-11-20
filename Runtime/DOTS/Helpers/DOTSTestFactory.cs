@@ -1,3 +1,4 @@
+#if PERSPEC_DOTS_ENABLED
 using System;
 using UnityEngine;
 using Unity.Entities;
@@ -252,3 +253,4 @@ namespace PerSpec.Runtime.DOTS
         #endregion
     }
 }
+#endif

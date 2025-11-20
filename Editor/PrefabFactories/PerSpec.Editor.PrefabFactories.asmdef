@@ -3,10 +3,7 @@
     "rootNamespace": "PerSpec.Editor.PrefabFactories",
     "references": [
         "PerSpec.Runtime",
-        "Unity.Collections",
-        "Unity.Entities",
-        "Unity.Entities.Hybrid",
-        "Unity.Transforms"
+        "Unity.Collections"
     ],
     "includePlatforms": [
         "Editor"
@@ -17,6 +14,12 @@
     "precompiledReferences": [],
     "autoReferenced": false,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.entities",
+            "expression": "",
+            "define": "HAS_UNITY_ENTITIES"
+        }
+    ],
     "noEngineReferences": false
 }

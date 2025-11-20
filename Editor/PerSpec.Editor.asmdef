@@ -10,8 +10,6 @@
         "PerSpec.Editor.TestExport",
         "PerSpec.Editor.PrefabFactories",
         "UniTask",
-        "Unity.Entities",
-        "Unity.Entities.Editor",
         "Unity.Mathematics",
         "Unity.Collections",
         "UnityEngine.TestRunner",
@@ -29,6 +27,12 @@
     ],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.entities",
+            "expression": "",
+            "define": "HAS_UNITY_ENTITIES"
+        }
+    ],
     "noEngineReferences": false
 }

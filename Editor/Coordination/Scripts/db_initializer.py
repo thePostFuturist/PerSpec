@@ -159,6 +159,24 @@ def create_database():
                 error_message TEXT
             )
         """)
+
+        # Create scene_hierarchy_requests table for scene export
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS scene_hierarchy_requests (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                request_type TEXT NOT NULL DEFAULT 'full',
+                target_path TEXT,
+                include_inactive INTEGER DEFAULT 1,
+                include_components INTEGER DEFAULT 1,
+                status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'running', 'completed', 'failed', 'cancelled')),
+                priority INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                started_at TIMESTAMP,
+                completed_at TIMESTAMP,
+                output_file TEXT,
+                error_message TEXT
+            )
+        """)
         
         # Create indexes for better query performance
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_requests_status ON test_requests(status)")
@@ -177,6 +195,9 @@ def create_database():
         # Menu item request indexes
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_menu_status ON menu_item_requests(status)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_menu_created ON menu_item_requests(created_at DESC)")
+
+        # Scene hierarchy request indexes
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_hierarchy_status ON scene_hierarchy_requests(status)")
         
         # Insert initial system status
         cursor.execute("""
@@ -194,6 +215,7 @@ def create_database():
         print("  - asset_refresh_requests")
         print("  - console_logs")
         print("  - menu_item_requests")
+        print("  - scene_hierarchy_requests")
         
     except sqlite3.Error as e:
         print(f"Error creating database: {e}")
@@ -224,7 +246,7 @@ def verify_database():
         """)
         tables = cursor.fetchall()
         
-        expected_tables = {'execution_log', 'system_status', 'test_requests', 'test_results', 'asset_refresh_requests', 'console_logs', 'menu_item_requests'}
+        expected_tables = {'execution_log', 'system_status', 'test_requests', 'test_results', 'asset_refresh_requests', 'console_logs', 'menu_item_requests', 'scene_hierarchy_requests'}
         actual_tables = {table[0] for table in tables}
         
         if expected_tables.issubset(actual_tables):

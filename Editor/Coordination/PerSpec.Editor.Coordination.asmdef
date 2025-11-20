@@ -7,8 +7,6 @@
         "Gilzoide.SqliteNet",
         "UniTask",
         "Unity.Collections",
-        "Unity.Entities",
-        "Unity.Entities.Editor",
         "Unity.Mathematics",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
@@ -25,6 +23,12 @@
     ],
     "autoReferenced": false,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.entities",
+            "expression": "",
+            "define": "HAS_UNITY_ENTITIES"
+        }
+    ],
     "noEngineReferences": false
 }

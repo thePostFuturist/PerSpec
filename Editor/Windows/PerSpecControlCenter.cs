@@ -187,7 +187,10 @@ namespace PerSpec.Editor.Windows
                 
                 DrawStatusRow("Debug Logging", DebugService.DebugStatus,
                     DebugService.IsDebugEnabled ? Color.green : Color.gray);
-                
+
+                DrawStatusRow("DOTS Support", DOTSService.DOTSStatus,
+                    DOTSService.IsDOTSEnabled ? Color.cyan : Color.gray);
+
                 DrawStatusRow("Compiler Directives", BuildProfileHelper.ConfigurationMode,
                     BuildProfileHelper.HasActiveBuildProfile ? Color.cyan : Color.white);
             });
@@ -547,9 +550,49 @@ namespace PerSpec.Editor.Windows
                     DebugService.TestLogLevels();
                 }
             });
-            
+
             EditorGUILayout.Space(10);
-            
+
+            // DOTS/Entities Support
+            DrawSection("DOTS/Entities Support", () =>
+            {
+                string dotsStatus = DOTSService.IsDOTSEnabled
+                    ? "● ENABLED - DOTS code will be included"
+                    : "● DISABLED - DOTS code is stripped";
+
+                Color dotsColor = DOTSService.IsDOTSEnabled ? Color.cyan : Color.gray;
+                GUI.color = dotsColor;
+                EditorGUILayout.LabelField(dotsStatus, statusStyle);
+                GUI.color = Color.white;
+
+                EditorGUILayout.Space(5);
+
+                EditorGUILayout.HelpBox(
+                    "Enable DOTS support only if you have Unity.Entities package installed. " +
+                    "When disabled, all DOTS-related code is stripped from compilation.",
+                    MessageType.Info
+                );
+
+                EditorGUILayout.Space(10);
+
+                EditorGUILayout.BeginHorizontal();
+
+                GUI.backgroundColor = DOTSService.IsDOTSEnabled ? Color.red : Color.green;
+                string dotsButtonText = DOTSService.IsDOTSEnabled
+                    ? "Disable DOTS Support"
+                    : "Enable DOTS Support";
+
+                if (GUILayout.Button(dotsButtonText, GUILayout.Height(40)))
+                {
+                    DOTSService.ToggleDOTS();
+                }
+                GUI.backgroundColor = Color.white;
+
+                EditorGUILayout.EndHorizontal();
+            });
+
+            EditorGUILayout.Space(10);
+
             // BuildProfile Management (Unity 6+)
             if (BuildProfileHelper.AreBuildProfilesSupported)
             {

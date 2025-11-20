@@ -5,6 +5,115 @@ All notable changes to the PerSpec Testing Framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.3] - 2025-11-19
+
+### Fixed
+- **Automatic SQLite Table Initialization**
+  - SQLite tables are now automatically created when PerSpec is enabled
+  - Eliminates "no such table" errors when Python scripts access database before initialization
+  - New `DatabaseInitializer.cs` creates all 8 tables using C# (no Python dependency)
+  - Called automatically on Editor startup when PerSpec is enabled
+  - Called when enabling PerSpec via Control Center
+  - Called on-demand when SQLiteManager detects missing database
+
+### Added
+- **scene_hierarchy_requests Table in db_initializer.py**
+  - Python script now creates all 8 tables (was missing scene_hierarchy_requests)
+  - Maintains parity between C# and Python database initialization
+
+### Improved
+- **Database Initialization Robustness**
+  - Multiple entry points ensure database is always ready
+  - Uses `CREATE TABLE IF NOT EXISTS` for idempotent operations
+  - WAL mode enabled for better concurrency
+
+## [1.5.2] - 2025-11-19
+
+### Changed
+- **DOTSService Now Uses csc.rsp**
+  - Switched from BuildProfile/PlayerSettings to csc.rsp file approach
+  - PERSPEC_DOTS_ENABLED directive now managed alongside PERSPEC_DEBUG
+  - Multiple directives can coexist in Assets/csc.rsp (one per line)
+  - Removed dependency on BuildProfileHelper for DOTS toggle
+  - Simplified status display in Control Center
+
+### Improved
+- **Unified Compiler Directive Management**
+  - Both debug logging and DOTS support now use same csc.rsp mechanism
+  - Consistent behavior across all Unity versions
+  - No more BuildProfile vs PlayerSettings confusion
+  - Handles edge cases: deletes csc.rsp when last directive is removed
+
+## [1.5.1] - 2025-11-19
+
+### Fixed
+- **Thread Safety Bug in PerSpecDebug**
+  - Removed non-thread-safe dictionary cache that could cause race conditions during async operations
+  - Feature logging methods (LogFeatureStart, LogFeatureProgress, etc.) now inline ToUpper() calls
+  - Eliminates potential InvalidOperationException during concurrent logging
+
+### Added
+- **Simplified Debug Logging Control via csc.rsp**
+  - New `PerSpecDebugSettings.EnableDebugLogging()` - creates Assets/csc.rsp
+  - New `PerSpecDebugSettings.DisableDebugLogging()` - deletes Assets/csc.rsp
+  - New `PerSpecDebugSettings.IsCscRspPresent` property
+  - New `PerSpecDebug.VerifyEnabled()` method to confirm logging status
+
+### Changed
+- **Debug Directive Management**
+  - PERSPEC_DEBUG now controlled via Assets/csc.rsp file (global to all code)
+  - Bypasses BuildProfile/PlayerSettings synchronization issues
+  - Single source of truth - file present = logging enabled
+  - Improved validation messages with clear instructions
+
+### Improved
+- **Startup Validation**
+  - ValidateDebugConfiguration now detects mismatches between file and compile state
+  - Clear warning when csc.rsp exists but recompilation is needed
+  - Helpful instructions in console for enabling/disabling logging
+
+## [1.5.0] - 2025-11-19
+
+### Breaking Changes
+- **DOTS/Entities Now Optional**
+  - DOTS support is now gated behind `PERSPEC_DOTS_ENABLED` compiler directive
+  - Users must manually enable DOTS support in Control Center > Debug Settings
+  - Unity.Entities removed from package dependencies (now optional)
+  - Minimum Unity version lowered to 2021.3 (from 6000.0)
+
+### Added
+- **DOTSService Toggle System**
+  - New `DOTSService` class for managing DOTS/Entities compiler directive
+  - Toggle in Control Center Dashboard shows DOTS status
+  - Toggle in Control Center Debug Settings tab to enable/disable DOTS support
+  - Methods: `IsDOTSEnabled`, `EnableDOTS()`, `DisableDOTS()`, `ToggleDOTS()`
+
+- **Conditional DOTS Compilation**
+  - Pure DOTS asmdefs use `defineConstraints` for `PERSPEC_DOTS_ENABLED`
+  - Mixed asmdefs use `versionDefines` to detect Unity.Entities package
+  - All DOTS C# files wrapped with `#if PERSPEC_DOTS_ENABLED` guards
+
+### Changed
+- **Package Configuration**
+  - Updated `package.json` minimum Unity version from 6000.0 to 2021.3
+  - Removed `com.unity.entities` from required dependencies
+  - Added "DOTS" to package keywords
+
+- **Assembly Definitions**
+  - `PerSpec.Runtime.DOTS.asmdef` - Added defineConstraints
+  - `PerSpec.Editor.DOTS.asmdef` - Added defineConstraints
+  - `PerSpec.Runtime.asmdef` - Removed DOTS refs, added versionDefines
+  - `PerSpec.Editor.asmdef` - Removed DOTS refs, added versionDefines
+  - `PerSpec.Editor.Coordination.asmdef` - Removed DOTS refs, added versionDefines
+  - `PerSpec.Editor.PrefabFactories.asmdef` - Removed DOTS refs, added versionDefines
+
+### Migration Notes
+- If upgrading from 1.4.x with DOTS code, enable DOTS support manually:
+  1. Open Control Center (Tools > PerSpec > Control Center)
+  2. Go to Debug Settings tab
+  3. Click "Enable DOTS Support"
+- Ensure Unity.Entities package is installed before enabling DOTS support
+
 ## [1.4.0] - 2025-11-07
 
 ### Added

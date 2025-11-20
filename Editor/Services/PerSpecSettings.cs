@@ -56,6 +56,12 @@ namespace PerSpec.Editor.Services
                     if (value)
                     {
                         Debug.Log("[PerSpec] PerSpec ENABLED - All services activated");
+
+                        // Initialize database when enabling (if PerSpec is initialized)
+                        if (ShouldRun)
+                        {
+                            Coordination.DatabaseInitializer.EnsureDatabaseExists();
+                        }
                     }
                     else
                     {

@@ -1,3 +1,4 @@
+#if PERSPEC_DOTS_ENABLED
 using System;
 using UnityEngine;
 
@@ -159,3 +160,4 @@ namespace PerSpec.Runtime.DOTS
         Critical = 3
     }
 }
+#endif

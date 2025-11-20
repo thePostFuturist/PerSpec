@@ -4,12 +4,8 @@
     "references": [
         "PerSpec.Runtime.Debug",
         "PerSpec.Runtime.Unity",
-        "PerSpec.Runtime.DOTS",
         "UniTask",
-        "Unity.Entities",
-        "Unity.Entities.Hybrid",
         "Unity.Mathematics",
-        "Unity.Transforms",
         "Unity.Collections",
         "Unity.Burst",
         "UnityEngine.TestRunner",
@@ -22,6 +18,12 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.entities",
+            "expression": "",
+            "define": "HAS_UNITY_ENTITIES"
+        }
+    ],
     "noEngineReferences": false
 }

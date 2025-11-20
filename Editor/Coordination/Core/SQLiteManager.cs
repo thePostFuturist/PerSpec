@@ -286,11 +286,15 @@ namespace PerSpec.Editor.Coordination
                 return;
             }
             
-            // Database will be created by Python scripts if it doesn't exist yet
+            // Try to create database if it doesn't exist
             if (!File.Exists(_dbPath))
             {
-                _isInitialized = false;
-                return;
+                // Attempt to initialize the database
+                if (!DatabaseInitializer.EnsureDatabaseExists())
+                {
+                    _isInitialized = false;
+                    return;
+                }
             }
             
             try

@@ -1,3 +1,4 @@
+#if PERSPEC_DOTS_ENABLED
 using System;
 using System.Threading;
 using NUnit.Framework;
@@ -497,3 +498,4 @@ namespace PerSpec.Editor.DOTS
         #endregion
     }
 }
+#endif
