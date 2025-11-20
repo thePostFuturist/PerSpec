@@ -50,10 +50,6 @@ namespace PerSpec.Editor.Windows
         private GUIStyle headerStyle;
         private GUIStyle sectionStyle;
         private GUIStyle statusStyle;
-        
-        // BuildProfile management
-        private BuildProfileHelper.BuildProfileInfo[] scannedProfiles;
-        private bool showProfilesList = false;
 
         // LLM Setup tab
         private Vector2 llmScrollPosition;
@@ -489,14 +485,6 @@ namespace PerSpec.Editor.Windows
                 EditorGUILayout.Space(5);
                 EditorGUILayout.LabelField("Configuration Mode:", BuildProfileHelper.ConfigurationMode);
                 
-                if (BuildProfileHelper.AreBuildProfilesSupported && !BuildProfileHelper.HasActiveBuildProfile)
-                {
-                    EditorGUILayout.HelpBox(
-                        "No active BuildProfile detected. Using PlayerSettings fallback. " +
-                        "Create and activate a BuildProfile in Unity 6 for better integration.",
-                        MessageType.Info
-                    );
-                }
             });
             
             EditorGUILayout.Space(10);
@@ -593,86 +581,6 @@ namespace PerSpec.Editor.Windows
 
             EditorGUILayout.Space(10);
 
-            // BuildProfile Management (Unity 6+)
-            if (BuildProfileHelper.AreBuildProfilesSupported)
-            {
-                DrawSection("BuildProfile Management", () =>
-                {
-                    EditorGUILayout.HelpBox(
-                        "Scan for BuildProfiles in your project and manage which one is active. " +
-                        "BuildProfiles control platform-specific settings and compiler directives.",
-                        MessageType.Info
-                    );
-                    
-                    EditorGUILayout.Space(5);
-                    
-                    EditorGUILayout.BeginHorizontal();
-                    
-                    if (GUILayout.Button("Scan for Build Profiles", GUILayout.Height(30)))
-                    {
-                        scannedProfiles = BuildProfileHelper.ScanForBuildProfiles();
-                        showProfilesList = scannedProfiles != null && scannedProfiles.Length > 0;
-                        
-                        if (scannedProfiles == null || scannedProfiles.Length == 0)
-                        {
-                            ShowNotification(new GUIContent("No BuildProfiles found in project"));
-                        }
-                        else
-                        {
-                            ShowNotification(new GUIContent($"Found {scannedProfiles.Length} BuildProfile(s)"));
-                        }
-                    }
-                    
-                    if (showProfilesList && scannedProfiles != null && scannedProfiles.Length > 0)
-                    {
-                        if (GUILayout.Button("Hide Profiles", GUILayout.Height(30)))
-                        {
-                            showProfilesList = false;
-                        }
-                    }
-                    
-                    EditorGUILayout.EndHorizontal();
-                    
-                    // Display found profiles
-                    if (showProfilesList && scannedProfiles != null && scannedProfiles.Length > 0)
-                    {
-                        EditorGUILayout.Space(10);
-                        EditorGUILayout.LabelField("Found BuildProfiles:", EditorStyles.boldLabel);
-                        
-                        foreach (var profile in scannedProfiles)
-                        {
-                            EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
-                            
-                            // Profile name
-                            string displayName = profile.IsActive ? $"● {profile.Name} (Active)" : profile.Name;
-                            EditorGUILayout.LabelField(displayName, profile.IsActive ? EditorStyles.boldLabel : EditorStyles.label);
-                            
-                            // Activate button
-                            if (!profile.IsActive)
-                            {
-                                if (GUILayout.Button("Activate", GUILayout.Width(80)))
-                                {
-                                    if (BuildProfileHelper.SetActiveBuildProfile(profile.Path))
-                                    {
-                                        ShowNotification(new GUIContent($"Activated: {profile.Name}"));
-                                        // Rescan to update active status
-                                        scannedProfiles = BuildProfileHelper.ScanForBuildProfiles();
-                                    }
-                                    else
-                                    {
-                                        ShowNotification(new GUIContent($"Failed to activate: {profile.Name}"));
-                                    }
-                                }
-                            }
-                            
-                            EditorGUILayout.EndHorizontal();
-                        }
-                    }
-                });
-                
-                EditorGUILayout.Space(10);
-            }
-            
             // Usage Example
             DrawSection("Usage Example", () =>
             {

@@ -159,14 +159,7 @@ namespace PerSpec.Editor.Windows
             string modeText = $"Using: <b>{BuildProfileHelper.ConfigurationMode}</b>";
             EditorGUILayout.LabelField(modeText, statusStyle);
             
-            if (BuildProfileHelper.AreBuildProfilesSupported && !BuildProfileHelper.HasActiveBuildProfile)
-            {
-                EditorGUILayout.HelpBox(
-                    "No active BuildProfile detected. Using PlayerSettings fallback. " +
-                    "Create and activate a BuildProfile for better integration.",
-                    MessageType.Info
-                );
-            }
+           
             
             EditorGUILayout.EndVertical();
         }

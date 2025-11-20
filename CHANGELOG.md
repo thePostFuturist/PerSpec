@@ -5,6 +5,27 @@ All notable changes to the PerSpec Testing Framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.4] - 2025-11-19
+
+### Fixed
+- **DOTS Directive Not Reaching Package Assemblies**
+  - `Assets/csc.rsp` only affected Assets/ assemblies, not package assemblies
+  - DOTSService now uses NamedBuildTarget API with PlayerSettings
+  - PlayerSettings scripting define symbols are truly global (reach all assemblies)
+  - Properly handles BuildProfiles in Unity 6+ via `#if UNITY_6000_0_OR_NEWER`
+
+### Changed
+- **DOTSService Implementation**
+  - Switched from csc.rsp to PlayerSettings.SetScriptingDefineSymbols
+  - Uses modern NamedBuildTarget API (Unity 2021.2+)
+  - Adds directive to all platforms (Standalone, iOS, Android, WebGL, etc.)
+  - Updates both BuildProfile and PlayerSettings in Unity 6+
+
+### Added
+- **Migration from csc.rsp**
+  - Automatically migrates existing `PERSPEC_DOTS_ENABLED` from csc.rsp to PlayerSettings
+  - Cleans up empty csc.rsp files after migration
+
 ## [1.5.3] - 2025-11-19
 
 ### Fixed
