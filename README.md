@@ -54,9 +54,12 @@ It's designed for modern, test-driven development and is perfect for solo develo
       }
     ],
     "dependencies": {
-      "com.digitraver.perspec": "1.5.6"
+      "com.digitraver.perspec": "^1.5.0"
     }
     ```
+
+    > **Note:** The `^1.5.0` version range automatically installs the latest compatible version (1.5.x, 1.6.x, etc.) while preventing breaking major version updates (2.x). This ensures you get bug fixes and new features automatically.
+
     </details>
 
 2. **Initialize PerSpec in Unity:**
