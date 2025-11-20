@@ -3,12 +3,12 @@
 <div align="center">
 
 ```
-    ____            _____
-   / __ \___  _____/ ___/____  ___  _____
-  / /_/ / _ \/ ___/\__ \/ __ \/ _ \/ ___/
- / ____/  __/ /   ___/ / /_/ /  __/ /__
-/_/    \___/_/   /____/ .___/\___/\___/
-                     /_/
+ ____           ____
+|  _ \ ___ _ __/ ___| _ __   ___  ___
+| |_) / _ \ '__\___ \| '_ \ / _ \/ __|
+|  __/  __/ |   ___) | |_) |  __/ (__
+|_|   \___|_|  |____/| .__/ \___|\___|
+                     |_|
 ```
 
 **Tired of copy-pasting Unity errors into your LLM? Frustrated with the endless cycle of switching back to the editor just to click "Run"?**
