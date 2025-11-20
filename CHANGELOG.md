@@ -5,6 +5,22 @@ All notable changes to the PerSpec Testing Framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.5] - 2025-11-19
+
+### Improved
+- **README Documentation**
+  - Replaced git URL installation with OpenUPM CLI instructions
+  - Added manual installation section with required scoped registry configuration
+  - Clearly documents all three required scopes: `com.digitraver.perspec`, `com.cysharp.unitask`, `com.gilzoide.sqlite-net`
+  - Reorganized Command Reference to appear after Quick Start
+  - Simplified command descriptions to focus on Control Center UI
+
+### Changed
+- **Installation Instructions**
+  - Removed non-functional git URL method
+  - OpenUPM CLI is now the recommended installation method
+  - Manual manifest.json configuration available as collapsible alternative
+
 ## [1.5.4] - 2025-11-19
 
 ### Fixed

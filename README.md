@@ -3,11 +3,11 @@
 <div align="center">
 
 ```
-     ____            _____                
+     ____            _____
     / __ \___  _____/ ___/____  ___  _____
    / /_/ / _ \/ ___/\__ \/ __ \/ _ \/ ___/
-  / ____/  __/ /   ___/ / /_/ /  __/ /__  
- /_/    \___/_/   /____/ .___/\___/\___/  
+  / ____/  __/ /   ___/ / /_/ /  __/ /__
+ /_/    \___/_/   /____/ .___/\___/\___/
                       /_/
 ```
 
@@ -23,26 +23,94 @@ PerSpec is a lightweight, rock-solid toolkit that connects your terminal to the 
 
 It's designed for modern, test-driven development and is perfect for solo developers, teams, and even for coordinating with AI coding assistants.
 
-## 🚀 Quick Start
+## Quick Start
 
-1.  **Install via Unity Package Manager:**
-    *   Go to `Window > Package Manager`.
-    *   Click `+` > `Add package from git URL...`.
-    *   Enter: `https://github.com/thePostFuturist/PerSpec.git`
+1. **Install via OpenUPM (Recommended):**
+    * Install the OpenUPM CLI if you haven't already:
+      ```bash
+      npm install -g openupm-cli
+      ```
+    * Add PerSpec to your project:
+      ```bash
+      openupm add com.digitraver.perspec
+      ```
+    * Or visit [OpenUPM](https://openupm.com/packages/com.digitraver.perspec/) for alternative installation methods.
 
-2.  **Initialize PerSpec in Unity:**
-    *   Once the package is installed, go to `Tools > PerSpec > Initialize PerSpec`.
-    *   This creates the `PerSpec/` directory in your project root, which contains the coordination database and Python scripts.
+    <details>
+    <summary><b>Manual Installation (Alternative)</b></summary>
 
-3.  **Sync Python Scripts:**
-    *   Open your terminal and run the sync script. This is the **single source of truth** that copies the necessary tools into your working directory. You should run this after every package update.
-    ```bash
-    python Packages/com.digitraver.perspec/ScriptingTools/sync_python_scripts.py
+    If you prefer to manually edit your `Packages/manifest.json`, add the following. **All three scopes are required** for dependency resolution:
+
+    ```json
+    "scopedRegistries": [
+      {
+        "name": "OpenUPM",
+        "url": "https://package.openupm.com",
+        "scopes": [
+          "com.digitraver.perspec",
+          "com.cysharp.unitask",
+          "com.gilzoide.sqlite-net"
+        ]
+      }
+    ],
+    "dependencies": {
+      "com.digitraver.perspec": "1.5.5"
+    }
     ```
+    </details>
 
-You're all set! You can now control Unity from your terminal.
+2. **Initialize PerSpec in Unity:**
+    * Once the package is installed, go to `Tools > PerSpec > Initialize PerSpec`.
+    * This creates the `PerSpec/` directory in your project root, which contains the coordination database and Python scripts.
 
-## 🎮 The Recommended TDD Workflow
+3. **Open the Control Center:**
+    * Go to `Tools > PerSpec > Control Center` to access all PerSpec features through a user-friendly interface.
+
+You're all set! You can now control Unity from the Control Center.
+
+## Command Reference
+
+Here are the key actions available through the **Control Center** (`Tools > PerSpec > Control Center`):
+
+### Unity Interaction
+
+| Action | Description | Control Center Location |
+|--------|-------------|------------------------|
+| **Refresh Assets** | Triggers Unity to re-import and compile your code | Debug Settings > Force Compilation |
+| **Save Project** | Saves the current scene and project changes | Use Unity's File menu directly |
+| **Open Console** | Opens the Unity Console window | Use Unity's Window menu directly |
+
+### Viewing Logs
+
+| Action | Description | Control Center Location |
+|--------|-------------|------------------------|
+| **View Compilation Errors** | Displays C# compilation errors from the editor | Test Coordinator > Test Status |
+| **View Recent Logs** | Shows recent log entries from the current session | Test Coordinator > Status Display |
+| **Database Statistics** | Shows database size and maintenance status | Test Coordinator > Database Status |
+
+### Running Tests & Viewing Results
+
+| Action | Description | Control Center Location |
+|--------|-------------|------------------------|
+| **Run EditMode Tests** | Executes all EditMode tests in your project | Test Coordinator (auto-polling enabled) |
+| **Run PlayMode Tests** | Executes all PlayMode tests in your project | Test Coordinator (auto-polling enabled) |
+| **View Test Results** | Shows a summary of the latest test run | Test Coordinator > Test Status |
+| **Cancel Running Test** | Cancels the currently executing test | Test Coordinator > Cancel Current Test |
+
+### Maintenance
+
+| Action | Description | Control Center Location |
+|--------|-------------|------------------------|
+| **Quick Cleanup** | Clears old logs and compacts the database | Test Coordinator > Clean Old Data (2h) |
+| **Vacuum Database** | Optimizes database performance | Test Coordinator > Vacuum Database |
+| **Aggressive Cleanup** | Deep clean for databases over 10MB | Test Coordinator > Aggressive Cleanup |
+| **Reset Database** | Complete database reset | Test Coordinator > Reset Database |
+
+### Advanced Features (Command Line)
+
+For advanced users and AI/LLM integration, PerSpec also provides Python scripts for programmatic control. See the [AI/LLM Integration Guide](Documentation/LLM.md) for details on command-line usage.
+
+## The Recommended TDD Workflow
 
 PerSpec is built for a fast, iterative Test-Driven Development (TDD) workflow. Follow this cycle for maximum efficiency and confidence.
 
@@ -51,92 +119,35 @@ Create your feature and a corresponding test file in your IDE.
 
 #### **Step 2: Refresh Unity**
 Tell Unity to import the new files and get ready for compilation.
-```bash
-python PerSpec/Coordination/Scripts/quick_refresh.py full --wait
-```
+* Open **Control Center > Debug Settings** and click **Force Compilation**
 
 #### **Step 3: Check for Compilation Errors**
-Before you run any tests, make sure your code actually compiles! This command will show you any C# errors.
-```bash
-python PerSpec/Coordination/Scripts/monitor_editmode_logs.py --errors
-```
+Before you run any tests, make sure your code actually compiles!
+* Check **Control Center > Test Coordinator** for the current status
+* Any C# errors will be displayed in the Test Status section
+
 > **Pro Tip:** If you see errors, fix them and go back to Step 2. Don't run tests if your code doesn't compile!
 
 #### **Step 4: Run Your Tests**
 Execute your test suite and see the results.
-```bash
-python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait
-```
+* The **Test Coordinator** with auto-polling enabled will automatically pick up and run pending tests
+* View results in the **Test Status** section
 
 Rinse and repeat! This simple loop ensures you're always working with a stable, tested codebase.
 
-## 🛠️ Command Reference
-
-Here are the most common commands to supercharge your workflow
-
-### Interacting with Unity
-
-| Command | Prompt |
-|---|---|
-| `quick_refresh.py full --wait` | **Refresh Assets**: tells Unity to re-import and compile your code |
-| `quick_menu.py execute "File/Save Project" --wait` | **Save Project**: saves the current scene and any project changes |
-| `quick_menu.py execute "Window/General/Console" --wait` | **Open Console**: opens the Unity Console window |
-
-### Viewing Logs (EditMode)
-
-| Command | Prompt |
-|---|---|
-| `monitor_editmode_logs.py recent -n 50` | show the last 50 log entries |
-| `monitor_editmode_logs.py --errors` | **Show Compilation Errors**: display C# compilation errors only |
-| `monitor_editmode_logs.py --all-errors` | show all errors and exceptions from the editor |
-| `monitor_editmode_logs.py live` | monitor logs in real-time |
-
-### Viewing Logs (PlayMode)
-
-| Command | Prompt |
-|---|---|
-| `test_playmode_logs.py` | show the last 50 logs from the most recent PlayMode session |
-| `test_playmode_logs.py --errors` | **Show All Errors**: displays all runtime errors, exceptions, and assertions |
-| `test_playmode_logs.py --cs-errors` | show only C# compilation errors found during PlayMode |
-| `test_playmode_logs.py -S "keyword" -i` | search for a keyword in the logs (case-insensitive) |
-
-### Running Tests & Viewing Results
-
-| Command | Prompt |
-|---|---|
-| `quick_test.py all -p edit --wait` | run all **EditMode** tests |
-| `quick_test.py all -p play --wait` | run all **PlayMode** tests |
-| `test_results.py latest` | show a summary of the latest test run |
-| `test_results.py latest -v` | show a verbose, detailed view of the latest test run |
-| `test_results.py failed -v` | show detailed results for only the tests that failed |
-
-### Scene & Hierarchy
-
-| Command | Prompt |
-|---|---|
-| `scene_hierarchy.py export full --wait --show` | export the entire scene hierarchy to JSON and print it |
-| `scene_hierarchy.py latest --show` | show the most recent scene export |
-
-### Maintenance
-
-| Command | Prompt |
-|---|---|
-| `quick_clean.py quick` | performs a quick cleanup of logs and compacts the database |
-| `db_auto_maintenance.py` | run the automatic database maintenance process |
-
-## 🤖 For Power Users & AI Integration
+## For Power Users & AI Integration
 
 PerSpec was originally built to help guide LLM assistants like Claude and Gemini. The robust command-line interface is perfect for programmatic use. If you want to dive deeper into the architecture or integrate PerSpec with an AI, check out the detailed documentation:
 
 *   **[AI/LLM Integration Guide](Documentation/LLM.md)**
 *   **[Technical Architecture Deep Dive](README.md#%EF%B8%8F-technical-background-why-database--background-threading--network-servers)**
 
-## 🤝 Contributing
+## Contributing
 
 PerSpec is open source! Contributions are welcome. Fork the repository and help us make Unity development faster and more reliable for everyone.
 
 *   **Repo:** [https://github.com/thePostFuturist/PerSpec](https://github.com/thePostFuturist/PerSpec)
 
-## 📄 License
+## License
 
 MIT License - Use it, modify it, ship it!
