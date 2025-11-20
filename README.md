@@ -3,12 +3,17 @@
 <div align="center">
 
 ```
- ____           ____
-|  _ \ ___ _ __/ ___| _ __   ___  ___
-| |_) / _ \ '__\___ \| '_ \ / _ \/ __|
-|  __/  __/ |   ___) | |_) |  __/ (__
-|_|   \___|_|  |____/| .__/ \___|\___|
-                     |_|
+8888888b.                  .d8888b.                             
+888   Y88b                d88P  Y88b                            
+888    888                Y88b.                                 
+888   d88P .d88b.  888d888 "Y888b.   88888b.   .d88b.   .d8888b 
+8888888P" d8P  Y8b 888P"      "Y88b. 888 "88b d8P  Y8b d88P"    
+888       88888888 888          "888 888  888 88888888 888      
+888       Y8b.     888    Y88b  d88P 888 d88P Y8b.     Y88b.    
+888        "Y8888  888     "Y8888P"  88888P"   "Y8888   "Y8888P 
+                                     888                        
+                                     888                        
+                                     
 ```
 
 **Tired of copy-pasting Unity errors into your LLM? Frustrated with the endless cycle of switching back to the editor just to click "Run"?**
