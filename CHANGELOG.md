@@ -5,6 +5,34 @@ All notable changes to the PerSpec Testing Framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.6] - 2025-11-19
+
+### Fixed
+- **README Documentation**
+  - Removed broken "Technical Architecture Deep Dive" link that pointed to non-existent section
+  - Link was causing 404 errors on GitHub
+
+### Improved
+- **TDD Workflow Documentation**
+  - Added LLM automation instructions to "The Recommended TDD Workflow" section
+  - Each step (2-4) now shows both manual Control Center actions and LLM prompts
+  - Added "Automating with LLM Prompts" subsection with command reference table
+  - Clearly documents that capable LLMs automatically run verification after code changes
+- **CLAUDE.md LLM Instructions**
+  - Added "Natural Language Prompt Recognition" subsection
+  - Explicit mapping of natural language prompts to Python commands
+  - Mandatory automatic triggering instructions for LLMs after code changes
+  - Emphasizes that automatic verification is NOT optional for LLM assistants
+
+### Added
+- **Natural Language Prompt Table**
+  - "refresh Unity" → `quick_refresh.py full --wait`
+  - "show errors" or "get errors" → `monitor_editmode_logs.py --errors`
+  - "run tests" → `quick_test.py all -p edit --wait`
+- **Cross-references**
+  - README TDD workflow links to LLM automation section
+  - README references AI/LLM Integration Guide for advanced usage
+
 ## [1.5.5] - 2025-11-19
 
 ### Improved

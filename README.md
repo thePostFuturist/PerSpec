@@ -54,7 +54,7 @@ It's designed for modern, test-driven development and is perfect for solo develo
       }
     ],
     "dependencies": {
-      "com.digitraver.perspec": "1.5.5"
+      "com.digitraver.perspec": "1.5.6"
     }
     ```
     </details>
@@ -114,33 +114,51 @@ For advanced users and AI/LLM integration, PerSpec also provides Python scripts 
 
 PerSpec is built for a fast, iterative Test-Driven Development (TDD) workflow. Follow this cycle for maximum efficiency and confidence.
 
+> **Note:** When working with AI assistants like Claude Code, steps 2-4 can be automated with natural language prompts. See [Automating with LLM Prompts](#automating-with-llm-prompts) below.
+
 #### **Step 1: Write Your Code & Tests**
 Create your feature and a corresponding test file in your IDE.
 
 #### **Step 2: Refresh Unity**
 Tell Unity to import the new files and get ready for compilation.
-* Open **Control Center > Debug Settings** and click **Force Compilation**
+* **Manual:** Open **Control Center > Debug Settings** and click **Force Compilation**
+* **LLM Prompt:** Say **"refresh Unity"**
 
 #### **Step 3: Check for Compilation Errors**
 Before you run any tests, make sure your code actually compiles!
-* Check **Control Center > Test Coordinator** for the current status
+* **Manual:** Check **Control Center > Test Coordinator** for the current status
+* **LLM Prompt:** Say **"show errors"** or **"get errors"**
 * Any C# errors will be displayed in the Test Status section
 
 > **Pro Tip:** If you see errors, fix them and go back to Step 2. Don't run tests if your code doesn't compile!
 
 #### **Step 4: Run Your Tests**
 Execute your test suite and see the results.
-* The **Test Coordinator** with auto-polling enabled will automatically pick up and run pending tests
+* **Manual:** The **Test Coordinator** with auto-polling enabled will automatically pick up and run pending tests
+* **LLM Prompt:** Say **"run tests"**
 * View results in the **Test Status** section
 
 Rinse and repeat! This simple loop ensures you're always working with a stable, tested codebase.
+
+### Automating with LLM Prompts
+
+When working with an LLM assistant (like Claude Code), you can automate the TDD workflow with natural language commands:
+
+| Step | Manual Action | LLM Prompt | What It Does |
+|------|---------------|------------|--------------|
+| **2** | Control Center > Force Compilation | `"refresh Unity"` | Runs `quick_refresh.py full --wait` to reimport assets and compile |
+| **3** | Control Center > Test Status | `"show errors"` or `"get errors"` | Runs `monitor_editmode_logs.py --errors` to display compilation errors |
+| **4** | Control Center > Test Coordinator | `"run tests"` | Runs `quick_test.py all -p edit --wait` to execute test suite |
+
+**Automatic Workflow:** Capable LLMs will automatically run steps 2-3 after writing or modifying any C# code to verify compilation before considering the task complete.
+
+For complete command-line documentation and advanced usage, see the [AI/LLM Integration Guide](Documentation/LLM.md).
 
 ## For Power Users & AI Integration
 
 PerSpec was originally built to help guide LLM assistants like Claude and Gemini. The robust command-line interface is perfect for programmatic use. If you want to dive deeper into the architecture or integrate PerSpec with an AI, check out the detailed documentation:
 
 *   **[AI/LLM Integration Guide](Documentation/LLM.md)**
-*   **[Technical Architecture Deep Dive](README.md#%EF%B8%8F-technical-background-why-database--background-threading--network-servers)**
 
 ## Contributing
 
