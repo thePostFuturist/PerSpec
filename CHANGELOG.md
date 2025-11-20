@@ -5,6 +5,17 @@ All notable changes to the PerSpec Testing Framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.7] - 2025-11-20
+
+### Fixed
+- **Scene Hierarchy Exporter Unity Version Compatibility**
+  - Fixed compilation error on Unity 2021.3 using `FindObjectsByType()` API
+  - `FindObjectsByType()` was introduced in Unity 2021.3.18 but preprocessor directives only support major.minor versions
+  - Added compiler directive using `UNITY_2022_2_OR_NEWER` as safe cutoff
+  - Unity 2021.3.x now uses legacy `FindObjectsOfType()` API for guaranteed compatibility
+  - Unity 2022.2+ uses modern `FindObjectsByType()` with performance optimizations (FindObjectsSortMode.None, FindObjectsInactive control)
+  - Code now compiles correctly across all supported Unity versions
+
 ## [1.5.6] - 2025-11-19
 
 ### Fixed

@@ -120,9 +120,17 @@ namespace PerSpec.Editor.Coordination
                 // If not found by path, try to find by name
                 if (targetGO == null)
                 {
+#if UNITY_2022_2_OR_NEWER
+                    // Modern API (Unity 2022.2+) - faster with explicit control over inactive objects and sorting
                     var allObjects = GameObject.FindObjectsByType<GameObject>(
                         includeInactive ? FindObjectsInactive.Include : FindObjectsInactive.Exclude,
                         FindObjectsSortMode.None);
+#else
+                    // Legacy API for Unity 2021.3 and earlier
+                    // Note: FindObjectsByType was introduced in Unity 2021.3.18, but Unity's preprocessor
+                    // directives only support major.minor versions, so we use 2022.2 as the cutoff
+                    var allObjects = GameObject.FindObjectsOfType<GameObject>(includeInactive);
+#endif
                     targetGO = allObjects.FirstOrDefault(go => go.name == targetPath || GetGameObjectPath(go) == targetPath);
                 }
 
