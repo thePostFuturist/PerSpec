@@ -431,9 +431,6 @@ namespace PerSpec.Editor.Services
                 NamedBuildTarget.iOS,
                 NamedBuildTarget.Android,
                 NamedBuildTarget.WebGL,
-                NamedBuildTarget.WindowsStoreApps,
-                NamedBuildTarget.tvOS,
-                NamedBuildTarget.LinuxHeadlessSimulation,
                 NamedBuildTarget.Server
             };
             
@@ -472,9 +469,6 @@ namespace PerSpec.Editor.Services
                 NamedBuildTarget.iOS,
                 NamedBuildTarget.Android,
                 NamedBuildTarget.WebGL,
-                NamedBuildTarget.WindowsStoreApps,
-                NamedBuildTarget.tvOS,
-                NamedBuildTarget.LinuxHeadlessSimulation,
                 NamedBuildTarget.Server
             };
             

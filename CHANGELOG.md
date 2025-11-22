@@ -5,6 +5,24 @@ All notable changes to the PerSpec Testing Framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.8] - 2025-11-21
+
+### Changed
+- **DOTSService Code Cleanup**
+  - Removed legacy csc.rsp migration code (from v1.5.4-1.5.6)
+  - Simplified EnableDOTS() and DisableDOTS() methods
+  - Removed migration methods: MigrateFromCscRsp() and CleanupCscRsp()
+  - Removed csc.rsp-related constants: CSC_RSP_PATH and OLD_DOTS_DEFINE
+  - Removed System.IO using statement (no longer needed)
+  - Reduced code complexity by ~80 lines
+
+### Technical Details
+- Migration from csc.rsp to PlayerSettings was introduced in v1.5.7
+- Users on versions older than v1.5.7 should upgrade to v1.5.7+ before updating to this version
+- DOTSService now exclusively uses NamedBuildTarget API with PlayerSettings
+- No breaking changes - all public APIs (EnableDOTS, DisableDOTS, ToggleDOTS, IsDOTSEnabled) remain identical
+- BuildProfile support for Unity 6+ maintained
+
 ## [1.5.7] - 2025-11-20
 
 ### Fixed

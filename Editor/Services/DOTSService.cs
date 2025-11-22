@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Linq;
 using UnityEngine;
 using UnityEditor;
@@ -20,8 +19,6 @@ namespace PerSpec.Editor.Services
         #region Constants
 
         private const string DOTS_DEFINE = "PERSPEC_DOTS_ENABLED";
-        private const string CSC_RSP_PATH = "Assets/csc.rsp";
-        private const string OLD_DOTS_DEFINE = "-define:PERSPEC_DOTS_ENABLED";
 
         // All supported NamedBuildTargets
         private static readonly NamedBuildTarget[] AllNamedBuildTargets = new[]
@@ -30,9 +27,6 @@ namespace PerSpec.Editor.Services
             NamedBuildTarget.iOS,
             NamedBuildTarget.Android,
             NamedBuildTarget.WebGL,
-            NamedBuildTarget.WindowsStoreApps,
-            NamedBuildTarget.tvOS,
-            NamedBuildTarget.LinuxHeadlessSimulation,
             NamedBuildTarget.Server
         };
 
@@ -78,9 +72,6 @@ namespace PerSpec.Editor.Services
         {
             try
             {
-                // First, migrate from csc.rsp if needed
-                MigrateFromCscRsp();
-
                 bool addedToProfile = false;
                 bool addedToPlayerSettings = false;
 
@@ -137,9 +128,6 @@ namespace PerSpec.Editor.Services
 
                 // 2. Remove from PlayerSettings for all platforms
                 removedFromPlayerSettings = RemoveSymbolFromAllPlatforms(DOTS_DEFINE);
-
-                // 3. Also clean up any remaining csc.rsp entries
-                CleanupCscRsp();
 
                 // Log appropriate message
                 if (removedFromProfile && removedFromPlayerSettings)
@@ -358,83 +346,6 @@ namespace PerSpec.Editor.Services
             catch
             {
                 return false;
-            }
-        }
-
-        #endregion
-
-        #region Migration Methods
-
-        /// <summary>
-        /// Migrate from old csc.rsp approach to PlayerSettings
-        /// </summary>
-        private static void MigrateFromCscRsp()
-        {
-            if (!File.Exists(CSC_RSP_PATH))
-                return;
-
-            try
-            {
-                string content = File.ReadAllText(CSC_RSP_PATH);
-                if (!content.Contains(OLD_DOTS_DEFINE))
-                    return;
-
-                Debug.Log("[PerSpec] Migrating DOTS directive from csc.rsp to PlayerSettings...");
-
-                // Remove from csc.rsp
-                var lines = File.ReadAllLines(CSC_RSP_PATH)
-                    .Where(l => l.Trim() != OLD_DOTS_DEFINE)
-                    .ToArray();
-
-                if (lines.Length == 0 || lines.All(string.IsNullOrWhiteSpace))
-                {
-                    File.Delete(CSC_RSP_PATH);
-                    var meta = CSC_RSP_PATH + ".meta";
-                    if (File.Exists(meta)) File.Delete(meta);
-                }
-                else
-                {
-                    File.WriteAllLines(CSC_RSP_PATH, lines);
-                }
-
-                Debug.Log("[PerSpec] Migration complete - DOTS directive moved to PlayerSettings");
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[PerSpec] Error during csc.rsp migration: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Clean up any remaining DOTS directive in csc.rsp
-        /// </summary>
-        private static void CleanupCscRsp()
-        {
-            if (!File.Exists(CSC_RSP_PATH))
-                return;
-
-            try
-            {
-                var lines = File.ReadAllLines(CSC_RSP_PATH);
-                var newLines = lines.Where(l => l.Trim() != OLD_DOTS_DEFINE).ToArray();
-
-                if (lines.Length == newLines.Length)
-                    return; // Nothing to clean up
-
-                if (newLines.Length == 0 || newLines.All(string.IsNullOrWhiteSpace))
-                {
-                    File.Delete(CSC_RSP_PATH);
-                    var meta = CSC_RSP_PATH + ".meta";
-                    if (File.Exists(meta)) File.Delete(meta);
-                }
-                else
-                {
-                    File.WriteAllLines(CSC_RSP_PATH, newLines);
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[PerSpec] Error cleaning up csc.rsp: {ex.Message}");
             }
         }
 
