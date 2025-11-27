@@ -5,6 +5,21 @@ All notable changes to the PerSpec Testing Framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.10] - 2025-11-26
+
+### Fixed
+- **Debug Test Log Levels Button**
+  - Fixed TestLogLevels() method to properly demonstrate conditional compilation
+  - PerSpecDebug calls now wrapped in #if PERSPEC_DEBUG blocks
+  - When debug is disabled, button correctly shows only Unity Debug.Log messages
+  - When debug is enabled, button shows both Unity and PerSpecDebug logs
+  - Added PerSpec.Runtime.Debug assembly reference to Editor.Services assembly
+
+### Technical Details
+- TestLogLevels() now actually calls PerSpecDebug methods instead of just printing messages about them
+- Demonstrates that PerSpecDebug calls are stripped at compile time when PERSPEC_DEBUG is not defined
+- Provides clear visual confirmation of debug logging state
+
 ## [1.5.9] - 2025-11-26
 
 ### Changed

@@ -3,6 +3,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEditor;
 using UnityEditor.Build;
+using PerSpec;
 
 namespace PerSpec.Editor.Services
 {
@@ -53,30 +54,37 @@ namespace PerSpec.Editor.Services
         {
             Debug.Log("========================================");
             Debug.Log($"[TEST] Testing Log Levels (Mode: {BuildProfileHelper.ConfigurationMode})");
+            Debug.Log($"[TEST] Debug Status: {(IsDebugEnabled ? "ENABLED" : "DISABLED")}");
             Debug.Log("========================================");
-            
+
             // These always show - they're regular Unity Debug calls
-            Debug.Log("[UNITY] This is a regular Unity Debug.Log - ALWAYS VISIBLE");
-            Debug.LogWarning("[UNITY] This is a Unity Debug.LogWarning - ALWAYS VISIBLE");
-            Debug.LogError("[UNITY] This is a Unity Debug.LogError - ALWAYS VISIBLE");
-            
+            Debug.Log("[UNITY] Regular Unity Debug.Log - ALWAYS VISIBLE");
+            Debug.LogWarning("[UNITY] Regular Unity Debug.LogWarning - ALWAYS VISIBLE");
+            Debug.LogError("[UNITY] Regular Unity Debug.LogError - ALWAYS VISIBLE");
+
             Debug.Log("----------------------------------------");
-            
-            // These are conditional - only show when PERSPEC_DEBUG is defined
+
 #if PERSPEC_DEBUG
-            Debug.Log("[PERSPEC] Debug is ENABLED - The following PerSpecDebug calls ARE compiled:");
-            // Note: These will only compile and run when PERSPEC_DEBUG is defined
-            Debug.Log("[PERSPEC] PerSpecDebug.Log would appear here - ONLY when debug enabled");
-            Debug.Log("[PERSPEC] PerSpecDebug.LogTestSetup would appear here - ONLY when debug enabled");
-            Debug.Log("[PERSPEC] PerSpecDebug.LogTestComplete would appear here - ONLY when debug enabled");
-            Debug.Log("[PERSPEC] PerSpecDebug.LogError would appear here - ONLY when debug enabled");
+            Debug.Log("[PERSPEC] Debug is ENABLED - Testing PerSpecDebug calls:");
+
+            // These are conditional - only compile and run when PERSPEC_DEBUG is defined
+            PerSpecDebug.Log("[PERSPEC] PerSpecDebug.Log - Visible only when debug enabled");
+            PerSpecDebug.LogWarning("[PERSPEC] PerSpecDebug.LogWarning - Visible only when debug enabled");
+            PerSpecDebug.LogError("[PERSPEC] PerSpecDebug.LogError - Visible only when debug enabled");
+            PerSpecDebug.LogTestSetup("Test setup phase");
+            PerSpecDebug.LogTestAction("Test action phase");
+            PerSpecDebug.LogTestAssert("Test assert phase");
+            PerSpecDebug.LogTestComplete("Test complete phase");
+            PerSpecDebug.LogFeatureStart("TestFeature", "Feature starting");
+            PerSpecDebug.LogFeatureComplete("TestFeature", "Feature completed");
+
+            Debug.Log("[PERSPEC] All PerSpecDebug calls executed successfully");
 #else
             Debug.Log("[PERSPEC] Debug is DISABLED - All PerSpecDebug calls are STRIPPED from code");
             Debug.Log("[PERSPEC] To see PerSpecDebug messages, enable debug logging and recompile");
+            Debug.Log("[PERSPEC] You should only see the Unity Debug.Log messages above");
 #endif
-            
-            Debug.Log("========================================");
-            Debug.Log($"[TEST] Current Status: Debug is {(IsDebugEnabled ? "ENABLED" : "DISABLED")}");
+
             Debug.Log("========================================");
         }
 

@@ -3,6 +3,7 @@
     "rootNamespace": "PerSpec.Editor.Services",
     "references": [
         "PerSpec.Runtime",
+        "PerSpec.Runtime.Debug",
         "PerSpec.Editor.Coordination",
         "UniTask",
         "UnityEngine.TestRunner",
