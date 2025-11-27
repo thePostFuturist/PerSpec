@@ -227,19 +227,13 @@ PerSpecDebug.LogTestSetup(""Creating prefab"");";
         
         private void CheckDebugSymbol()
         {
-            isDebugEnabled = BuildProfileHelper.HasCompilerDirective(PERSPEC_DEBUG_SYMBOL);
+            isDebugEnabled = DebugLoggingService.IsDebugEnabled;
         }
-        
+
         private void ToggleDebugSymbol()
         {
-            isDebugEnabled = !isDebugEnabled;
-            
-            if (isDebugEnabled)
-                BuildProfileHelper.AddCompilerDirective(PERSPEC_DEBUG_SYMBOL);
-            else
-                BuildProfileHelper.RemoveCompilerDirective(PERSPEC_DEBUG_SYMBOL);
-            
-            Debug.Log($"[PerSpec] Debug logging {(isDebugEnabled ? "ENABLED" : "DISABLED")} via {BuildProfileHelper.ConfigurationMode}. Recompiling scripts...");
+            DebugLoggingService.ToggleDebugLogging();
+            isDebugEnabled = DebugLoggingService.IsDebugEnabled;
         }
         
         // Symbol manipulation methods removed - now handled by BuildProfileHelper
@@ -264,41 +258,28 @@ PerSpecDebug.LogTestSetup(""Creating prefab"");";
         #endregion
         
         #region Quick Toggle Methods (accessed via Control Center)
-        
+
         // These methods are now called from PerSpecControlCenter
         private static void EnableDebugLogging()
         {
-            SetDebugEnabled(true);
+            DebugLoggingService.EnableDebugLogging();
         }
-        
+
         private static bool ValidateEnableDebugLogging()
         {
-            return !IsDebugEnabled();
+            return !DebugLoggingService.IsDebugEnabled;
         }
-        
+
         private static void DisableDebugLogging()
         {
-            SetDebugEnabled(false);
+            DebugLoggingService.DisableDebugLogging();
         }
-        
+
         private static bool ValidateDisableDebugLogging()
         {
-            return IsDebugEnabled();
+            return DebugLoggingService.IsDebugEnabled;
         }
-        
-        private static bool IsDebugEnabled()
-        {
-            return BuildProfileHelper.HasCompilerDirective(PERSPEC_DEBUG_SYMBOL);
-        }
-        
-        private static void SetDebugEnabled(bool enabled)
-        {
-            var window = CreateInstance<PerSpecDebugWindow>();
-            window.isDebugEnabled = !enabled; // Toggle will flip it
-            window.ToggleDebugSymbol();
-            DestroyImmediate(window);
-        }
-        
+
         #endregion
     }
 }

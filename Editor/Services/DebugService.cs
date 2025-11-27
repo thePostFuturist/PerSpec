@@ -7,56 +7,43 @@ using UnityEditor.Build;
 namespace PerSpec.Editor.Services
 {
     /// <summary>
-    /// Service for managing debug settings and logging
+    /// Service for managing debug settings and logging.
+    /// Now delegates to DebugLoggingService for consistency with DOTS approach.
     /// </summary>
     public static class DebugService
     {
-        #region Constants
-        
-        private const string PERSPEC_DEBUG_SYMBOL = "PERSPEC_DEBUG";
-        
-        #endregion
-        
         #region Properties
-        
-        public static bool IsDebugEnabled
-        {
-            get
-            {
-                return BuildProfileHelper.HasCompilerDirective(PERSPEC_DEBUG_SYMBOL);
-            }
-        }
-        
-        public static string DebugStatus => IsDebugEnabled 
-            ? $"Enabled - Debug logs included ({BuildProfileHelper.ConfigurationMode})" 
-            : $"Disabled - Debug logs stripped ({BuildProfileHelper.ConfigurationMode})";
-            
+
+        public static bool IsDebugEnabled => DebugLoggingService.IsDebugEnabled;
+
+        public static string DebugStatus => DebugLoggingService.DebugStatus;
+
         #endregion
-        
+
         #region Public Methods
-        
+
         /// <summary>
         /// Enable debug logging
         /// </summary>
         public static void EnableDebugLogging()
         {
-            SetDebugEnabled(true);
+            DebugLoggingService.EnableDebugLogging();
         }
-        
+
         /// <summary>
         /// Disable debug logging
         /// </summary>
         public static void DisableDebugLogging()
         {
-            SetDebugEnabled(false);
+            DebugLoggingService.DisableDebugLogging();
         }
-        
+
         /// <summary>
         /// Toggle debug logging
         /// </summary>
         public static void ToggleDebugLogging()
         {
-            SetDebugEnabled(!IsDebugEnabled);
+            DebugLoggingService.ToggleDebugLogging();
         }
         
         /// <summary>
@@ -92,23 +79,7 @@ namespace PerSpec.Editor.Services
             Debug.Log($"[TEST] Current Status: Debug is {(IsDebugEnabled ? "ENABLED" : "DISABLED")}");
             Debug.Log("========================================");
         }
-        
-        #endregion
-        
-        #region Private Methods
-        
-        private static void SetDebugEnabled(bool enabled)
-        {
-            if (enabled)
-                BuildProfileHelper.AddCompilerDirective(PERSPEC_DEBUG_SYMBOL);
-            else
-                BuildProfileHelper.RemoveCompilerDirective(PERSPEC_DEBUG_SYMBOL);
-            
-            Debug.Log($"[PerSpec] Debug logging {(enabled ? "ENABLED" : "DISABLED")} via {BuildProfileHelper.ConfigurationMode}. Recompiling scripts...");
-        }
-        
-        // Symbol manipulation methods removed - now handled by BuildProfileHelper
-        
+
         #endregion
     }
 }

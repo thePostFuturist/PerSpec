@@ -248,10 +248,10 @@ namespace PerSpec
         public static void VerifyEnabled()
         {
 #if PERSPEC_DEBUG
-            UnityEngine.Debug.Log("[PerSpec] Debug logging is ACTIVE (PERSPEC_DEBUG defined)");
+            UnityEngine.Debug.Log("[PerSpec] Debug logging is ACTIVE (PERSPEC_DEBUG defined via PlayerSettings)");
 #else
             UnityEngine.Debug.LogWarning("[PerSpec] Debug logging is INACTIVE - PERSPEC_DEBUG not defined.\n" +
-                "To enable: Create 'Assets/csc.rsp' file with contents: -define:PERSPEC_DEBUG");
+                "To enable in Editor: Call PerSpec.Editor.Services.DebugLoggingService.EnableDebugLogging() or add PERSPEC_DEBUG to PlayerSettings > Scripting Define Symbols");
 #endif
         }
 

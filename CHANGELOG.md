@@ -5,6 +5,26 @@ All notable changes to the PerSpec Testing Framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.9] - 2025-11-26
+
+### Changed
+- **Debug Logging Refactored to Use NamedBuildTarget API**
+  - Migrated from legacy `csc.rsp` file approach to Unity's PlayerSettings scripting define symbols
+  - Created `DebugLoggingService` using NamedBuildTarget API (mirrors DOTSService architecture)
+  - Now consistent with DOTS implementation for managing compiler directives
+  - Supports per-platform debug logging configuration
+  - Supports BuildProfile integration in Unity 6+
+  - Updated `DebugService` to delegate to new `DebugLoggingService`
+  - Updated `PerSpecDebugWindow` to use new service
+  - Removed `EnableDebugLogging()` and `DisableDebugLogging()` methods from `PerSpecDebugSettings` (Runtime assembly cannot reference Editor)
+
+### Technical Details
+- `PerSpecDebugSettings.IsDebugEnabled` (Runtime property) still works in all builds for checking if debug logging is compiled in
+- To enable/disable debug logging in Editor: Use `DebugLoggingService.EnableDebugLogging()` or `DebugService.EnableDebugLogging()`
+- Control Center UI automatically uses new service
+- No `csc.rsp` file management required - all handled through PlayerSettings
+- Scripting define symbol `PERSPEC_DEBUG` managed via NamedBuildTarget API across all platforms
+
 ## [1.5.8] - 2025-11-21
 
 ### Changed

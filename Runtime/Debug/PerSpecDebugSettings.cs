@@ -1,5 +1,4 @@
 using UnityEngine;
-using System.IO;
 
 namespace PerSpec
 {
@@ -8,85 +7,10 @@ namespace PerSpec
     /// This class provides runtime checks and utilities that work even when debug logging is disabled.
     ///
     /// Debug logging is controlled by the PERSPEC_DEBUG compiler directive.
-    /// Enable by creating 'Assets/csc.rsp' with contents: -define:PERSPEC_DEBUG
-    /// Disable by deleting the file.
+    /// To enable/disable in Editor: Use PerSpec.Editor.Services.DebugLoggingService or PerSpec.Editor.Services.DebugService.
     /// </summary>
     public static class PerSpecDebugSettings
     {
-        #region csc.rsp Management
-
-        private const string CSC_RSP_PATH = "Assets/csc.rsp";
-        private const string PERSPEC_DEBUG_DEFINE = "-define:PERSPEC_DEBUG";
-
-        /// <summary>
-        /// Enables debug logging by creating Assets/csc.rsp with PERSPEC_DEBUG directive.
-        /// Requires Unity recompilation to take effect.
-        /// </summary>
-        public static void EnableDebugLogging()
-        {
-#if UNITY_EDITOR
-            try
-            {
-                File.WriteAllText(CSC_RSP_PATH, PERSPEC_DEBUG_DEFINE);
-                Debug.Log($"[PerSpec] Created {CSC_RSP_PATH} - Debug logging will be enabled after recompilation.");
-
-                // Force recompilation
-                UnityEditor.AssetDatabase.Refresh();
-                UnityEditor.Compilation.CompilationPipeline.RequestScriptCompilation();
-            }
-            catch (System.Exception ex)
-            {
-                Debug.LogError($"[PerSpec] Failed to create {CSC_RSP_PATH}: {ex.Message}");
-            }
-#else
-            Debug.LogWarning("[PerSpec] EnableDebugLogging() is only available in the Unity Editor.");
-#endif
-        }
-
-        /// <summary>
-        /// Disables debug logging by deleting Assets/csc.rsp.
-        /// Requires Unity recompilation to take effect.
-        /// </summary>
-        public static void DisableDebugLogging()
-        {
-#if UNITY_EDITOR
-            try
-            {
-                if (File.Exists(CSC_RSP_PATH))
-                {
-                    File.Delete(CSC_RSP_PATH);
-
-                    // Also delete the .meta file if it exists
-                    string metaPath = CSC_RSP_PATH + ".meta";
-                    if (File.Exists(metaPath))
-                        File.Delete(metaPath);
-
-                    Debug.Log($"[PerSpec] Deleted {CSC_RSP_PATH} - Debug logging will be disabled after recompilation.");
-
-                    // Force recompilation
-                    UnityEditor.AssetDatabase.Refresh();
-                    UnityEditor.Compilation.CompilationPipeline.RequestScriptCompilation();
-                }
-                else
-                {
-                    Debug.Log($"[PerSpec] {CSC_RSP_PATH} does not exist - Debug logging is already disabled.");
-                }
-            }
-            catch (System.Exception ex)
-            {
-                Debug.LogError($"[PerSpec] Failed to delete {CSC_RSP_PATH}: {ex.Message}");
-            }
-#else
-            Debug.LogWarning("[PerSpec] DisableDebugLogging() is only available in the Unity Editor.");
-#endif
-        }
-
-        /// <summary>
-        /// Checks if the csc.rsp file exists (runtime check, may differ from compile-time state)
-        /// </summary>
-        public static bool IsCscRspPresent => File.Exists(CSC_RSP_PATH);
-
-        #endregion
 
         #region Constants
         
@@ -330,27 +254,12 @@ namespace PerSpec
         [UnityEditor.InitializeOnLoadMethod]
         private static void ValidateDebugConfiguration()
         {
-            bool symbolDefined = false;
 #if PERSPEC_DEBUG
-            symbolDefined = true;
+            Debug.Log("[PerSpec] Debug logging is ENABLED (PERSPEC_DEBUG defined via PlayerSettings).");
+#else
+            Debug.Log("[PerSpec] Debug logging is DISABLED. All PerSpecDebug calls are stripped from code.\n" +
+                "To enable: PerSpecDebugSettings.EnableDebugLogging() or add PERSPEC_DEBUG to PlayerSettings > Scripting Define Symbols.");
 #endif
-
-            bool fileExists = IsCscRspPresent;
-
-            if (symbolDefined)
-            {
-                Debug.Log("[PerSpec] Debug logging is ENABLED (Assets/csc.rsp present).");
-            }
-            else if (fileExists)
-            {
-                Debug.LogWarning("[PerSpec] Assets/csc.rsp exists but PERSPEC_DEBUG not defined. " +
-                    "Unity may need to recompile. Try: Assets > Refresh or Ctrl+R.");
-            }
-            else
-            {
-                Debug.Log("[PerSpec] Debug logging is DISABLED. All PerSpecDebug calls are stripped from code.\n" +
-                    "To enable: PerSpecDebugSettings.EnableDebugLogging() or create Assets/csc.rsp with -define:PERSPEC_DEBUG");
-            }
         }
 #endif
 
