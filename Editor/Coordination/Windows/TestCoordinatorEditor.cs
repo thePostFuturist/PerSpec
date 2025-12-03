@@ -9,6 +9,7 @@ using UnityEditor.Compilation;
 using UnityEngine.TestTools;
 using UnityEditor.TestTools.TestRunner.Api;
 using System.Collections;
+using TestMode = UnityEditor.TestTools.TestRunner.Api.TestMode;
 
 namespace PerSpec.Editor.Coordination
 {

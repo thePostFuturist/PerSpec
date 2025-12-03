@@ -9,9 +9,12 @@ using UnityEditor;
 using UnityEngine.TestTools;
 using UnityEditor.TestTools.TestRunner.Api;
 using PerSpec.Editor.TestExport;
+using TestMode = UnityEditor.TestTools.TestRunner.Api.TestMode;
 
 namespace PerSpec.Editor.Coordination
 {
+
+
     public class TestExecutor : ICallbacks
     {
         private SQLiteManager _dbManager;
