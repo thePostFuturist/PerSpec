@@ -267,22 +267,67 @@ def verify_database():
 def reset_database():
     """Reset the database (drop all tables and recreate)"""
     db_path = get_db_path()
-    
+
     if db_path.exists():
         print(f"Removing existing database at: {db_path}")
         os.remove(db_path)
-    
+
     return create_database()
+
+def reset_tables():
+    """Reset database tables without deleting the file (drop and recreate)"""
+    db_path = get_db_path()
+
+    if not db_path.exists():
+        print(f"Database does not exist at: {db_path}, creating new one...")
+        return create_database()
+
+    print(f"Resetting database tables at: {db_path}")
+
+    try:
+        # Connect to existing database
+        conn = sqlite3.connect(str(db_path))
+        conn.execute("PRAGMA journal_mode=WAL")
+        cursor = conn.cursor()
+
+        # Get all table names
+        cursor.execute("""
+            SELECT name FROM sqlite_master
+            WHERE type='table' AND name NOT LIKE 'sqlite_%'
+            ORDER BY name
+        """)
+        tables = cursor.fetchall()
+
+        # Drop all tables
+        print("Dropping existing tables...")
+        for table in tables:
+            table_name = table[0]
+            cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
+            print(f"  Dropped: {table_name}")
+
+        conn.commit()
+        conn.close()
+
+        # Now recreate all tables using the create_database logic
+        print("\nRecreating database schema...")
+        return create_database()
+
+    except sqlite3.Error as e:
+        print(f"Error resetting database tables: {e}")
+        return False
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "reset":
-        print("Resetting database...")
+        print("Resetting database tables (keeping file)...")
+        reset_tables()
+    elif len(sys.argv) > 1 and sys.argv[1] == "reset_full":
+        print("Resetting database (deleting file)...")
         reset_database()
     elif len(sys.argv) > 1 and sys.argv[1] == "verify":
         verify_database()
     else:
         if get_db_path().exists():
-            print("Database already exists. Use 'reset' argument to recreate.")
+            print("Database already exists. Use 'reset' argument to recreate tables.")
             verify_database()
         else:
             create_database()

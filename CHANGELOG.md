@@ -5,6 +5,62 @@ All notable changes to the PerSpec Testing Framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.13] - 2025-12-04
+
+### Added
+- **Comprehensive Reset System for Control Center**
+  - New "Reset" button in Control Center with full system reset capability
+  - Stops all coordination services (BackgroundPoller, TestCoordinator, AssetRefresh, MenuItem, SceneHierarchy)
+  - Closes database connections with aggressive garbage collection (2.5s wait)
+  - Drops and recreates all database tables without deleting the database file
+  - Cleans all log directories (EditModeLogs, PlayModeLogs, TestResults, SceneHierarchy)
+  - Restarts all coordination services automatically
+  - Complete reset in ~5 seconds without Unity restart required
+  - Preserves EditorPrefs settings and compiler symbols (PERSPEC_DEBUG, PERSPEC_DOTS_ENABLED)
+
+- **Python Script Enhancement**
+  - Added `reset_tables()` function to `db_initializer.py` for safe database reset
+  - Keeps database file intact while dropping and recreating all tables
+  - New command: `python db_initializer.py reset` (keeps file)
+  - Preserved old behavior: `python db_initializer.py reset_full` (deletes file)
+
+### Fixed
+- **Database Reset Permission Errors**
+  - Fixed "file in use" errors during database reset operations
+  - Extended wait time from 1s to 2.5s for database connection cleanup
+  - Added multiple garbage collection cycles to ensure connections close
+  - Database tables now reset via SQL commands instead of file deletion
+  - Prevents Windows "PermissionError: file being used by another process"
+
+### Improved
+- **Service Coordination**
+  - All coordinators now have public `StopPolling()` and `StartPolling()` methods
+  - Better cleanup of background timers and database connections
+  - More robust error handling with continue-on-error approach
+  - Detailed progress reporting via progress bar (7 steps)
+
+### Technical Details
+- ResetService.cs: ~437 lines of comprehensive reset orchestration
+- Modified 5 coordinator files with reset support
+- Python script updated with table-preserving reset function
+- All changes in package location (Packages/com.digitraver.perspec/)
+
+## [1.5.12] - 2025-12-03
+
+### Fixed
+- **Windows Unicode Encoding Error in Python Scripts**
+  - Fixed UnicodeEncodeError when Python scripts print Unity logs containing emoji characters
+  - Windows cmd.exe defaults to cp1252 encoding, which cannot display Unicode emoji like ✅ and ❌
+  - Added UTF-8 encoding configuration to all Python coordination scripts
+  - Scripts now call `sys.stdout.reconfigure(encoding='utf-8', errors='replace')` at startup
+  - Prevents crashes when displaying Unity debug logs with Unicode characters
+
+### Technical Details
+- Affected 9 scripts: test_playmode_logs.py, test_results.py, quick_test.py, scene_hierarchy.py, quick_clean.py, quick_menu.py, quick_refresh.py, db_migrate.py, editor_log_monitor.py
+- monitor_editmode_logs.py already had a similar fix using io.TextIOWrapper
+- Uses Python 3.7+ `reconfigure()` method for clean, cross-platform UTF-8 support
+- The `errors='replace'` parameter ensures graceful fallback if any character cannot be encoded
+
 ## [1.5.11]
 - **Some Unity 6 LTS breakage**
 

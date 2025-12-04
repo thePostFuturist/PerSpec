@@ -254,6 +254,9 @@ namespace PerSpec.Editor.Windows
                     if (EditorUtility.DisplayDialog(
                         "Remove PerSpec",
                         "WARNING: This will DELETE the PerSpec directory and all its contents!\n\n" +
+                        "Compiler directives will be removed:\n" +
+                        "• PERSPEC_DEBUG\n" +
+                        "• PERSPEC_DOTS_ENABLED\n\n" +
                         "This includes:\n" +
                         "• Test results\n" +
                         "• Database\n" +
@@ -262,6 +265,10 @@ namespace PerSpec.Editor.Windows
                         "This cannot be undone. Are you sure?",
                         "Remove PerSpec", "Cancel"))
                     {
+                        // Remove compiler directives first
+                        BuildProfileHelper.RemoveCompilerDirective("PERSPEC_DEBUG");
+                        BuildProfileHelper.RemoveCompilerDirective("PERSPEC_DOTS_ENABLED");
+
                         if (PerSpecSettings.RemovePerSpec())
                         {
                             Close();
@@ -665,10 +672,48 @@ PerSpecDebug.LogTestComplete(""Test passed"");";
                     if (GUILayout.Button("Reset", GUILayout.Height(30)))
                     {
                         if (EditorUtility.DisplayDialog("Reset PerSpec",
-                            "This will delete the PerSpec working directory and all data. Continue?",
+                            "This will perform a complete reset:\n\n" +
+                            "✓ Stop all coordination services\n" +
+                            "✓ Close database connections\n" +
+                            "✓ Clean database tables (keeps file)\n" +
+                            "✓ Delete all logs and test results\n" +
+                            "✓ Restart coordination services\n\n" +
+                            "Your settings and compiler symbols will be preserved.\n\n" +
+                            "This takes 5-10 seconds. Continue?",
                             "Reset", "Cancel"))
                         {
-                            InitializationService.Reset();
+                            // Show progress bar
+                            bool success = false;
+                            try
+                            {
+                                success = ResetService.Reset((message, progress) => {
+                                    EditorUtility.DisplayProgressBar("Resetting PerSpec", message, progress);
+                                });
+                            }
+                            finally
+                            {
+                                EditorUtility.ClearProgressBar();
+                            }
+
+                            if (success)
+                            {
+                                EditorUtility.DisplayDialog("Reset Complete",
+                                    "PerSpec has been reset successfully!\n\n" +
+                                    "✓ All coordination services running\n" +
+                                    "✓ Database clean and ready\n" +
+                                    "✓ All logs cleared\n" +
+                                    "✓ Settings preserved",
+                                    "OK");
+                            }
+                            else
+                            {
+                                EditorUtility.DisplayDialog("Reset Completed with Warnings",
+                                    "Reset finished but encountered some errors.\n\n" +
+                                    "Check the console for details.\n" +
+                                    "If issues persist, try closing Unity and\n" +
+                                    "manually deleting the PerSpec folder.",
+                                    "OK");
+                            }
                         }
                     }
                     GUI.backgroundColor = Color.white;

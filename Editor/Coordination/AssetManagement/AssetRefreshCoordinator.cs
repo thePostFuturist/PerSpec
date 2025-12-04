@@ -315,5 +315,86 @@ namespace PerSpec.Editor.Coordination
             Debug.Log("[AssetRefreshCoordinator] Forcing asset refresh");
             AssetDatabase.Refresh();
         }
+
+        #region Reset Support
+
+        /// <summary>
+        /// Stop all polling for reset operations
+        /// </summary>
+        public static void StopPolling()
+        {
+            try
+            {
+                Debug.Log("[AssetRefreshCoordinator] Stopping polling for reset...");
+
+                // Disable polling flag
+                _pollingEnabled = false;
+
+                // Unsubscribe from EditorApplication.update
+                EditorApplication.update -= OnEditorUpdate;
+
+                // Dispose fallback timer if exists
+                _fallbackTimer?.Dispose();
+                _fallbackTimer = null;
+
+                // Clear database manager reference (will be GC'd)
+                _dbManager = null;
+
+                Debug.Log("[AssetRefreshCoordinator] Polling stopped for reset");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[AssetRefreshCoordinator] Error stopping polling: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Restart polling after reset operations
+        /// </summary>
+        public static void StartPolling()
+        {
+            try
+            {
+                if (!SQLiteManager.IsPerSpecInitialized())
+                {
+                    Debug.LogWarning("[AssetRefreshCoordinator] Cannot start polling - PerSpec not initialized");
+                    return;
+                }
+
+                Debug.Log("[AssetRefreshCoordinator] Restarting polling after reset...");
+
+                // Recreate database manager
+                _dbManager = new SQLiteManager();
+
+                if (!_dbManager.IsInitialized)
+                {
+                    Debug.LogWarning("[AssetRefreshCoordinator] Database not initialized, cannot start polling");
+                    return;
+                }
+
+                // Re-enable polling
+                _pollingEnabled = true;
+
+                // Re-subscribe to EditorApplication.update
+                EditorApplication.update += OnEditorUpdate;
+
+                // Reset last check time
+                _lastCheckTime = EditorApplication.timeSinceStartup;
+
+                // Set up background fallback timer if enabled
+                if (_useBackgroundFallback)
+                {
+                    SetupBackgroundFallback();
+                }
+
+                Debug.Log("[AssetRefreshCoordinator] Polling restarted after reset");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[AssetRefreshCoordinator] Error restarting polling: {ex.Message}");
+            }
+        }
+
+        #endregion
     }
 }

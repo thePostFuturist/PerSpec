@@ -226,5 +226,76 @@ namespace PerSpec.Editor.Coordination
             Debug.Log("[MenuItemCoordinator] Testing menu execution - submitting test request via database");
             Debug.Log("Use: python PerSpec/Coordination/Scripts/quick_menu.py execute \"Help/About Unity\" --wait");
         }
+
+        #region Reset Support
+
+        /// <summary>
+        /// Stop all polling for reset operations
+        /// </summary>
+        public static void StopPolling()
+        {
+            try
+            {
+                Debug.Log("[MenuItemCoordinator] Stopping polling for reset...");
+
+                // Disable polling flag
+                _pollingEnabled = false;
+
+                // Unsubscribe from EditorApplication.update
+                EditorApplication.update -= OnEditorUpdate;
+
+                // Clear database manager reference (will be GC'd)
+                _dbManager = null;
+
+                Debug.Log("[MenuItemCoordinator] Polling stopped for reset");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[MenuItemCoordinator] Error stopping polling: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Restart polling after reset operations
+        /// </summary>
+        public static void StartPolling()
+        {
+            try
+            {
+                if (!SQLiteManager.IsPerSpecInitialized())
+                {
+                    Debug.LogWarning("[MenuItemCoordinator] Cannot start polling - PerSpec not initialized");
+                    return;
+                }
+
+                Debug.Log("[MenuItemCoordinator] Restarting polling after reset...");
+
+                // Recreate database manager
+                _dbManager = new SQLiteManager();
+
+                if (!_dbManager.IsInitialized)
+                {
+                    Debug.LogWarning("[MenuItemCoordinator] Database not initialized, cannot start polling");
+                    return;
+                }
+
+                // Re-enable polling
+                _pollingEnabled = true;
+
+                // Re-subscribe to EditorApplication.update
+                EditorApplication.update += OnEditorUpdate;
+
+                // Reset last check time
+                _lastCheckTime = EditorApplication.timeSinceStartup;
+
+                Debug.Log("[MenuItemCoordinator] Polling restarted after reset");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[MenuItemCoordinator] Error restarting polling: {ex.Message}");
+            }
+        }
+
+        #endregion
     }
 }

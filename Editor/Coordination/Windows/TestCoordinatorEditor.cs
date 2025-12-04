@@ -547,5 +547,87 @@ namespace PerSpec.Editor.Coordination
         }
         
         #endregion
+
+        #region Reset Support
+
+        /// <summary>
+        /// Stop all polling for reset operations
+        /// </summary>
+        public static void StopPolling()
+        {
+            try
+            {
+                Debug.Log("[TestCoordinatorEditor] Stopping polling for reset...");
+
+                // Unsubscribe from EditorApplication.update
+                EditorApplication.update -= OnEditorUpdate;
+
+                // Dispose background timer if exists
+                _backgroundTimer?.Dispose();
+                _backgroundTimer = null;
+
+                // Clear database manager reference (will be GC'd)
+                _dbManager = null;
+                _testExecutor = null;
+
+                Debug.Log("[TestCoordinatorEditor] Polling stopped for reset");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[TestCoordinatorEditor] Error stopping polling: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Restart polling after reset operations
+        /// </summary>
+        public static void StartPolling()
+        {
+            try
+            {
+                if (!SQLiteManager.IsPerSpecInitialized())
+                {
+                    Debug.LogWarning("[TestCoordinatorEditor] Cannot start polling - PerSpec not initialized");
+                    return;
+                }
+
+                Debug.Log("[TestCoordinatorEditor] Restarting polling after reset...");
+
+                // Recreate database manager
+                _dbManager = new SQLiteManager();
+
+                if (!_dbManager.IsInitialized)
+                {
+                    Debug.LogWarning("[TestCoordinatorEditor] Database not initialized, cannot start polling");
+                    return;
+                }
+
+                // Recreate test executor
+                _testExecutor = new TestExecutor(_dbManager);
+
+                // Re-subscribe to EditorApplication.update
+                EditorApplication.update += OnEditorUpdate;
+
+                // Reset last check time
+                _lastCheckTime = EditorApplication.timeSinceStartup;
+
+                // Set up background polling if enabled
+                if (_useBackgroundPolling)
+                {
+                    SetupBackgroundPolling();
+                }
+
+                // Update heartbeat
+                _dbManager.UpdateSystemHeartbeat("Unity");
+
+                Debug.Log("[TestCoordinatorEditor] Polling restarted after reset");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[TestCoordinatorEditor] Error restarting polling: {ex.Message}");
+            }
+        }
+
+        #endregion
     }
 }

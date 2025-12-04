@@ -214,5 +214,76 @@ namespace PerSpec.Editor.Coordination
             _isExecuting = false;
             _currentRequestId = -1;
         }
+
+        #region Reset Support
+
+        /// <summary>
+        /// Stop all polling for reset operations
+        /// </summary>
+        public static void StopPolling()
+        {
+            try
+            {
+                Debug.Log("[SceneHierarchyCoordinator] Stopping polling for reset...");
+
+                // Disable polling flag
+                _pollingEnabled = false;
+
+                // Unsubscribe from EditorApplication.update
+                EditorApplication.update -= OnEditorUpdate;
+
+                // Clear database manager reference (will be GC'd)
+                _dbManager = null;
+
+                Debug.Log("[SceneHierarchyCoordinator] Polling stopped for reset");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[SceneHierarchyCoordinator] Error stopping polling: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Restart polling after reset operations
+        /// </summary>
+        public static void StartPolling()
+        {
+            try
+            {
+                if (!SQLiteManager.IsPerSpecInitialized())
+                {
+                    Debug.LogWarning("[SceneHierarchyCoordinator] Cannot start polling - PerSpec not initialized");
+                    return;
+                }
+
+                Debug.Log("[SceneHierarchyCoordinator] Restarting polling after reset...");
+
+                // Recreate database manager
+                _dbManager = new SQLiteManager();
+
+                if (!_dbManager.IsInitialized)
+                {
+                    Debug.LogWarning("[SceneHierarchyCoordinator] Database not initialized, cannot start polling");
+                    return;
+                }
+
+                // Re-enable polling
+                _pollingEnabled = true;
+
+                // Re-subscribe to EditorApplication.update
+                EditorApplication.update += OnEditorUpdate;
+
+                // Reset last check time
+                _lastCheckTime = EditorApplication.timeSinceStartup;
+
+                Debug.Log("[SceneHierarchyCoordinator] Polling restarted after reset");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[SceneHierarchyCoordinator] Error restarting polling: {ex.Message}");
+            }
+        }
+
+        #endregion
     }
 }
