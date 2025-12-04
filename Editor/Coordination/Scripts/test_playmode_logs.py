@@ -208,6 +208,9 @@ def display_logs(logs, show_stack=False, filter_level=None, filter_errors=False,
                 print(f"  {line}")
 
 def main():
+    # Ensure UTF-8 encoding for emoji/Unicode characters
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
     parser = argparse.ArgumentParser(description='View and analyze PlayMode logs')
     parser.add_argument('session', nargs='?', help='Specific session ID to view')
     parser.add_argument('-l', '--list', action='store_true', help='List all available sessions')

@@ -15,6 +15,9 @@ import json
 from asset_refresh_coordinator import AssetRefreshCoordinator, RefreshType, ImportOptions
 
 def main():
+    # Ensure UTF-8 encoding for emoji/Unicode characters
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
     parser = argparse.ArgumentParser(description='Quick Unity asset refresh')
     parser.add_argument('action', choices=['full', 'paths', 'status', 'cancel', 'list'],
                        help='Action to perform')

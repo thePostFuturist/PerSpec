@@ -142,6 +142,9 @@ def display_summary(data: Dict, verbose: bool = False):
                     print(f"  [PASSED] {test['name']} ({test['duration']:.3f}s)")
 
 def main():
+    # Ensure UTF-8 encoding for emoji/Unicode characters
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
     parser = argparse.ArgumentParser(description='View Unity test results')
     
     # Subcommands

@@ -49,6 +49,9 @@ def check_compilation_errors():
         return False, None
 
 def main():
+    # Ensure UTF-8 encoding for emoji/Unicode characters
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
     parser = argparse.ArgumentParser(description='Quick Unity test runner')
     parser.add_argument('action', choices=['all', 'class', 'method', 'category', 'status', 'cancel'],
                        help='Action to perform')

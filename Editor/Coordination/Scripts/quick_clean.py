@@ -188,6 +188,9 @@ class DatabaseCleaner:
             conn.close()
 
 def main():
+    # Ensure UTF-8 encoding for emoji/Unicode characters
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
     parser = argparse.ArgumentParser(description='Clean PerSpec database')
     
     subparsers = parser.add_subparsers(dest='command', help='Commands')

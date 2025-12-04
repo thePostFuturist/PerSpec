@@ -177,6 +177,9 @@ class MenuCoordinator:
         print(f"{'='*60}")
 
 def main():
+    # Ensure UTF-8 encoding for emoji/Unicode characters
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
     parser = argparse.ArgumentParser(description='Execute Unity menu items from Python')
     
     subparsers = parser.add_subparsers(dest='command', help='Commands')

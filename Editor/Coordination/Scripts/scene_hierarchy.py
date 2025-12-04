@@ -231,6 +231,9 @@ class SceneHierarchyExporter:
             print(f"Error: {status['error_message']}")
 
 def main():
+    # Ensure UTF-8 encoding for emoji/Unicode characters
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
     parser = argparse.ArgumentParser(description='Export Unity scene hierarchy to JSON')
     subparsers = parser.add_subparsers(dest='command', help='Commands')
 

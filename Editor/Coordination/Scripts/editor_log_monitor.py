@@ -362,6 +362,10 @@ class EditorLogMonitor:
 
 def main():
     """Main entry point"""
+    # Ensure UTF-8 encoding for emoji/Unicode characters
+    import sys
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
     import argparse
     
     parser = argparse.ArgumentParser(description='Monitor Unity Editor.log for compilation errors')

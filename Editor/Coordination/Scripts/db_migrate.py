@@ -182,6 +182,9 @@ class DatabaseMigrator:
             print("=" * 60)
 
 def main():
+    # Ensure UTF-8 encoding for emoji/Unicode characters
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
     migrator = DatabaseMigrator()
     success = migrator.run_migrations()
     
