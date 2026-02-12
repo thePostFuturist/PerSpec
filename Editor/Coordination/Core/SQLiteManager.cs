@@ -578,12 +578,20 @@ namespace PerSpec.Editor.Coordination
             }
         }
         
+        /// <summary>
+        /// Gets all active test requests (running, processing, executing, or finalizing).
+        /// The test execution uses: pending → processing → executing → finalizing → completed
+        /// Some legacy paths use "running" directly, so we include all active states.
+        /// </summary>
         public List<TestRequest> GetRunningRequests()
         {
             try
             {
                 return _connection.Table<TestRequest>()
-                    .Where(r => r.Status == "running")
+                    .Where(r => r.Status == "running" ||
+                                r.Status == "processing" ||
+                                r.Status == "executing" ||
+                                r.Status == "finalizing")
                     .ToList();
             }
             catch (Exception e)

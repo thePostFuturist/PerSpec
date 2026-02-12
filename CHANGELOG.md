@@ -5,6 +5,21 @@ All notable changes to the PerSpec Testing Framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.15] - 2026-02-11
+
+### Fixed
+- **PlayMode Test Results Not Retrieved**
+  - Fixed status mismatch preventing PlayMode test results from being captured
+  - `GetRunningRequests()` now includes all active test states: `running`, `processing`, `executing`, `finalizing`
+  - Previously only checked for `"running"` status, but test execution uses: `pending → processing → executing → finalizing → completed`
+  - `PlayModeTestCompletionChecker` now correctly finds active PlayMode tests after domain reload
+  - Test results XML files are now properly parsed and database is updated with results
+
+### Technical Details
+- Modified `SQLiteManager.GetRunningRequests()` to query for all active states
+- Root cause: Test coordinator set status to "processing"/"executing" but completion checker only looked for "running"
+- After Unity exits PlayMode, the checker now finds the request and parses the XML results file
+
 ## [1.5.14] - 2025-12-04
 
 ### Changed
