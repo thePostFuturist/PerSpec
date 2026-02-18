@@ -5,6 +5,90 @@ All notable changes to the PerSpec Testing Framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.19] - 2026-02-17
+
+### Fixed
+- **Orphaned Test Requests After Domain Reload**
+  - Test requests were getting permanently stuck in "processing" or "executing" status after Unity domain reloads
+  - Root cause: Domain reload destroys the `TestExecutor` instance and its file monitoring callbacks
+  - New `TestCoordinatorEditor` creates fresh instances on reload, losing track of in-progress tests
+  - Added `RecoverOrphanedRequests()` method that runs on initialization to detect and handle stuck requests
+  - Requests stuck for more than 3 minutes are automatically recovered or marked as failed
+  - Recovery attempts to find and parse test results from Unity's AppData `TestResults.xml`
+  - If valid results found, request is marked as completed with accurate test counts
+  - If no results found, request is marked as failed with clear error message
+  - Recovered result files are copied to `PerSpec/TestResults/` for consistency
+
+### Added
+- **GetStuckRequests() Method in SQLiteManager**
+  - New method to find requests stuck in active states (processing, executing, running, finalizing)
+  - Takes `TimeSpan maxAge` parameter to identify likely orphaned requests
+  - Used by recovery logic to detect requests that outlived their monitoring callbacks
+
+### Technical Details
+- Recovery runs in static constructor after database initialization
+- Checks AppData path: `%LocalAppData%/Unity/Editor/TestResults.xml`
+- Validates result file timestamp is after request creation time
+- Parses NUnit XML format for test counts (total, passed, failed, skipped) and duration
+- Logs all recovery actions for debugging visibility
+
+## [1.5.18] - 2026-02-17
+
+### Added
+- **Debug Logging for Early Completion Investigation**
+  - Added comprehensive `[TestExecutor-FM-DEBUG]` logs to trace early PlayMode test completion
+  - Logs when `_monitorStartDateTime` is set and its value
+  - Logs all XML files found and their exact timestamps
+  - Logs cutoff time calculations for freshness checks
+  - Logs whether each file passes/fails the freshness check
+  - **Critical**: Logs when completion logic at lines 654-705 triggers
+  - Identifies the exact provenance of early completion issues
+
+### Technical Details
+- Debug logs use `[TestExecutor-FM-DEBUG]` prefix for easy filtering
+- To view logs: `python PerSpec/Coordination/Scripts/monitor_editmode_logs.py --no-limit | grep "FM-DEBUG"`
+- Logs cover: StartFileMonitoring(), GetLatestResultFile(), AppData check, completion logic
+- Timestamps use ISO 8601 format (`:O` specifier) for precise comparison
+
+## [1.5.17] - 2026-02-17
+
+### Fixed
+- **Complete Fix: Early PlayMode Test Result Publishing**
+  - Previous fix (v1.5.16) was incomplete because `_currentRequest.StartedAt` is NULL when `GetLatestResultFile()` is called from `StartFileMonitoring()`
+  - The request status is only updated to "executing" (which sets `StartedAt`) AFTER file monitoring starts
+  - Added new `_monitorStartDateTime` field that captures `DateTime.Now` at the START of `StartFileMonitoring()`
+  - All freshness checks now use `_monitorStartDateTime` instead of `_currentRequest.StartedAt`
+  - Added freshness filter to `PerSpec/TestResults` directory check (previously had no freshness check at all)
+  - Stale result files (written before monitoring started minus 30 seconds buffer) are now correctly skipped
+  - Prevents previous run's results from being immediately published when a new test run begins
+
+### Technical Details
+- `StartFileMonitoring()` now sets `_monitorStartDateTime = DateTime.Now` before calling `GetLatestResultFile()`
+- `GetLatestResultFile()` uses `_monitorStartDateTime` (with 30-second buffer) or falls back to `DateTime.Now.AddMinutes(-5)`
+- Both PerSpec/TestResults and AppData file checks now have consistent freshness guards
+- The fix ensures tests genuinely run before their results are published
+
+## [1.5.16] - 2026-02-17
+
+### Fixed
+- **Root Cause: `TestExecutor` Consuming Stale AppData Results at Startup**
+  - `TestExecutor.GetLatestResultFile()` was copying and immediately processing Unity's AppData `TestResults.xml` during `StartFileMonitoring()` — before the current test even entered Play Mode
+  - The previous run's AppData file passed no freshness check, so `RequestType == "method"` tests were instantly marked `completed` with the wrong results
+  - Added a guard: the AppData file's source `LastWriteTime` must be ≥ `request.StartedAt - 30s`; stale files are skipped with a log message
+
+- **`PlayModeTestCompletionChecker` Stale PerSpec XML Filter**
+  - `GetLatestResultFile()` now accepts a `minModifiedTime` parameter and only considers XML files written at or after the current request's `StartedAt` timestamp (minus a 5-second buffer)
+  - Prevents old PerSpec TestResults files from satisfying the post-PlayMode completion check
+
+- **False Trigger During Mid-PlayMode Domain Reload**
+  - Unity fires `EnteredEditMode` during in-play script recompilation (domain reload), not only on genuine Play Mode exit
+  - `OnPlayModeStateChanged` now guards with `!EditorApplication.isPlayingOrWillChangePlaymode` so `CheckForCompletedTests()` is only called on genuine PlayMode exit
+
+### Added
+- **Diagnostic Test: `LongRunningPlayModeTest`**
+  - `Assets/Tests/PlayMode/LongRunningPlayModeTest.cs` — awaits 7 seconds and asserts `>= 6.5s` elapsed
+  - Confirms result publishing only occurs after the test genuinely completes
+
 ## [1.5.15] - 2026-02-11
 
 ### Fixed

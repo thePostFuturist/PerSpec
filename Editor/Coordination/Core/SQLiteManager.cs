@@ -600,6 +600,34 @@ namespace PerSpec.Editor.Coordination
                 return new List<TestRequest>();
             }
         }
+
+        /// <summary>
+        /// Gets requests that appear stuck in processing/executing status.
+        /// These are likely orphaned due to domain reload during test execution.
+        /// </summary>
+        /// <param name="maxAge">Maximum age for a request to still be considered active</param>
+        /// <returns>List of requests that are likely stuck</returns>
+        public List<TestRequest> GetStuckRequests(TimeSpan maxAge)
+        {
+            if (!_isInitialized) return new List<TestRequest>();
+
+            try
+            {
+                var cutoff = DateTime.Now - maxAge;
+                return _connection.Table<TestRequest>()
+                    .Where(r => (r.Status == "processing" ||
+                                 r.Status == "executing" ||
+                                 r.Status == "running" ||
+                                 r.Status == "finalizing") &&
+                                 r.CreatedAt < cutoff)
+                    .ToList();
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[SQLiteManager] Error getting stuck requests: {e.Message}");
+                return new List<TestRequest>();
+            }
+        }
         
         public TestRequest GetRequestById(int id)
         {

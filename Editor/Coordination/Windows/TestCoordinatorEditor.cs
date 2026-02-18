@@ -77,8 +77,185 @@ namespace PerSpec.Editor.Coordination
             
             // Update system heartbeat
             _dbManager.UpdateSystemHeartbeat("Unity");
-            
+
+            // Recover any requests orphaned by domain reload
+            RecoverOrphanedRequests();
+
             Debug.Log("[TestCoordinator] Test coordination system initialized");
+        }
+
+        /// <summary>
+        /// Recovers requests that were stuck in processing/executing status after a domain reload.
+        /// When Unity recompiles scripts or reloads the domain, any in-progress test monitoring
+        /// is lost, leaving requests in a stuck state. This method detects and handles them.
+        /// </summary>
+        private static void RecoverOrphanedRequests()
+        {
+            try
+            {
+                // Find requests stuck for more than 3 minutes
+                var stuckRequests = _dbManager.GetStuckRequests(TimeSpan.FromMinutes(3));
+
+                if (stuckRequests.Count == 0)
+                    return;
+
+                Debug.Log($"[TestCoordinator] Found {stuckRequests.Count} orphaned request(s) after domain reload");
+
+                foreach (var request in stuckRequests)
+                {
+                    Debug.Log($"[TestCoordinator] Recovering stuck request #{request.Id} " +
+                             $"(type: {request.RequestType}, platform: {request.TestPlatform}, status: {request.Status})");
+
+                    // Check if test results exist in AppData (Unity's default output location)
+                    string appDataResult = FindAppDataTestResult();
+
+                    if (!string.IsNullOrEmpty(appDataResult) && File.Exists(appDataResult))
+                    {
+                        // Check if the result file was written after the request was created
+                        var resultFileTime = File.GetLastWriteTime(appDataResult);
+                        if (resultFileTime > request.CreatedAt)
+                        {
+                            Debug.Log($"[TestCoordinator] Found potential results at {appDataResult} " +
+                                     $"(written: {resultFileTime:HH:mm:ss}, request created: {request.CreatedAt:HH:mm:ss})");
+
+                            // Try to recover using the result file
+                            if (TryRecoverFromResultFile(request, appDataResult))
+                            {
+                                Debug.Log($"[TestCoordinator] Successfully recovered request #{request.Id} from AppData results");
+                                continue;
+                            }
+                        }
+                    }
+
+                    // No valid results found - mark as failed due to domain reload
+                    _dbManager.UpdateRequestStatus(request.Id, "failed",
+                        "Request interrupted by domain reload - no results recovered");
+                    _dbManager.LogExecution(request.Id, "WARN", "Unity",
+                        "Request orphaned by domain reload, marked as failed");
+
+                    Debug.LogWarning($"[TestCoordinator] Marked stuck request #{request.Id} as failed (no results found)");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[TestCoordinator] Error recovering orphaned requests: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Finds Unity's default TestResults.xml location in AppData
+        /// </summary>
+        private static string FindAppDataTestResult()
+        {
+            try
+            {
+                string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                string unityPath = Path.Combine(appDataPath, "Unity", "Editor", "TestResults.xml");
+
+                if (File.Exists(unityPath))
+                    return unityPath;
+            }
+            catch (Exception)
+            {
+                // Ignore errors finding AppData path
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Attempts to recover a stuck request by parsing an existing result file
+        /// </summary>
+        private static bool TryRecoverFromResultFile(TestRequest request, string resultFilePath)
+        {
+            try
+            {
+                // Read and parse the XML file
+                string xmlContent = File.ReadAllText(resultFilePath);
+
+                // Basic XML validation
+                if (!xmlContent.Contains("<test-run") || !xmlContent.Contains("</test-run>"))
+                {
+                    Debug.LogWarning($"[TestCoordinator] Result file appears incomplete or invalid");
+                    return false;
+                }
+
+                // Parse test counts from XML attributes
+                int total = ParseXmlAttribute(xmlContent, "total");
+                int passed = ParseXmlAttribute(xmlContent, "passed");
+                int failed = ParseXmlAttribute(xmlContent, "failed");
+                int skipped = ParseXmlAttribute(xmlContent, "skipped");
+
+                // Calculate duration
+                float duration = 0;
+                var durationMatch = System.Text.RegularExpressions.Regex.Match(xmlContent, @"duration=""([^""]+)""");
+                if (durationMatch.Success && float.TryParse(durationMatch.Groups[1].Value,
+                    System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out float parsedDuration))
+                {
+                    duration = parsedDuration;
+                }
+
+                // Update the request with recovered results
+                _dbManager.UpdateRequestResults(
+                    request.Id,
+                    "completed",
+                    total,
+                    passed,
+                    failed,
+                    skipped,
+                    duration
+                );
+
+                _dbManager.LogExecution(request.Id, "INFO", "Unity",
+                    $"Recovered from domain reload: {passed}/{total} passed, {failed} failed");
+
+                // Copy the result file to PerSpec/TestResults for consistency
+                CopyResultToPerSpecDirectory(resultFilePath, request.Id);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[TestCoordinator] Failed to recover from result file: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Parses an integer attribute from NUnit XML format
+        /// </summary>
+        private static int ParseXmlAttribute(string xml, string attributeName)
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(xml, $@"{attributeName}=""(\d+)""");
+            if (match.Success && int.TryParse(match.Groups[1].Value, out int value))
+                return value;
+            return 0;
+        }
+
+        /// <summary>
+        /// Copies a recovered result file to the PerSpec/TestResults directory
+        /// </summary>
+        private static void CopyResultToPerSpecDirectory(string sourcePath, int requestId)
+        {
+            try
+            {
+                string projectPath = Directory.GetParent(Application.dataPath).FullName;
+                string testResultsPath = Path.Combine(projectPath, "PerSpec", "TestResults");
+
+                if (!Directory.Exists(testResultsPath))
+                    Directory.CreateDirectory(testResultsPath);
+
+                string destFileName = $"TestResults_Recovered_{requestId}_{DateTime.Now:yyyyMMdd_HHmmss}.xml";
+                string destPath = Path.Combine(testResultsPath, destFileName);
+
+                File.Copy(sourcePath, destPath, true);
+                Debug.Log($"[TestCoordinator] Copied recovered results to {destFileName}");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[TestCoordinator] Could not copy result file: {ex.Message}");
+            }
         }
         
         private static void SetupBackgroundPolling()

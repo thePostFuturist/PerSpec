@@ -44,6 +44,7 @@ namespace PerSpec.Editor.Coordination
         private string _lastDetectedFile;
         private long _lastFileSize;
         private double _fileStableTime;
+        private DateTime _monitorStartDateTime;
         
         public TestExecutor(SQLiteManager dbManager)
         {
@@ -414,9 +415,17 @@ namespace PerSpec.Editor.Coordination
             _hasCompletedViaCallback = false;
             _monitorStartTime = EditorApplication.timeSinceStartup;
             _lastFileCheckTime = _monitorStartTime;
-            
-            // Take snapshot of current files
-            _initialResultSnapshot = GetLatestResultFile();
+            _monitorStartDateTime = DateTime.Now;
+
+            Debug.Log($"[TestExecutor-FM-DEBUG] === START FILE MONITORING ===");
+            Debug.Log($"[TestExecutor-FM-DEBUG] Request ID: {_currentRequest?.Id}");
+            Debug.Log($"[TestExecutor-FM-DEBUG] Request Type: {_currentRequest?.RequestType}");
+            Debug.Log($"[TestExecutor-FM-DEBUG] Test Platform: {_currentRequest?.TestPlatform}");
+            Debug.Log($"[TestExecutor-FM-DEBUG] _monitorStartDateTime set to: {_monitorStartDateTime:O}");
+            Debug.Log($"[TestExecutor-FM-DEBUG] Cutoff time will be: {_monitorStartDateTime:O}");
+
+            // Take snapshot of current files (forInitialSnapshot=true prevents completion logic from running)
+            _initialResultSnapshot = GetLatestResultFile(forInitialSnapshot: true);
             Debug.Log($"[TestExecutor-FM] Initial snapshot: {_initialResultSnapshot ?? "NULL"}");
             
             // Set up monitoring callback
@@ -484,7 +493,7 @@ namespace PerSpec.Editor.Coordination
                 return;
             }
             
-            string latestFile = GetLatestResultFile();
+            string latestFile = GetLatestResultFile(forInitialSnapshot: false);
             Debug.Log($"[TestExecutor-FM] Latest file: {latestFile ?? "NULL"}");
             Debug.Log($"[TestExecutor-FM] Initial snapshot: {_initialResultSnapshot ?? "NULL"}");
             
@@ -538,17 +547,51 @@ namespace PerSpec.Editor.Coordination
             }
         }
         
-        private string GetLatestResultFile()
+        private string GetLatestResultFile(bool forInitialSnapshot = false)
         {
+            Debug.Log($"[TestExecutor-FM-DEBUG] === GetLatestResultFile() CALLED ===");
+            Debug.Log($"[TestExecutor-FM-DEBUG] forInitialSnapshot: {forInitialSnapshot}");
+            Debug.Log($"[TestExecutor-FM-DEBUG] _monitorStartDateTime: {_monitorStartDateTime:O}");
+            Debug.Log($"[TestExecutor-FM-DEBUG] _monitorStartDateTime == default: {_monitorStartDateTime == default}");
+
             // First check PerSpec/TestResults directory
             if (Directory.Exists(_testResultsPath))
             {
-                var xmlFiles = Directory.GetFiles(_testResultsPath, "*.xml")
-                    .OrderByDescending(f => new FileInfo(f).LastWriteTime)
+                // Use _monitorStartDateTime for freshness check (set at START of monitoring)
+                // For initial snapshot: no buffer (capture state at monitoring start)
+                // For monitoring: allow 5 second backward buffer for clock skew
+                DateTime cutoffTime = _monitorStartDateTime != default
+                    ? (forInitialSnapshot ? _monitorStartDateTime : _monitorStartDateTime.AddSeconds(-5))
+                    : DateTime.Now.AddMinutes(-5);  // Fallback: only use files from last 5 minutes
+
+                Debug.Log($"[TestExecutor-FM-DEBUG] PerSpec/TestResults cutoff: {cutoffTime:O}");
+
+                var allXmlFiles = Directory.GetFiles(_testResultsPath, "*.xml");
+                Debug.Log($"[TestExecutor-FM-DEBUG] Found {allXmlFiles.Length} XML files in PerSpec/TestResults");
+
+                foreach (var f in allXmlFiles)
+                {
+                    var fi = new FileInfo(f);
+                    bool passesFilter = fi.LastWriteTime >= cutoffTime;
+                    Debug.Log($"[TestExecutor-FM-DEBUG]   File: {Path.GetFileName(f)}, Written: {fi.LastWriteTime:O}, PassesFreshness: {passesFilter}");
+                }
+
+                var xmlFiles = allXmlFiles
+                    .Select(f => new FileInfo(f))
+                    .Where(fi => fi.LastWriteTime >= cutoffTime)
+                    .OrderByDescending(fi => fi.LastWriteTime)
+                    .Select(fi => fi.FullName)
                     .FirstOrDefault();
-                
+
                 if (!string.IsNullOrEmpty(xmlFiles))
+                {
+                    Debug.Log($"[TestExecutor-FM-DEBUG] RETURNING PerSpec file: {xmlFiles}");
                     return xmlFiles;
+                }
+                else
+                {
+                    Debug.Log($"[TestExecutor-FM-DEBUG] No fresh files in PerSpec/TestResults, checking AppData...");
+                }
             }
             
             // Fallback: Check Unity's default location in user's AppData
@@ -582,11 +625,36 @@ namespace PerSpec.Editor.Coordination
                         {
                             Debug.Log($"[TestExecutor] Found test results at: {testResultFile}");
                             Debug.Log($"[TestExecutor] Company: {Application.companyName}, Product: {Application.productName}");
-                            
+
+                            // Guard: skip stale AppData files written before monitoring started.
+                            // Use _monitorStartDateTime which is set at the START of monitoring,
+                            // before StartedAt is available. This prevents previous run's results
+                            // from being treated as the current run's results.
+                            // For initial snapshot: no buffer (capture state at monitoring start)
+                            // For monitoring: allow 5 second backward buffer for clock skew
+                            DateTime cutoffTime = _monitorStartDateTime != default
+                                ? (forInitialSnapshot ? _monitorStartDateTime : _monitorStartDateTime.AddSeconds(-5))
+                                : DateTime.Now.AddMinutes(-5);  // Fallback: only use files from last 5 minutes
+
+                            Debug.Log($"[TestExecutor-FM-DEBUG] === AppData Check ===");
+                            var sourceInfo = new FileInfo(testResultFile);
+                            Debug.Log($"[TestExecutor-FM-DEBUG] Found AppData file: {testResultFile}");
+                            Debug.Log($"[TestExecutor-FM-DEBUG] AppData file LastWriteTime: {sourceInfo.LastWriteTime:O}");
+                            Debug.Log($"[TestExecutor-FM-DEBUG] AppData cutoff time: {cutoffTime:O}");
+                            Debug.Log($"[TestExecutor-FM-DEBUG] File passes freshness: {sourceInfo.LastWriteTime >= cutoffTime}");
+
+                            if (sourceInfo.LastWriteTime < cutoffTime)
+                            {
+                                Debug.Log($"[TestExecutor] Skipping stale AppData results: " +
+                                          $"file written {sourceInfo.LastWriteTime:s}, " +
+                                          $"cutoff time {cutoffTime:s}");
+                                continue;
+                            }
+
                             // Copy to PerSpec/TestResults for consistency
                             if (!Directory.Exists(_testResultsPath))
                                 Directory.CreateDirectory(_testResultsPath);
-                            
+
                             string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
                             string destPath = Path.Combine(_testResultsPath, $"TestResults_{timestamp}.xml");
                             File.Copy(testResultFile, destPath, true);
@@ -594,9 +662,22 @@ namespace PerSpec.Editor.Coordination
                             
                             // For EditMode tests or individual test methods, parse and update database immediately
                             // since RunFinished callback doesn't fire reliably
-                            if (_currentRequest != null && !_hasCompletedViaCallback && 
-                                (_currentRequest.TestPlatform == "EditMode" || _currentRequest.RequestType == "method"))
+                            // IMPORTANT: Skip completion logic when capturing initial snapshot
+                            Debug.Log($"[TestExecutor-FM-DEBUG] === COMPLETION LOGIC CHECK ===");
+                            Debug.Log($"[TestExecutor-FM-DEBUG] forInitialSnapshot: {forInitialSnapshot}");
+                            Debug.Log($"[TestExecutor-FM-DEBUG] _currentRequest != null: {_currentRequest != null}");
+                            Debug.Log($"[TestExecutor-FM-DEBUG] !_hasCompletedViaCallback: {!_hasCompletedViaCallback}");
+                            Debug.Log($"[TestExecutor-FM-DEBUG] TestPlatform: {_currentRequest?.TestPlatform}");
+                            Debug.Log($"[TestExecutor-FM-DEBUG] RequestType: {_currentRequest?.RequestType}");
+                            bool conditionMet = !forInitialSnapshot && _currentRequest != null && !_hasCompletedViaCallback &&
+                                (_currentRequest.TestPlatform == "EditMode" || _currentRequest.RequestType == "method");
+                            Debug.Log($"[TestExecutor-FM-DEBUG] COMPLETION CONDITION MET: {conditionMet}");
+
+                            if (conditionMet)
                             {
+                                Debug.Log($"[TestExecutor-FM-DEBUG] !!! EARLY COMPLETION TRIGGERED !!!");
+                                Debug.Log($"[TestExecutor-FM-DEBUG] This is the PROVENANCE of early completion!");
+                                Debug.Log($"[TestExecutor-FM-DEBUG] File being used: {destPath}");
                                 Debug.Log($"[TestExecutor] {_currentRequest.TestPlatform} {_currentRequest.RequestType} test detected, parsing XML and updating database");
                                 ParseXmlFile(destPath);
                                 

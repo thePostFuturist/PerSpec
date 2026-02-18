@@ -31,9 +31,11 @@ namespace PerSpec.Editor.Coordination
         private static void OnPlayModeStateChanged(PlayModeStateChange state)
         {
             Debug.Log($"[PlayModeTestCompletionChecker] Play mode state changed to: {state}");
-            
-            // When exiting play mode, check for test results
-            if (state == PlayModeStateChange.EnteredEditMode)
+
+            // When exiting play mode, check for test results.
+            // Guard against mid-PlayMode domain reloads (scripts recompile during play),
+            // which also fire EnteredEditMode but should not trigger result publishing.
+            if (state == PlayModeStateChange.EnteredEditMode && !EditorApplication.isPlayingOrWillChangePlaymode)
             {
                 Debug.Log("[PlayModeTestCompletionChecker] Exited Play mode, checking for test results...");
                 CheckForCompletedTests();
@@ -59,16 +61,22 @@ namespace PerSpec.Editor.Coordination
                 
                 Debug.Log($"[PlayModeTestCompletionChecker] Found {runningRequests.Count} running PlayMode test(s)");
                 
-                // Look for the latest test result file
-                var latestResultFile = GetLatestResultFile();
-                
+                // Pick the most-recently-started request to update
+                var requestToUpdate = runningRequests.OrderByDescending(r => r.Id).FirstOrDefault();
+
+                // Only consider XML files written after this request started (minus a 5-second
+                // clock-skew buffer) so we never pick up a stale file from a previous run.
+                DateTime? minTime = requestToUpdate?.StartedAt.HasValue == true
+                    ? requestToUpdate.StartedAt.Value.AddSeconds(-5)
+                    : (DateTime?)null;
+
+                // Look for the latest test result file that matches the current run
+                var latestResultFile = GetLatestResultFile(minTime);
+
                 if (!string.IsNullOrEmpty(latestResultFile))
                 {
                     Debug.Log($"[PlayModeTestCompletionChecker] Found result file: {latestResultFile}");
-                    
-                    // Parse the XML file to get test counts
-                    var requestToUpdate = runningRequests.OrderByDescending(r => r.Id).FirstOrDefault();
-                    
+
                     if (requestToUpdate != null)
                     {
                         // Parse XML and update with actual results
@@ -91,8 +99,8 @@ namespace PerSpec.Editor.Coordination
                         {
                             var summary = ParseSummaryFile(summaryPath);
                             
-                            // Update the most recent running request
-                            var requestToUpdate = runningRequests.OrderByDescending(r => r.Id).First();
+                            // Update the most recent running request (reuse outer variable)
+                            requestToUpdate = runningRequests.OrderByDescending(r => r.Id).First();
                             
                             Debug.Log($"[PlayModeTestCompletionChecker] Updating request {requestToUpdate.Id} with results from copied file");
                             
@@ -129,14 +137,17 @@ namespace PerSpec.Editor.Coordination
             }
         }
         
-        private static string GetLatestResultFile()
+        private static string GetLatestResultFile(DateTime? minModifiedTime = null)
         {
             if (!Directory.Exists(_testResultsPath)) return null;
-            
+
             var xmlFiles = Directory.GetFiles(_testResultsPath, "*.xml")
-                .OrderByDescending(f => new FileInfo(f).LastWriteTime)
+                .Select(f => new FileInfo(f))
+                .Where(fi => minModifiedTime == null || fi.LastWriteTime >= minModifiedTime.Value)
+                .OrderByDescending(fi => fi.LastWriteTime)
+                .Select(fi => fi.FullName)
                 .FirstOrDefault();
-            
+
             return xmlFiles;
         }
         
