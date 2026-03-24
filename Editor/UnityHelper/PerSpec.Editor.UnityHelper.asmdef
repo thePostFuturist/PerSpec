@@ -1,0 +1,32 @@
+{
+    "name": "PerSpec.Editor.UnityHelper",
+    "rootNamespace": "PerSpec.UnityHelper.Editor",
+    "references": [
+        "PerSpec.Runtime",
+        "PerSpec.Editor.Coordination",
+        "Gilzoide.SqliteNet",
+        "UniTask",
+        "Unity.TextMeshPro",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner",
+        "Unity.Localization",
+        "Unity.Localization.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.localization",
+            "expression": "1.0.0",
+            "define": "HAS_UNITY_LOCALIZATION"
+        }
+    ],
+    "noEngineReferences": false
+}
