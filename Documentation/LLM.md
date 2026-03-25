@@ -69,6 +69,10 @@ python Packages/com.digitraver.perspec/ScriptingTools/sync_python_scripts.py
 | "export gameobject" | `python PerSpec/Coordination/Scripts/scene_hierarchy.py export object <path> --wait`        |
 | "show scene json"   | `python PerSpec/Coordination/Scripts/scene_hierarchy.py latest --show`                      |
 | "list scene exports"| `python PerSpec/Coordination/Scripts/scene_hierarchy.py list`                               |
+| "run scenario"      | `python PerSpec/Coordination/Scripts/unityhelper_coordinator.py execute --file <path> --wait` |
+| "scenario status"   | `python PerSpec/Coordination/Scripts/unityhelper_coordinator.py status <id>`                  |
+| "list scenarios"    | `python PerSpec/Coordination/Scripts/unityhelper_coordinator.py list`                         |
+| "open scenario runner"| Unity Menu → `Tools → PerSpec → Scenario Runner`                                          |
 | "enable DOTS"       | Open Control Center > Debug Settings > Click "Enable DOTS Support"                          |
 | "check DOTS status" | Open Control Center > Dashboard > Check "DOTS Support" row                                  |
 | "write DOTS test"   | First check if DOTS is enabled, then use DOTSTestBase with #if PERSPEC_DOTS_ENABLED         |
@@ -83,6 +87,8 @@ python Packages/com.digitraver.perspec/ScriptingTools/sync_python_scripts.py
 - **PlayMode logs?** → Check `PerSpec/PlayModeLogs/` directory
 - **Writing DOTS code?** → FIRST check if `PERSPEC_DOTS_ENABLED` is set
 - **DOTSTestBase not found?** → Enable DOTS support in Control Center
+- **Build/automate scene?** → Write scenario JSON + use Scenario Runner or `unityhelper_coordinator.py`
+- **Scene setup from CLI?** → `unityhelper_coordinator.py execute --file <path> --wait`
 
 ## 📊 Log Monitoring
 
@@ -414,6 +420,8 @@ cat PerSpec/package_location.txt  # Returns: Packages/com.digitraver.perspec
 | DOTS/ECS work | `{package_path}/Documentation/dots-test-guide.md` |
 | Python issues | `{package_path}/Documentation/coordination-guide.md` |
 | Using agents | `{package_path}/Documentation/agents/[agent-name].md` |
+| Unity Helper overview | `{package_path}/Documentation/unity-helper.md` |
+| Unity Helper tasks | `{package_path}/Documentation/unity-helper-tasks.md` |
 
 ## 🎯 Test Facade Pattern
 
