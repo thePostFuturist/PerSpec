@@ -56,6 +56,10 @@ namespace PerSpec.UnityHelper.Editor
                         return SaveAsPrefab(task);
                     case "ExportHierarchy":
                         return ExportHierarchy(task);
+                    case "ExportHierarchyPrefab":
+                        return ExportHierarchyPrefab(task);
+                    case "ExportHierarchyScene":
+                        return ExportHierarchyScene(task);
                     case "InspectGameObject":
                         return InspectGameObject(task);
                     case "SetListProperty":
@@ -312,20 +316,165 @@ namespace PerSpec.UnityHelper.Editor
                 return false;
             }
 
-            // Case 1: Scene GameObject (path + component provided)
-            if (!string.IsNullOrEmpty(goPath) && !string.IsNullOrEmpty(componentName))
+            // Case 1: Prefab asset (owner is .prefab + path + component provided)
+            if (!string.IsNullOrEmpty(ownerPath) && ownerPath.EndsWith(".prefab") &&
+                !string.IsNullOrEmpty(goPath) && !string.IsNullOrEmpty(componentName))
+            {
+                return SetPropertyOnPrefab(task, ownerPath, goPath, componentName, fieldName, valuePath);
+            }
+
+            // Case 2: Scene file (owner is .unity + path + component provided)
+            if (!string.IsNullOrEmpty(ownerPath) && ownerPath.EndsWith(".unity") &&
+                !string.IsNullOrEmpty(goPath) && !string.IsNullOrEmpty(componentName))
+            {
+                return SetPropertyOnSceneFile(task, ownerPath, goPath, componentName, fieldName, valuePath);
+            }
+
+            // Case 3: Scene GameObject (path + component provided, no owner)
+            if (string.IsNullOrEmpty(ownerPath) && !string.IsNullOrEmpty(goPath) && !string.IsNullOrEmpty(componentName))
             {
                 return SetPropertyOnGameObject(task, goPath, componentName, fieldName, valuePath);
             }
 
-            // Case 2: ScriptableObject asset (owner provided)
+            // Case 4: ScriptableObject asset (owner provided, no path/component)
             if (!string.IsNullOrEmpty(ownerPath))
             {
                 return SetPropertyOnScriptableObject(task, ownerPath, fieldName, valuePath);
             }
 
-            task.error = "SetProperty requires either 'path' + 'component' (for scene GameObjects) or 'owner' (for ScriptableObject assets)";
+            task.error = "SetProperty requires either 'path' + 'component' (for scene GameObjects) or 'owner' (for ScriptableObject/Prefab/Scene assets)";
             return false;
+        }
+
+        private bool SetPropertyOnPrefab(Task task, string prefabPath, string goPath, string componentName, string fieldName, string valuePath)
+        {
+            var prefabRoot = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            if (prefabRoot == null)
+            {
+                task.error = $"Prefab not found: {prefabPath}";
+                return false;
+            }
+
+            // Find child by name (supports root name or child name)
+            GameObject target = null;
+            if (prefabRoot.name == goPath)
+            {
+                target = prefabRoot;
+            }
+            else
+            {
+                var allChildren = prefabRoot.GetComponentsInChildren<Transform>(true);
+                foreach (var t in allChildren)
+                {
+                    if (t.name == goPath)
+                    {
+                        target = t.gameObject;
+                        break;
+                    }
+                }
+            }
+
+            if (target == null)
+            {
+                task.error = $"GameObject '{goPath}' not found in prefab: {prefabPath}";
+                return false;
+            }
+
+            System.Type componentType = ResolveType(componentName);
+            if (componentType == null)
+            {
+                task.error = $"Component type not found: {componentName}";
+                return false;
+            }
+
+            var component = target.GetComponent(componentType);
+            if (component == null)
+            {
+                task.error = $"Component {componentName} not found on '{goPath}' in prefab {prefabPath}";
+                return false;
+            }
+
+            var field = componentType.GetField(fieldName,
+                System.Reflection.BindingFlags.Public |
+                System.Reflection.BindingFlags.NonPublic |
+                System.Reflection.BindingFlags.Instance);
+
+            if (field == null)
+            {
+                task.error = $"Field '{fieldName}' not found on {componentName}";
+                return false;
+            }
+
+            // Resolve value — for UnityObject references, search within the prefab first
+            object value;
+            if (typeof(UnityEngine.Object).IsAssignableFrom(field.FieldType))
+            {
+                // Try to find as child GO in the same prefab
+                GameObject refGo = null;
+                var allChildren = prefabRoot.GetComponentsInChildren<Transform>(true);
+                foreach (var t in allChildren)
+                {
+                    if (t.name == valuePath)
+                    {
+                        refGo = t.gameObject;
+                        break;
+                    }
+                }
+
+                if (refGo != null)
+                {
+                    if (field.FieldType == typeof(GameObject))
+                        value = refGo;
+                    else if (typeof(Component).IsAssignableFrom(field.FieldType))
+                        value = refGo.GetComponent(field.FieldType);
+                    else
+                        value = refGo;
+                }
+                else
+                {
+                    value = AssetDatabase.LoadAssetAtPath(valuePath, field.FieldType);
+                }
+            }
+            else
+            {
+                value = ConvertValue(field.FieldType, valuePath);
+            }
+
+            field.SetValue(component, value);
+            EditorUtility.SetDirty(prefabRoot);
+            PrefabUtility.SavePrefabAsset(prefabRoot);
+            Debug.Log($"[SceneTaskExecutor] SetPropertyOnPrefab: {prefabPath}/{goPath}/{componentName}.{fieldName} = {valuePath} ✓");
+            return true;
+        }
+
+        private bool SetPropertyOnSceneFile(Task task, string scenePath, string goPath, string componentName, string fieldName, string valuePath)
+        {
+            var previousScene = EditorSceneManager.GetActiveScene();
+            string previousScenePath = previousScene.path;
+
+            var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+
+            var go = GameObject.Find(goPath);
+            if (go == null)
+            {
+                if (!string.IsNullOrEmpty(previousScenePath))
+                    EditorSceneManager.OpenScene(previousScenePath, OpenSceneMode.Single);
+                task.error = $"GameObject not found in scene '{scenePath}': {goPath}";
+                return false;
+            }
+
+            bool result = SetPropertyOnGameObject(task, goPath, componentName, fieldName, valuePath);
+
+            if (result)
+            {
+                EditorSceneManager.SaveScene(scene);
+                Debug.Log($"[SceneTaskExecutor] SetPropertyOnSceneFile: {scenePath}/{goPath}/{componentName}.{fieldName} = {valuePath} ✓");
+            }
+
+            if (!string.IsNullOrEmpty(previousScenePath))
+                EditorSceneManager.OpenScene(previousScenePath, OpenSceneMode.Single);
+
+            return result;
         }
 
         private bool SetPropertyOnGameObject(Task task, string goPath, string componentName, string fieldName, string valuePath)
@@ -927,6 +1076,65 @@ namespace PerSpec.UnityHelper.Editor
             return true;
         }
         
+        private bool ExportHierarchyScene(Task task)
+        {
+            string scenePath = GetParam(task, "scenePath");
+
+            if (!System.IO.File.Exists(scenePath))
+            {
+                task.error = $"Scene file not found: {scenePath}";
+                return false;
+            }
+
+            var previousScene = EditorSceneManager.GetActiveScene();
+            string previousScenePath = previousScene.path;
+
+            var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+
+            var output = new System.Text.StringBuilder();
+            output.AppendLine($"=== Scene Hierarchy: {scene.name} ===");
+            output.AppendLine($"Path: {scenePath}");
+            output.AppendLine($"Root GameObjects: {scene.GetRootGameObjects().Length}");
+            output.AppendLine();
+
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                ExportGameObjectRecursive(root, output, 0);
+            }
+
+            task.result = output.ToString();
+            Debug.Log($"[SceneTaskExecutor] ExportHierarchyScene: {scenePath} ✓");
+
+            // Restore previous scene if it had one
+            if (!string.IsNullOrEmpty(previousScenePath))
+                EditorSceneManager.OpenScene(previousScenePath, OpenSceneMode.Single);
+
+            return true;
+        }
+
+        private bool ExportHierarchyPrefab(Task task)
+        {
+            string prefabPath = GetParam(task, "prefabPath");
+
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            if (prefab == null)
+            {
+                task.error = $"Prefab not found at: {prefabPath}";
+                return false;
+            }
+
+            var output = new System.Text.StringBuilder();
+            output.AppendLine($"=== Prefab Hierarchy: {prefab.name} ===");
+            output.AppendLine($"Path: {prefabPath}");
+            output.AppendLine();
+
+            ExportGameObjectRecursive(prefab, output, 0);
+
+            task.result = output.ToString();
+            Debug.Log($"[SceneTaskExecutor] ExportHierarchyPrefab: {prefabPath} ✓");
+            return true;
+        }
+
         private void ExportGameObjectRecursive(GameObject go, System.Text.StringBuilder output, int depth)
         {
             string indent = new string(' ', depth * 2);

@@ -8,6 +8,8 @@ Usage:
     python unityhelper_coordinator.py execute --file scenarios.json --target MyScenario --wait
     python unityhelper_coordinator.py execute --file scenarios.json --pending-only --wait
     python unityhelper_coordinator.py execute --file scenarios.json --failed-only --wait
+    python unityhelper_coordinator.py execute --action ExportHierarchyPrefab --param prefabPath=Assets/Prefabs/MyPrefab.prefab --focus --wait
+    python unityhelper_coordinator.py execute --action SetProperty --param path=MyGO --param field=myField --param value=123 --focus --wait
     python unityhelper_coordinator.py status 123
     python unityhelper_coordinator.py status
     python unityhelper_coordinator.py list
@@ -231,6 +233,51 @@ class ScenarioCoordinator:
         finally:
             conn.close()
 
+
+    def submit_action_request(self, action: str, params: dict, temp_file: str, priority: int = 0) -> int:
+        """Submit a single inline action as a minimal scenario"""
+        scenario = {
+            "scenarios": [{
+                "name": f"inline:{action}",
+                "description": f"Inline single action: {action}",
+                "taskGroups": [{
+                    "name": action,
+                    "tasks": [{
+                        "action": action,
+                        "parameters": [{"key": k, "value": v} for k, v in params.items()]
+                    }]
+                }]
+            }]
+        }
+        with open(temp_file, 'w') as fh:
+            json.dump(scenario, fh, indent=4)
+
+        conn = self._get_connection()
+        try:
+            cursor = conn.cursor()
+            options = json.dumps({"scenarios_file": temp_file, "target": "all",
+                                  "pending_only": False, "failed_only": False})
+            cursor.execute(f"""
+                INSERT INTO {TABLE_NAME} (scenarios_file, target, options, priority)
+                VALUES (?, ?, ?, ?)
+            """, (temp_file, "all", options, priority))
+            request_id = cursor.lastrowid
+            conn.commit()
+            print(f"Action request #{request_id} submitted: {action}")
+            return request_id
+        finally:
+            conn.close()
+
+    def get_task_result(self, temp_file: str):
+        """Read task.result from the inline scenario JSON after execution"""
+        try:
+            with open(temp_file, 'r') as fh:
+                data = json.load(fh)
+            task = data['scenarios'][0]['taskGroups'][0]['tasks'][0]
+            return task.get('result'), task.get('error'), task.get('status')
+        except Exception as e:
+            return None, str(e), 'error'
+
     def print_summary(self, request_id: int):
         """Print a summary of the request"""
         status = self.get_request_status(request_id)
@@ -271,14 +318,19 @@ def main():
     subparsers = parser.add_subparsers(dest='command', help='Commands')
 
     # Execute command
-    execute_parser = subparsers.add_parser('execute', help='Execute a scenario file')
-    execute_parser.add_argument('--file', '-f', required=True, help='Path to scenarios.json')
+    execute_parser = subparsers.add_parser('execute', help='Execute a scenario file or a single inline action')
+    execute_parser.add_argument('--file', '-f', default=None, help='Path to scenarios.json')
+    execute_parser.add_argument('--action', '-a', default=None, help='Single action name to run inline (e.g. ExportHierarchyPrefab)')
+    execute_parser.add_argument('--param', '-p', action='append', metavar='KEY=VALUE',
+                               help='Action parameter in KEY=VALUE format, used with --action (repeatable)', default=[])
     execute_parser.add_argument('--target', '-t', default='all', help='Scenario name or "all"')
     execute_parser.add_argument('--pending-only', action='store_true', help='Run only pending tasks')
     execute_parser.add_argument('--failed-only', action='store_true', help='Run only failed tasks (retry)')
     execute_parser.add_argument('--priority', type=int, default=0, help='Priority (higher runs first)')
     execute_parser.add_argument('--wait', '-w', action='store_true', help='Wait for completion')
     execute_parser.add_argument('--timeout', type=int, default=300, help='Wait timeout in seconds')
+    execute_parser.add_argument('--focus', action='store_true',
+                               help='Focus Unity window before submitting request')
 
     # Status command
     status_parser = subparsers.add_parser('status', help='Check request status')
@@ -307,6 +359,66 @@ def main():
 
     try:
         if args.command == 'execute':
+            if not args.file and not args.action:
+                print("Error: either --file or --action is required")
+                sys.exit(1)
+            if args.file and args.action:
+                print("Error: --file and --action are mutually exclusive")
+                sys.exit(1)
+
+            if args.focus:
+                try:
+                    import unity_focus
+                    print("Focusing Unity window...")
+                    if unity_focus.focus_unity():
+                        print("Unity window focused")
+                    else:
+                        print("Could not focus Unity window")
+                except ImportError:
+                    print("Warning: unity_focus module not found")
+                except Exception as e:
+                    print(f"Could not focus Unity: {e}")
+
+            if args.action:
+                params = {}
+                for p in args.param:
+                    if '=' not in p:
+                        print(f"Error: parameter '{p}' must be in KEY=VALUE format")
+                        sys.exit(1)
+                    k, v = p.split('=', 1)
+                    params[k.strip()] = v.strip()
+
+                temp_file = str(Path(get_project_root()) / "PerSpec" / f"_inline_{args.action}.json")
+                request_id = coordinator.submit_action_request(
+                    action=args.action,
+                    params=params,
+                    temp_file=temp_file,
+                    priority=args.priority
+                )
+
+                if args.wait:
+                    print(f"Waiting for completion (timeout: {args.timeout}s)...")
+                    final_status = coordinator.wait_for_completion(request_id, args.timeout)
+                    print()
+                    result, error, task_status = coordinator.get_task_result(temp_file)
+                    if result:
+                        print(f"\n{'='*60}")
+                        print(f"Result [{args.action}]:")
+                        print(f"{'='*60}")
+                        print(result)
+                        print(f"{'='*60}")
+                    elif error:
+                        print(f"Error: {error}")
+                    try:
+                        Path(temp_file).unlink(missing_ok=True)
+                    except Exception:
+                        pass
+                    if final_status == 'failed' or task_status == 'failed':
+                        sys.exit(1)
+                else:
+                    print(f"Use 'python unityhelper_coordinator.py status {request_id}' to check progress")
+                return
+
             request_id = coordinator.submit_request(
                 scenarios_file=args.file,
                 target=args.target,

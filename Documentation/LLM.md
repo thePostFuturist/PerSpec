@@ -64,12 +64,12 @@ python Packages/com.digitraver.perspec/ScriptingTools/sync_python_scripts.py
 | "show cs errors"    | `python PerSpec/Coordination/Scripts/test_playmode_logs.py --cs-errors`                     |
 | "search playmode logs"| `python PerSpec/Coordination/Scripts/test_playmode_logs.py --search <keyword>`             |
 | "find in logs"      | `python PerSpec/Coordination/Scripts/test_playmode_logs.py -S <keyword> -i`                 |
-| "export scene"      | `python PerSpec/Coordination/Scripts/scene_hierarchy.py export full --wait`                 |
-| "export hierarchy"  | `python PerSpec/Coordination/Scripts/scene_hierarchy.py export full --wait --show`          |
-| "export gameobject" | `python PerSpec/Coordination/Scripts/scene_hierarchy.py export object <path> --wait`        |
+| "export scene"      | `python PerSpec/Coordination/Scripts/scene_hierarchy.py export full --focus --wait`                 |
+| "export hierarchy"  | `python PerSpec/Coordination/Scripts/scene_hierarchy.py export full --focus --wait --show`          |
+| "export gameobject" | `python PerSpec/Coordination/Scripts/scene_hierarchy.py export object <path> --focus --wait`        |
 | "show scene json"   | `python PerSpec/Coordination/Scripts/scene_hierarchy.py latest --show`                      |
 | "list scene exports"| `python PerSpec/Coordination/Scripts/scene_hierarchy.py list`                               |
-| "run scenario"      | `python PerSpec/Coordination/Scripts/unityhelper_coordinator.py execute --file <path> --wait` |
+| "run scenario"      | `python PerSpec/Coordination/Scripts/unityhelper_coordinator.py execute --file <path> --focus --wait` |
 | "scenario status"   | `python PerSpec/Coordination/Scripts/unityhelper_coordinator.py status <id>`                  |
 | "list scenarios"    | `python PerSpec/Coordination/Scripts/unityhelper_coordinator.py list`                         |
 | "open scenario runner"| Unity Menu → `Tools → PerSpec → Scenario Runner`                                          |
@@ -88,7 +88,7 @@ python Packages/com.digitraver.perspec/ScriptingTools/sync_python_scripts.py
 - **Writing DOTS code?** → FIRST check if `PERSPEC_DOTS_ENABLED` is set
 - **DOTSTestBase not found?** → Enable DOTS support in Control Center
 - **Build/automate scene?** → Write scenario JSON + use Scenario Runner or `unityhelper_coordinator.py`
-- **Scene setup from CLI?** → `unityhelper_coordinator.py execute --file <path> --wait`
+- **Scene setup from CLI?** → `unityhelper_coordinator.py execute --file <path> --focus --wait`
 
 ## 📊 Log Monitoring
 
@@ -376,13 +376,13 @@ Read: Show PlayerController
 ### Export Unity Scene to JSON
 ```bash
 # Export full scene hierarchy
-python PerSpec/Coordination/Scripts/scene_hierarchy.py export full --wait
+python PerSpec/Coordination/Scripts/scene_hierarchy.py export full --focus --wait
 
 # Export specific GameObject and its children
-python PerSpec/Coordination/Scripts/scene_hierarchy.py export object "Player" --wait
+python PerSpec/Coordination/Scripts/scene_hierarchy.py export object "Player" --focus --wait
 
 # Export and display JSON
-python PerSpec/Coordination/Scripts/scene_hierarchy.py export full --wait --show
+python PerSpec/Coordination/Scripts/scene_hierarchy.py export full --focus --wait --show
 
 # View latest export
 python PerSpec/Coordination/Scripts/scene_hierarchy.py latest --show

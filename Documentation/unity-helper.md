@@ -41,7 +41,7 @@ All C# code lives in the package under `Editor/UnityHelper/`:
 | **Task Registry** | `TaskExecutorRegistry.cs` | Maps task types to executor instances |
 | **Base Executor** | `BaseTaskExecutor.cs` | Abstract base with parameter helpers and async support |
 | **ITaskExecutor** | `ITaskExecutor.cs` | Interface contract for all executors |
-| **Scene Executor** | `SceneTaskExecutor.cs` | 22 scene/asset/component actions |
+| **Scene Executor** | `SceneTaskExecutor.cs` | 24 scene/asset/component actions |
 | **Localization Executor** | `LocalizationTaskExecutor.cs` | 17 localization actions (requires `com.unity.localization`) |
 
 Python CLI:
@@ -78,22 +78,32 @@ The JSON file auto-updates after every action. Failed tasks show exact error mes
 ### Run Scenarios via CLI
 
 ```bash
+# Run a single action inline (no scenario file needed)
+python PerSpec/Coordination/Scripts/unityhelper_coordinator.py execute \
+  --action ExportHierarchyPrefab \
+  --param prefabPath=Assets/Prefabs/MyPrefab.prefab --focus --wait
+
+python PerSpec/Coordination/Scripts/unityhelper_coordinator.py execute \
+  --action SetProperty \
+  --param path=MyGO --param component=MyNS.MyComp,Assembly-CSharp \
+  --param field=myField --param value=123 --focus --wait
+
 # Execute a scenario file
 python PerSpec/Coordination/Scripts/unityhelper_coordinator.py execute \
-  --file Assets/Scenarios/scenarios.json --wait
+  --file Assets/Scenarios/scenarios.json --focus --wait
 
 # Run a specific scenario by name
 python PerSpec/Coordination/Scripts/unityhelper_coordinator.py execute \
   --file Assets/Scenarios/scenarios.json \
-  --target MyScenarioName --wait
+  --target MyScenarioName --focus --wait
 
 # Run only pending tasks (resume interrupted execution)
 python PerSpec/Coordination/Scripts/unityhelper_coordinator.py execute \
-  --file Assets/Scenarios/scenarios.json --pending-only --wait
+  --file Assets/Scenarios/scenarios.json --pending-only --focus --wait
 
 # Run only failed tasks (retry)
 python PerSpec/Coordination/Scripts/unityhelper_coordinator.py execute \
-  --file Assets/Scenarios/scenarios.json --failed-only --wait
+  --file Assets/Scenarios/scenarios.json --failed-only --focus --wait
 
 # Check request status
 python PerSpec/Coordination/Scripts/unityhelper_coordinator.py status <request_id>

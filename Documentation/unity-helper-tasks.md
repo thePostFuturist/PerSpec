@@ -15,8 +15,13 @@ Unity Menu → `Tools → PerSpec → Scenario Runner` — browse, run, skip, an
 
 ### Via CLI
 ```bash
+# Single inline action (no scenario file needed)
 python PerSpec/Coordination/Scripts/unityhelper_coordinator.py execute \
-  --file Assets/Scenarios/scenarios.json --wait
+  --action ExportHierarchyPrefab --param prefabPath=Assets/Prefabs/MyPrefab.prefab --focus --wait
+
+# Full scenario file
+python PerSpec/Coordination/Scripts/unityhelper_coordinator.py execute \
+  --file Assets/Scenarios/scenarios.json --focus --wait
 ```
 
 ---
@@ -674,7 +679,7 @@ Imports translations from CSV.
 - Logs count of imported and updated entries
 
 ### ExportHierarchy
-Exports current scene hierarchy to `task.result` with GameObjects and components.
+Exports the **active scene** hierarchy to `task.result` with GameObjects and components.
 ```json
 {
     "action": "ExportHierarchy",
@@ -686,6 +691,36 @@ Exports current scene hierarchy to `task.result` with GameObjects and components
 - Shows hierarchy structure with indentation
 - Result stored in `task.result` (two-way communication)
 - Also logs output to Unity Console
+
+### ExportHierarchyScene
+Opens a **specific scene file**, exports its hierarchy, then restores the previously active scene.
+```json
+{
+    "action": "ExportHierarchyScene",
+    "parameters": [
+        {"key": "scenePath", "value": "Assets/Scenes/MyScene.unity"}
+    ]
+}
+```
+- `scenePath` - Path to the `.unity` file (required)
+- Exports all GameObjects and components with indentation
+- Restores the previously active scene after export
+- Result stored in `task.result`
+
+### ExportHierarchyPrefab
+Exports the hierarchy of a **prefab asset** to `task.result` without loading a scene.
+```json
+{
+    "action": "ExportHierarchyPrefab",
+    "parameters": [
+        {"key": "prefabPath", "value": "Assets/Prefabs/MyPrefab.prefab"}
+    ]
+}
+```
+- `prefabPath` - Path to the `.prefab` asset (required)
+- Loads the prefab via `AssetDatabase` — no scene required
+- Shows full child hierarchy with components
+- Result stored in `task.result`
 
 ### TakeScreenshot
 Captures a screenshot of the current Game view with configurable output and resolution.
