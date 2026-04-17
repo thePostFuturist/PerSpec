@@ -5,6 +5,33 @@ All notable changes to the PerSpec Testing Framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.20] - 2026-03-24
+
+### Added
+- **Unity Helper — Declarative Scenario Execution**
+  - Scenario-based scene and asset automation via JSON task files
+  - `ScenarioRunner.cs` EditorWindow for interactive task execution (run, skip, retry, reset)
+  - `ScenarioExecutorCoordinator.cs` polls PerSpec's SQLite database for scenario requests
+  - `SceneTaskExecutor.cs` with 22 scene/asset/component actions (CreateScene, AddGameObject, SetProperty, InstantiatePrefab, SetTransform, SetRectTransform, SaveAsPrefab, SetListProperty, TakeScreenshot, WaitForGameObject, CallMethod, InspectGameObject, ExportHierarchy, etc.)
+  - `LocalizationTaskExecutor.cs` with 17 localization actions (gated by `HAS_UNITY_LOCALIZATION` compile guard via asmdef `versionDefines`)
+  - `unityhelper_coordinator.py` Python CLI for submitting scenario requests from terminal
+  - Extensible executor registration via `TaskExecutorRegistry`
+  - Two-way communication through JSON `status`/`error`/`result` fields
+  - Self-verification for all mutation actions (AddGameObject, SetProperty, DeleteGameObject, etc.)
+  - New assembly: `PerSpec.Editor.UnityHelper` (Editor-only, with optional localization dependency)
+
+- **Unity Helper Documentation**
+  - `Documentation/unity-helper.md` — overview, architecture, quick start, design philosophy
+  - `Documentation/unity-helper-tasks.md` — complete action and parameter reference for all 39 actions
+  - Added Unity Helper natural language commands and intent mappings to `Documentation/LLM.md`
+  - Added Unity Helper links to `Documentation/index.md`
+
+### Technical Details
+- Unity Helper code located in `Editor/UnityHelper/` (7 C# files, ~5K LOC)
+- Python coordinator at `Editor/Coordination/Scripts/unityhelper_coordinator.py` (373 lines)
+- Uses same SQLite coordination pattern as existing PerSpec coordinators
+- Localization support conditional via `HAS_UNITY_LOCALIZATION` — defined automatically when `com.unity.localization >= 1.0.0` is installed
+
 ## [1.5.19] - 2026-02-17
 
 ### Fixed

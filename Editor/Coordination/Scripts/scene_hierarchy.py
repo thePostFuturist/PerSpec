@@ -247,6 +247,8 @@ def main():
     export_parser.add_argument('--wait', action='store_true', help='Wait for completion')
     export_parser.add_argument('--timeout', type=int, default=60, help='Wait timeout in seconds')
     export_parser.add_argument('--show', action='store_true', help='Show JSON output after export')
+    export_parser.add_argument('--focus', action='store_true',
+                               help='Focus Unity window before submitting request')
 
     # Status command
     status_parser = subparsers.add_parser('status', help='Check request status')
@@ -283,6 +285,19 @@ def main():
             if args.type == 'object' and not target_path:
                 print("Error: GameObject path required for object export")
                 return
+
+            if args.focus:
+                try:
+                    import unity_focus
+                    print("Focusing Unity window...")
+                    if unity_focus.focus_unity():
+                        print("Unity window focused")
+                    else:
+                        print("Could not focus Unity window")
+                except ImportError:
+                    print("Warning: unity_focus module not found")
+                except Exception as e:
+                    print(f"Could not focus Unity: {e}")
 
             # Submit export request
             request_id = exporter.submit_export_request(

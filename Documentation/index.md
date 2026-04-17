@@ -113,3 +113,6 @@ Enforced patterns:
 - [Unity Testing Guide](unity-test-guide.md)
 - [DOTS Testing Guide](dots-test-guide.md)
 - [Coordination System](coordination-guide.md)
+- [Unity Helper — Overview](unity-helper.md)
+- [Unity Helper — Task Reference](unity-helper-tasks.md)
+- [LLM Integration Guide](LLM.md)

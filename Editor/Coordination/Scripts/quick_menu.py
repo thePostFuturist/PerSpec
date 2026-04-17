@@ -190,6 +190,8 @@ def main():
     execute_parser.add_argument('--priority', type=int, default=0, help='Priority (higher runs first)')
     execute_parser.add_argument('--wait', action='store_true', help='Wait for completion')
     execute_parser.add_argument('--timeout', type=int, default=60, help='Timeout in seconds')
+    execute_parser.add_argument('--focus', action='store_true',
+                               help='Focus Unity window before submitting request')
     
     # Status command
     status_parser = subparsers.add_parser('status', help='Check request status')
@@ -235,6 +237,19 @@ def main():
     
     try:
         if args.command == 'execute':
+            if args.focus:
+                try:
+                    import unity_focus
+                    print("Focusing Unity window...")
+                    if unity_focus.focus_unity():
+                        print("Unity window focused")
+                    else:
+                        print("Could not focus Unity window")
+                except ImportError:
+                    print("Warning: unity_focus module not found")
+                except Exception as e:
+                    print(f"Could not focus Unity: {e}")
+
             request_id = coordinator.submit_menu_request(
                 args.menu_path,
                 args.priority
