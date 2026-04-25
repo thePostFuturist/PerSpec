@@ -70,8 +70,12 @@ namespace PerSpec.UnityHelper.Editor
                         return WaitForGameObject(task);
                     case "CallMethod":
                         return CallMethod(task);
-                    case "SetParent":
-                        return SetParent(task);
+                    case "SetParentByTransform":
+                        return SetParentByTransform(task);
+                    case "OpenPrefab":
+                        return OpenPrefab(task);
+                    case "SavePrefab":
+                        return SavePrefab(task);
                     default:
                         task.error = $"Unknown action: {task.action}";
                         return false;
@@ -1053,8 +1057,53 @@ namespace PerSpec.UnityHelper.Editor
             return true;
         }
         
+        /// <summary>
+        /// Options controlling hierarchy export/search behavior.
+        /// Shared by ExportHierarchy, ExportHierarchyScene, ExportHierarchyPrefab.
+        /// </summary>
+        private class HierarchyExportOptions
+        {
+            /// <summary>Max traversal depth. -1 = unlimited. 0 = only roots.</summary>
+            public int maxDepth = -1;
+
+            /// <summary>Case-insensitive substring match on GameObject name. Null/empty = disabled.</summary>
+            public string nameFilter;
+
+            /// <summary>Component type name (short or fully-qualified). Null/empty = disabled.</summary>
+            public string componentFilter;
+
+            /// <summary>Whether to emit component list per GameObject.</summary>
+            public bool includeComponents = true;
+
+            /// <summary>True if any find-style filter is active - switches to flat output mode.</summary>
+            public bool HasFilter => !string.IsNullOrEmpty(nameFilter) || !string.IsNullOrEmpty(componentFilter);
+        }
+
+        /// <summary>
+        /// Parses hierarchy options from task parameters.
+        /// Optional params: maxDepth, nameFilter, componentFilter, includeComponents
+        /// </summary>
+        private HierarchyExportOptions ParseHierarchyOptions(Task task)
+        {
+            var opts = new HierarchyExportOptions();
+
+            string maxDepthStr = GetOptionalParam(task, "maxDepth");
+            if (!string.IsNullOrEmpty(maxDepthStr) && int.TryParse(maxDepthStr, out int d))
+                opts.maxDepth = d;
+
+            opts.nameFilter = GetOptionalParam(task, "nameFilter");
+            opts.componentFilter = GetOptionalParam(task, "componentFilter");
+
+            string incComp = GetOptionalParam(task, "includeComponents");
+            if (!string.IsNullOrEmpty(incComp) && bool.TryParse(incComp, out bool ic))
+                opts.includeComponents = ic;
+
+            return opts;
+        }
+
         private bool ExportHierarchy(Task task)
         {
+            var opts = ParseHierarchyOptions(task);
             var activeScene = EditorSceneManager.GetActiveScene();
             var rootObjects = activeScene.GetRootGameObjects();
 
@@ -1062,23 +1111,24 @@ namespace PerSpec.UnityHelper.Editor
             output.AppendLine($"=== Scene Hierarchy: {activeScene.name} ===");
             output.AppendLine($"Path: {activeScene.path}");
             output.AppendLine($"Root GameObjects: {rootObjects.Length}");
+            AppendOptionsHeader(output, opts);
             output.AppendLine();
 
+            int matchCount = 0;
             foreach (var root in rootObjects)
-            {
-                ExportGameObjectRecursive(root, output, 0);
-            }
+                ExportGameObjectRecursive(root, output, 0, "", opts, ref matchCount);
 
-            string result = output.ToString();
+            if (opts.HasFilter)
+                output.AppendLine($"\n=== Matches: {matchCount} ===");
 
-            // Store result in task for two-way communication
-            task.result = result;
+            task.result = output.ToString();
             return true;
         }
-        
+
         private bool ExportHierarchyScene(Task task)
         {
             string scenePath = GetParam(task, "scenePath");
+            var opts = ParseHierarchyOptions(task);
 
             if (!System.IO.File.Exists(scenePath))
             {
@@ -1095,17 +1145,19 @@ namespace PerSpec.UnityHelper.Editor
             output.AppendLine($"=== Scene Hierarchy: {scene.name} ===");
             output.AppendLine($"Path: {scenePath}");
             output.AppendLine($"Root GameObjects: {scene.GetRootGameObjects().Length}");
+            AppendOptionsHeader(output, opts);
             output.AppendLine();
 
+            int matchCount = 0;
             foreach (var root in scene.GetRootGameObjects())
-            {
-                ExportGameObjectRecursive(root, output, 0);
-            }
+                ExportGameObjectRecursive(root, output, 0, "", opts, ref matchCount);
+
+            if (opts.HasFilter)
+                output.AppendLine($"\n=== Matches: {matchCount} ===");
 
             task.result = output.ToString();
             Debug.Log($"[SceneTaskExecutor] ExportHierarchyScene: {scenePath} ✓");
 
-            // Restore previous scene if it had one
             if (!string.IsNullOrEmpty(previousScenePath))
                 EditorSceneManager.OpenScene(previousScenePath, OpenSceneMode.Single);
 
@@ -1115,45 +1167,152 @@ namespace PerSpec.UnityHelper.Editor
         private bool ExportHierarchyPrefab(Task task)
         {
             string prefabPath = GetParam(task, "prefabPath");
+            string outputPath = GetOptionalParam(task, "outputPath");
+            var opts = ParseHierarchyOptions(task);
 
-            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
-            if (prefab == null)
+            GameObject prefab = null;
+
+            // Check if prefab is currently open in Prefab Mode
+            var currentStage = UnityEditor.SceneManagement.PrefabStageUtility.GetCurrentPrefabStage();
+            if (currentStage != null && currentStage.prefabAssetPath == prefabPath)
             {
-                task.error = $"Prefab not found at: {prefabPath}";
-                return false;
+                prefab = currentStage.prefabContentsRoot;
+                Debug.Log($"[SceneTaskExecutor] Using currently open prefab stage: {prefabPath}");
+            }
+            else
+            {
+                prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+                if (prefab == null)
+                {
+                    task.error = $"Prefab not found at: {prefabPath}";
+                    return false;
+                }
             }
 
             var output = new System.Text.StringBuilder();
             output.AppendLine($"=== Prefab Hierarchy: {prefab.name} ===");
             output.AppendLine($"Path: {prefabPath}");
+            AppendOptionsHeader(output, opts);
             output.AppendLine();
 
-            ExportGameObjectRecursive(prefab, output, 0);
+            int matchCount = 0;
+            ExportGameObjectRecursive(prefab, output, 0, "", opts, ref matchCount);
 
-            task.result = output.ToString();
-            Debug.Log($"[SceneTaskExecutor] ExportHierarchyPrefab: {prefabPath} ✓");
+            if (opts.HasFilter)
+                output.AppendLine($"\n=== Matches: {matchCount} ===");
+
+            string result = output.ToString();
+            task.result = result;
+            Debug.Log($"[SceneTaskExecutor] ExportHierarchyPrefab: {prefabPath} ✓ (matches: {matchCount})");
+
+            if (!string.IsNullOrEmpty(outputPath))
+            {
+                System.IO.File.WriteAllText(outputPath, result);
+                Debug.Log($"[SceneTaskExecutor] Saved hierarchy to: {outputPath}");
+            }
+
             return true;
         }
 
-        private void ExportGameObjectRecursive(GameObject go, System.Text.StringBuilder output, int depth)
+        private void AppendOptionsHeader(System.Text.StringBuilder output, HierarchyExportOptions opts)
         {
-            string indent = new string(' ', depth * 2);
-            output.AppendLine($"{indent}[{go.name}]");
-            
-            // List components
+            if (opts.maxDepth >= 0)
+                output.AppendLine($"MaxDepth: {opts.maxDepth}");
+            if (!string.IsNullOrEmpty(opts.nameFilter))
+                output.AppendLine($"NameFilter: \"{opts.nameFilter}\"");
+            if (!string.IsNullOrEmpty(opts.componentFilter))
+                output.AppendLine($"ComponentFilter: \"{opts.componentFilter}\"");
+            if (opts.HasFilter)
+                output.AppendLine("Mode: FLAT (find mode - showing only matches)");
+        }
+
+        /// <summary>
+        /// Core recursive walker. In tree mode emits indented hierarchy with explicit parent/path.
+        /// In find mode (any filter active), emits a flat list of only matching GameObjects with full path.
+        /// Respects maxDepth (-1 = unlimited, 0 = only roots).
+        /// </summary>
+        private void ExportGameObjectRecursive(GameObject go, System.Text.StringBuilder output, int depth, string parentPath, HierarchyExportOptions opts, ref int matchCount)
+        {
+            string fullPath = string.IsNullOrEmpty(parentPath) ? go.name : $"{parentPath}/{go.name}";
+            string parentDisplay = string.IsNullOrEmpty(parentPath) ? "<root>" : parentPath;
+
+            if (opts.HasFilter)
+            {
+                // Flat find mode - only emit matching GameObjects (but still traverse all children)
+                if (MatchesFilter(go, opts))
+                {
+                    matchCount++;
+                    output.AppendLine($"[{go.name}]  (path: {fullPath})  (parent: {parentDisplay})");
+                    if (opts.includeComponents)
+                        AppendComponents(output, go, "  ");
+                }
+            }
+            else
+            {
+                // Tree mode
+                string indent = new string(' ', depth * 2);
+                output.AppendLine($"{indent}[{go.name}]  (parent: {parentDisplay})  (path: {fullPath})");
+                if (opts.includeComponents)
+                    AppendComponents(output, go, new string(' ', (depth + 1) * 2));
+            }
+
+            // Respect max depth
+            if (opts.maxDepth >= 0 && depth >= opts.maxDepth)
+                return;
+
+            for (int i = 0; i < go.transform.childCount; i++)
+                ExportGameObjectRecursive(go.transform.GetChild(i).gameObject, output, depth + 1, fullPath, opts, ref matchCount);
+        }
+
+        private void AppendComponents(System.Text.StringBuilder output, GameObject go, string indent)
+        {
             var components = go.GetComponents<Component>();
             foreach (var comp in components)
             {
                 if (comp == null) continue;
-                string compIndent = new string(' ', (depth + 1) * 2);
-                output.AppendLine($"{compIndent}• {comp.GetType().Name}");
+                output.AppendLine($"{indent}• {comp.GetType().Name}");
             }
-            
-            // Recurse to children
-            for (int i = 0; i < go.transform.childCount; i++)
+        }
+
+        /// <summary>
+        /// True if GameObject matches all active filters (name substring AND component presence).
+        /// Name match is case-insensitive substring.
+        /// Component match tries ResolveType first, then falls back to short-name comparison.
+        /// </summary>
+        private bool MatchesFilter(GameObject go, HierarchyExportOptions opts)
+        {
+            if (!string.IsNullOrEmpty(opts.nameFilter))
             {
-                ExportGameObjectRecursive(go.transform.GetChild(i).gameObject, output, depth + 1);
+                if (go.name.IndexOf(opts.nameFilter, StringComparison.OrdinalIgnoreCase) < 0)
+                    return false;
             }
+
+            if (!string.IsNullOrEmpty(opts.componentFilter))
+            {
+                var type = ResolveType(opts.componentFilter);
+                if (type != null)
+                {
+                    if (go.GetComponent(type) == null)
+                        return false;
+                }
+                else
+                {
+                    // Fallback: match by short type name
+                    bool found = false;
+                    foreach (var c in go.GetComponents<Component>())
+                    {
+                        if (c == null) continue;
+                        if (c.GetType().Name.Equals(opts.componentFilter, StringComparison.OrdinalIgnoreCase))
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) return false;
+                }
+            }
+
+            return true;
         }
         
         private bool InspectGameObject(Task task)
@@ -2001,6 +2160,110 @@ namespace PerSpec.UnityHelper.Editor
             var result = method.Invoke(component, null);
             task.result = result?.ToString() ?? "void";
             Debug.Log($"[SceneTaskExecutor] {path}/{componentName}.{methodName}() => {task.result}");
+            return true;
+        }
+
+        /// <summary>
+        /// Opens a prefab in Prefab Mode for editing.
+        /// Parameters:
+        ///   - prefabPath: Path to the prefab asset (e.g., "Assets/Prefabs/MyPrefab.prefab")
+        /// </summary>
+        private bool OpenPrefab(Task task)
+        {
+            string prefabPath = GetParam(task, "prefabPath");
+
+            if (!System.IO.File.Exists(prefabPath))
+            {
+                task.error = $"Prefab not found: {prefabPath}";
+                return false;
+            }
+
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            if (prefab == null)
+            {
+                task.error = $"Failed to load prefab: {prefabPath}";
+                return false;
+            }
+
+            var stage = UnityEditor.SceneManagement.PrefabStageUtility.OpenPrefab(prefabPath);
+            if (stage == null)
+            {
+                task.error = $"Failed to open prefab stage: {prefabPath}";
+                return false;
+            }
+
+            task.result = $"Opened prefab: {prefabPath}";
+            Debug.Log($"[SceneTaskExecutor] Opened prefab: {prefabPath}");
+            return true;
+        }
+
+        /// <summary>
+        /// Saves the currently open prefab and closes Prefab Mode.
+        /// No parameters required.
+        /// </summary>
+        private bool SavePrefab(Task task)
+        {
+            var stage = UnityEditor.SceneManagement.PrefabStageUtility.GetCurrentPrefabStage();
+            if (stage == null)
+            {
+                task.error = "No prefab stage is currently open";
+                return false;
+            }
+
+            var prefabPath = stage.prefabAssetPath;
+            AssetDatabase.SaveAssets();
+            EditorSceneManager.MarkSceneDirty(stage.scene);
+
+            task.result = $"Saved prefab: {prefabPath}";
+            Debug.Log($"[SceneTaskExecutor] Saved prefab: {prefabPath}");
+            return true;
+        }
+
+        /// <summary>
+        /// Sets the parent of a GameObject using Transform.Find() for Prefab Mode.
+        /// Parameters:
+        ///   - path: GameObject name to find via GameObject.Find()
+        ///   - parentPath: Relative path from prefab root (e.g., "O2_PSC_Driver/O2_PSC/CART_BASE_FRAME/Console/sus_op_ctrl/Visuals/sus_op_mesh/XiPSC_Boom_Rotation")
+        /// </summary>
+        private bool SetParentByTransform(Task task)
+        {
+            string path = GetParam(task, "path");
+            string parentPath = GetParam(task, "parentPath");
+
+            var go = GameObject.Find(path);
+            if (go == null)
+            {
+                task.error = $"GameObject not found: {path}";
+                return false;
+            }
+
+            // Check if we're in Prefab Mode
+            var stage = UnityEditor.SceneManagement.PrefabStageUtility.GetCurrentPrefabStage();
+            if (stage == null)
+            {
+                task.error = "Not in Prefab Mode - use SetParent instead";
+                return false;
+            }
+
+            // Use Transform.Find() to locate parent from prefab root
+            var prefabRoot = stage.prefabContentsRoot;
+            Transform parentTransform = prefabRoot.transform;
+
+            // Split the path and traverse using Transform.Find()
+            string[] pathParts = parentPath.Split('/');
+            foreach (string part in pathParts)
+            {
+                parentTransform = parentTransform.Find(part);
+                if (parentTransform == null)
+                {
+                    task.error = $"Parent GameObject not found via Transform.Find: {parentPath} (failed at: {part})";
+                    return false;
+                }
+            }
+
+            go.transform.SetParent(parentTransform);
+            task.result = $"Set parent via Transform.Find: {path} -> {parentPath}";
+            Debug.Log($"[SceneTaskExecutor] Set parent via Transform.Find: {path} -> {parentPath}");
             return true;
         }
     }
