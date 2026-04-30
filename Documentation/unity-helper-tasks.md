@@ -713,14 +713,70 @@ Exports the hierarchy of a **prefab asset** to `task.result` without loading a s
 {
     "action": "ExportHierarchyPrefab",
     "parameters": [
-        {"key": "prefabPath", "value": "Assets/Prefabs/MyPrefab.prefab"}
+        {"key": "prefabPath", "value": "Assets/Prefabs/MyPrefab.prefab"},
+        {"key": "nameFilter", "value": "Button"},
+        {"key": "componentFilter", "value": "Image"},
+        {"key": "maxDepth", "value": "5"},
+        {"key": "includeComponents", "value": "true"}
     ]
 }
 ```
 - `prefabPath` - Path to the `.prefab` asset (required)
+- `nameFilter` - Filter GameObjects by name substring (optional, case-insensitive)
+- `componentFilter` - Filter GameObjects by component type (optional, short name or full type)
+- `maxDepth` - Maximum hierarchy depth to traverse (optional, -1 for unlimited)
+- `includeComponents` - Include component listing in output (optional, default: true)
 - Loads the prefab via `AssetDatabase` — no scene required
-- Shows full child hierarchy with components
+- When filters are active, emits only matching GameObjects in flat mode
+- When no filters, shows full tree hierarchy with indentation
 - Result stored in `task.result`
+
+### OpenPrefab
+Opens a prefab in Prefab Mode for editing.
+```json
+{
+    "action": "OpenPrefab",
+    "parameters": [
+        {"key": "prefabPath", "value": "Assets/Prefabs/MyPrefab.prefab"}
+    ]
+}
+```
+- `prefabPath` - Path to the prefab asset (required)
+- Opens the prefab in Unity's Prefab Mode for direct editing
+- Must be followed by `SavePrefab` to save changes
+- Stores confirmation message in `task.result`
+
+### SavePrefab
+Saves the currently open prefab and closes Prefab Mode.
+```json
+{
+    "action": "SavePrefab",
+    "parameters": []
+}
+```
+- No parameters required
+- Saves the currently open prefab stage and closes Prefab Mode
+- Must be called after `OpenPrefab` and any modifications
+- Returns error if no prefab stage is currently open
+- Stores saved prefab path in `task.result`
+
+### SetParentByTransform
+Sets the parent of a GameObject using Transform.Find() for Prefab Mode.
+```json
+{
+    "action": "SetParentByTransform",
+    "parameters": [
+        {"key": "path", "value": "MyGameObject"},
+        {"key": "parentPath", "value": "Parent/Child/Grandchild"}
+    ]
+}
+```
+- `path` - GameObject name to find via GameObject.Find() (required)
+- `parentPath` - Relative path from prefab root using '/' separator (required)
+- Only works in Prefab Mode (returns error otherwise)
+- Uses Transform.Find() to traverse the hierarchy from prefab root
+- Useful for reparenting within complex prefab structures
+- Stores confirmation message in `task.result`
 
 ### TakeScreenshot
 Captures a screenshot of the current Game view with configurable output and resolution.
