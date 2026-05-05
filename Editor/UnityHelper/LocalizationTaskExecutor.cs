@@ -8,6 +8,7 @@ using UnityEngine.Localization;
 using UnityEngine.Localization.Settings;
 using UnityEditor.Localization;
 using System.IO;
+using PerSpec.Runtime.Localization;
 
 namespace PerSpec.UnityHelper.Editor
 {
@@ -67,21 +68,80 @@ namespace PerSpec.UnityHelper.Editor
             }
         }
 
+        /// <summary>
+        /// Creates a LocalizationSettings asset (if missing), registers it as the project's active
+        /// settings, and optionally walks <c>Assets/Localization/</c> for any existing Locale
+        /// assets and adds them to the AvailableLocales list.
+        ///
+        /// Optional params:
+        ///   settingsPath       — where to save the .asset. Default: Assets/Localization/LocalizationSettings.asset
+        ///   registerExisting   — "true"/"false". Default: "true". When true, every Locale asset
+        ///                        under Assets/Localization/ is added to the new settings.
+        ///   localesFolder      — folder to scan for Locale assets. Default: Assets/Localization
+        /// </summary>
         private bool CreateLocalizationSettings(Task task)
         {
+            string settingsPath    = GetOptionalParam(task, "settingsPath",    "Assets/Localization/LocalizationSettings.asset");
+            string localesFolder   = GetOptionalParam(task, "localesFolder",   "Assets/Localization");
+            bool   registerExisting = GetOptionalParam(task, "registerExisting", "true") == "true";
+
             try
             {
-                // Check if LocalizationSettings already exists
-                var existingSettings = LocalizationEditorSettings.ActiveLocalizationSettings;
-                if (existingSettings != null)
+                // Idempotent fast path — if active settings already exist, only register existing
+                // Locales that aren't yet on the list. Useful when an SO exists but is empty.
+                var settings = LocalizationEditorSettings.ActiveLocalizationSettings;
+                bool created = false;
+                if (settings == null)
                 {
-                    return true; // Already exists, idempotent
+                    string folder = Path.GetDirectoryName(settingsPath);
+                    if (!string.IsNullOrEmpty(folder) && !Directory.Exists(folder))
+                    {
+                        Directory.CreateDirectory(folder);
+                    }
+
+                    settings = ScriptableObject.CreateInstance<LocalizationSettings>();
+                    settings.name = Path.GetFileNameWithoutExtension(settingsPath);
+                    AssetDatabase.CreateAsset(settings, settingsPath);
+                    LocalizationEditorSettings.ActiveLocalizationSettings = settings;
+                    created = true;
+                    Debug.Log($"[LocalizationTaskExecutor] Created LocalizationSettings at {settingsPath}");
                 }
 
-                // Unity doesn't provide a programmatic way to create LocalizationSettings
-                // User must create it manually once via Unity Editor UI
-                task.error = "CreateLocalizationSettings requires manual setup: Open 'Window > Asset Management > Localization Tables' in Unity Editor. It will prompt you to create LocalizationSettings. Click 'Create' and then run this scenario again.";
-                return false;
+                int registered = 0;
+                int alreadyPresent = 0;
+                if (registerExisting && Directory.Exists(localesFolder))
+                {
+                    var existingProjectLocales = LocalizationEditorSettings.GetLocales();
+                    var alreadyRegisteredCodes = new HashSet<string>(
+                        existingProjectLocales != null
+                            ? existingProjectLocales.Select(l => l != null ? l.Identifier.Code : null).Where(c => c != null)
+                            : System.Linq.Enumerable.Empty<string>());
+
+                    var localeGuids = AssetDatabase.FindAssets("t:Locale", new[] { localesFolder });
+                    foreach (var guid in localeGuids)
+                    {
+                        string path = AssetDatabase.GUIDToAssetPath(guid);
+                        var locale = AssetDatabase.LoadAssetAtPath<Locale>(path);
+                        if (locale == null) continue;
+                        if (alreadyRegisteredCodes.Contains(locale.Identifier.Code))
+                        {
+                            alreadyPresent++;
+                            continue;
+                        }
+                        LocalizationEditorSettings.AddLocale(locale, false);
+                        registered++;
+                    }
+                }
+
+                EditorUtility.SetDirty(settings);
+                AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
+
+                task.result = created
+                    ? $"Created LocalizationSettings at {settingsPath}; registered {registered} Locale asset(s) (already-present: {alreadyPresent})"
+                    : $"LocalizationSettings already existed; registered {registered} additional Locale asset(s) (already-present: {alreadyPresent})";
+                Debug.Log($"[LocalizationTaskExecutor] {task.result}");
+                return true;
             }
             catch (Exception ex)
             {
@@ -479,6 +539,9 @@ namespace PerSpec.UnityHelper.Editor
             string value = GetParam(task, "value");
             string language = GetOptionalParam(task, "language", "en");
             string tableName = GetOptionalParam(task, "table", "General");
+            string shape = GetOptionalParam(task, "shape", "");
+
+            value = MaybeShape(value, language, shape);
 
             if (string.IsNullOrEmpty(key))
             {
@@ -548,9 +611,14 @@ namespace PerSpec.UnityHelper.Editor
                     entry.Value = value;
                 }
 
-                // Save changes
+                // Save changes — SharedData carries the key→ID map (mutated by AddEntry via
+                // SharedData.AddKey). Without dirtying it, the new key is held in memory until
+                // the next domain reload, then discarded. The per-locale value persists (table is
+                // dirtied), but the key it points to vanishes — entries become orphaned.
                 EditorUtility.SetDirty(table);
                 EditorUtility.SetDirty(collection);
+                if (collection.SharedData != null)
+                    EditorUtility.SetDirty(collection.SharedData);
                 AssetDatabase.SaveAssets();
 
                 return true;
@@ -641,8 +709,11 @@ namespace PerSpec.UnityHelper.Editor
                     EditorUtility.SetDirty(targetTable);
                 }
 
-                // Save changes
+                // Save changes — see SetString comment: SharedData carries key→ID map and
+                // must be dirtied for new keys (added via AddEntry → SharedData.AddKey) to persist.
                 EditorUtility.SetDirty(collection);
+                if (collection.SharedData != null)
+                    EditorUtility.SetDirty(collection.SharedData);
                 AssetDatabase.SaveAssets();
 
                 return true;
@@ -659,6 +730,7 @@ namespace PerSpec.UnityHelper.Editor
             string filePath = GetParam(task, "filePath");
             string language = GetOptionalParam(task, "language", "en");
             string tableName = GetOptionalParam(task, "table", "General");
+            string shape = GetOptionalParam(task, "shape", "");
 
             if (string.IsNullOrEmpty(filePath))
             {
@@ -725,6 +797,8 @@ namespace PerSpec.UnityHelper.Editor
                     if (string.IsNullOrEmpty(key))
                         continue;
 
+                    value = MaybeShape(value, language, shape);
+
                     // Add or update entry
                     var entry = table.GetEntry(key);
                     if (entry == null)
@@ -741,6 +815,8 @@ namespace PerSpec.UnityHelper.Editor
 
                 EditorUtility.SetDirty(table);
                 EditorUtility.SetDirty(collection);
+                if (collection.SharedData != null)
+                    EditorUtility.SetDirty(collection.SharedData);
                 AssetDatabase.SaveAssets();
 
                 Debug.Log($"[LocalizationTaskExecutor] BulkSetStrings: Added {addedCount} new, updated {updatedCount} from '{filePath}'");
@@ -1043,6 +1119,8 @@ namespace PerSpec.UnityHelper.Editor
 
                 EditorUtility.SetDirty(table);
                 EditorUtility.SetDirty(collection);
+                if (collection.SharedData != null)
+                    EditorUtility.SetDirty(collection.SharedData);
                 AssetDatabase.SaveAssets();
 
                 return true;
@@ -1546,6 +1624,36 @@ namespace PerSpec.UnityHelper.Editor
 
             result.Add(currentValue.ToString());
             return result.ToArray();
+        }
+
+        // Optional shaping pre-pass for SetString / BulkSetStrings.
+        // shape="arabic" — always run ArabicShaper.Shape on the value.
+        // shape="auto"   — run ArabicShaper.Shape if the locale code starts with ar/fa/ur/ps/sd/ku.
+        // shape="" or unrecognized — pass-through.
+        private static string MaybeShape(string value, string language, string shape)
+        {
+            if (string.IsNullOrEmpty(value) || string.IsNullOrEmpty(shape)) return value;
+            string s = shape.Trim().ToLowerInvariant();
+            string shaped = null;
+            if (s == "arabic")
+            {
+                shaped = ArabicShaper.Shape(value);
+            }
+            else if (s == "auto")
+            {
+                if (string.IsNullOrEmpty(language)) return value;
+                string lc = language.Trim().ToLowerInvariant();
+                if (lc == "ar" || lc.StartsWith("ar-") ||
+                    lc == "fa" || lc.StartsWith("fa-") ||
+                    lc == "ur" || lc.StartsWith("ur-") ||
+                    lc == "ps" || lc.StartsWith("ps-") ||
+                    lc == "sd" || lc.StartsWith("sd-") ||
+                    lc == "ku" || lc.StartsWith("ku-"))
+                {
+                    shaped = ArabicShaper.Shape(value);
+                }
+            }
+            return shaped ?? value;
         }
     }
 }
