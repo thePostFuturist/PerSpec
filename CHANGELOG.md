@@ -5,6 +5,15 @@ All notable changes to the PerSpec Testing Framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.1] - 2026-05-13
+
+### Documentation
+- **architecture.md**: Updated state machine to reflect the fine-grained statuses (`processing`, `executing`, `finalizing`, `timeout`, `inconclusive`) introduced in v1.6.0. Documented the `created_at` storage convention (`.NET DateTime.Now.Ticks` from Python) and the SQLite NUMERIC-affinity corruption it prevents. Rewrote the `TestExecutor` and `PlayModeTestCompletionChecker` flow sections to describe the canonical/fallback completion paths and the `MIN_RUN_SECONDS` / `IsXmlComplete` / write-time-freshness guards. Updated Python `wait_for_completion` example with the v1.6.0 retry + XML-wait semantics.
+- **LLM.md**: Replaced the "Understanding Test Status" callout. The previous text described the pre-v1.6.0 behavior where `--wait` only waited for request processing (not actual test execution) and instructed readers to visually verify completion. That guidance is now obsolete and actively misleading — `--wait` now blocks until BOTH the row reaches a terminal status AND the XML is on disk. New text lists the terminal statuses and what each means.
+
+### Notes
+- No code changes; documentation-only release so openupm picks up the corrected guidance alongside the v1.6.0 fixes.
+
 ## [1.6.0] - 2026-05-12
 
 ### Fixed

@@ -268,18 +268,19 @@ python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait
 ☐ Tests executed (`quick_test.py`)
 
 ### ⚠️ Understanding Test Status
-**IMPORTANT**: The "completed" status means:
-- ✅ Test request was processed by Unity
-- ✅ Test results XML file was found and parsed
-- ❌ NOT that tests finished executing in Unity
+**As of PerSpec v1.6.0**, the `--wait` flag waits for **true completion**:
+- ✅ The DB row has reached a terminal status (`completed`, `failed`, `cancelled`, `timeout`, `inconclusive`)
+- ✅ A matching `TestResults_*.xml` is present in `PerSpec/TestResults/`
+  (imported from Unity's AppData fallback if the in-process exporter didn't write one)
 
-The `--wait` flag only waits for the request to be processed, not for test execution to complete.
-Unity may still be running tests even after status shows "completed".
+Terminal statuses and what they mean:
+- **`completed`** — Unity ran the tests and produced results
+- **`inconclusive`** — Tests ran but produced no usable results (e.g., a method-level run where every test was skipped). Also used when compilation errors prevent execution.
+- **`failed`** — Dispatch threw, or orphan recovery flagged the row after a domain reload
+- **`timeout`** — `HandleTestTimeout` fired (>5 min batch / >10 min single)
+- **`cancelled`** — User cancelled via CLI
 
-To ensure tests are truly finished:
-1. Check Unity Test Runner window visually
-2. Look for "Test run finished" in Unity console
-3. Check if Unity Editor is still busy (spinner in tab)
+If `quick_test.py --wait` exits 0 and `test_results.py latest -v` shows the run, the tests are truly finished.
 
 **🚨 CRITICAL PROTOCOL**: 
 1. **ALWAYS** refresh Unity after ANY code change

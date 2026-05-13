@@ -107,17 +107,51 @@ sequenceDiagram
 
 ### State Transitions
 
-Each request follows a strict state machine:
+Each `test_requests` row follows a fine-grained state machine. The CHECK
+constraint on the `status` column is the source of truth and is maintained
+by `db_initializer.py` (fresh installs) and `db_auto_maintenance.py`
+migrations v1 and v5 (existing databases).
 
 ```python
-# Database states (enforced by CHECK constraints)
-STATES = ['pending', 'running', 'completed', 'failed', 'cancelled']
+# Database states (enforced by CHECK constraints in db_initializer.py)
+STATES = [
+    'pending',       # Inserted by Python; awaiting Unity pickup
+    'processing',    # TestCoordinatorEditor has picked it up; pre-execute setup
+    'executing',     # Tests are running (set by RunStarted callback or
+                     # the NRE catch fallback for PlayMode)
+    'finalizing',    # Test run produced results; writing to DB
+    'completed',     # Terminal: tests finished and results persisted
+    'failed',        # Terminal: dispatch threw OR orphan recovery flagged it
+    'timeout',       # Terminal: HandleTestTimeout fired (>5min batch, >10min single)
+    'cancelled',     # Terminal: user cancelled via Python CLI or UI
+    'inconclusive',  # Terminal: tests ran but produced no usable results
+                     # (e.g. method-level run where every test was skipped)
+    'running',       # Legacy alias retained for back-compat
+]
 
-# State transitions
-pending → running → completed/failed
-pending → cancelled
-running → cancelled (with cleanup)
+# Happy-path PlayMode method run (post v1.6.0):
+pending → processing → executing → finalizing → completed
+
+# When RunStarted callback doesn't fire (typical PlayMode), the file
+# monitor takes over and walks the same canonical path via
+# CheckAndProcessResultFile (TestExecutor.cs).
 ```
+
+> **Critical invariant — `created_at` storage format**
+>
+> The `created_at` column has SQLite NUMERIC affinity. Unity's sqlite-net
+> layer maps it to `DateTime` as INT64 ticks. **Python must write the
+> column as `.NET DateTime.Now.Ticks`** (an `INT64`), not as an ISO TEXT
+> timestamp. See `_dotnet_ticks_now()` in `test_coordinator.py`.
+>
+> *Why*: If Python uses SQLite's `CURRENT_TIMESTAMP` default (TEXT
+> "yyyy-MM-dd HH:mm:ss"), the first sqlite-net `_connection.Update(entity)`
+> triggers NUMERIC affinity coercion of the TEXT value to its leading
+> numeric prefix (e.g. `"2026-05-13 01:25:38"` → `2026`). Cleanup queries
+> like `DELETE FROM test_requests WHERE created_at < ?` then match the
+> corrupted `2026` against any ticks cutoff and silently delete the row
+> mid-run. This was the long-standing "Request N not found" bug, fixed
+> in v1.6.0.
 
 ### Validation Checkpoints
 
@@ -159,9 +193,13 @@ CREATE TABLE test_requests (
     request_type TEXT CHECK(request_type IN ('all','class','method','category')),
     test_filter TEXT,
     test_platform TEXT CHECK(test_platform IN ('EditMode','PlayMode','Both')),
-    status TEXT DEFAULT 'pending',
+    status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN (
+        'pending', 'processing', 'executing', 'finalizing',
+        'running', 'completed', 'failed', 'timeout',
+        'cancelled', 'inconclusive'
+    )),
     priority INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  -- Python overrides with .NET ticks
     started_at TIMESTAMP,
     completed_at TIMESTAMP,
     total_tests INTEGER DEFAULT 0,
@@ -207,11 +245,13 @@ CREATE TABLE asset_refresh_requests (
 
 #### Request Submission (Python → Unity)
 ```python
-# Python: Submit request
+# Python: Submit request (test_coordinator.submit_test_request)
+# created_at must be .NET ticks - see _dotnet_ticks_now() in test_coordinator.py
+now_ticks = _dotnet_ticks_now()  # int((datetime.now() - datetime(1,1,1)).total_seconds() * 1e7)
 conn.execute("""
-    INSERT INTO test_requests (request_type, test_platform, status)
-    VALUES (?, ?, 'pending')
-""", ('all', 'PlayMode'))
+    INSERT INTO test_requests (request_type, test_platform, priority, created_at, status)
+    VALUES (?, ?, ?, ?, 'pending')
+""", ('all', 'PlayMode', 0, now_ticks))
 ```
 
 ```csharp
@@ -260,23 +300,43 @@ public void UpdateRequestResults(int requestId, string status,
 The bridge uses a **polling-based protocol** with the database as intermediary:
 
 ```python
-# Python side - Submit and wait
+# Python side - Submit and wait (test_coordinator.py, v1.6.0+)
 def submit_test_request(self, request_type, platform, filter=None):
+    # created_at as .NET ticks (see _dotnet_ticks_now in same module)
     cursor.execute("""
-        INSERT INTO test_requests 
-        (request_type, test_platform, test_filter, status)
-        VALUES (?, ?, ?, 'pending')
-    """, (request_type, platform, filter))
+        INSERT INTO test_requests
+        (request_type, test_platform, test_filter, priority, created_at, status)
+        VALUES (?, ?, ?, ?, ?, 'pending')
+    """, (request_type, platform, filter, 0, _dotnet_ticks_now()))
     return cursor.lastrowid
 
-def wait_for_completion(self, request_id, timeout=300):
-    end_time = time.time() + timeout
-    while time.time() < end_time:
+def wait_for_completion(self, request_id, timeout=300,
+                       xml_grace_seconds=15.0,
+                       missing_row_retries=10):
+    """Wait until Unity finishes AND the XML artifact is on disk.
+
+    'completed' DB status alone is not sufficient: the run truly finishes
+    only when a matching TestResults_*.xml is present in PerSpec/TestResults/.
+    Tolerates up to N consecutive missing-row reads (cleanup races) and
+    falls back to importing Unity's AppData TestResults.xml if PerSpec's
+    copy never materialized.
+    """
+    terminal = {'completed', 'failed', 'cancelled', 'timeout', 'inconclusive'}
+    consecutive_misses = 0
+    while time.time() - start < timeout:
         status = self.get_request_status(request_id)
-        if status in ['completed', 'failed', 'cancelled']:
+        if not status:
+            consecutive_misses += 1
+            if consecutive_misses >= missing_row_retries:
+                raise ValueError(f"Request {request_id} not found after "
+                                 f"{missing_row_retries} polls")
+            time.sleep(poll_interval); continue
+        consecutive_misses = 0
+        if status['status'] in terminal:
+            self._await_results_xml(request_id, status['created_at'],
+                                    xml_grace_seconds)
             return status
-        time.sleep(0.5)
-    return 'timeout'
+        time.sleep(poll_interval)
 ```
 
 ### Background Processing Architecture
@@ -379,21 +439,38 @@ Editor/Coordination/
 
 #### TestExecutor
 - **Purpose**: Test execution orchestration
-- **Integration**: Unity Test Framework API
+- **Integration**: Unity Test Framework API (`TestRunnerApi.Execute`)
 - **Flow**:
-  1. Create Filter from request
-  2. Register callbacks
-  3. Execute tests
-  4. Parse XML results
-  5. Update database
+  1. `StartFileMonitoring()` snapshots `PerSpec/TestResults/`
+  2. Register `TestResultXMLExporter` + `this` (ICallbacks) on `TestRunnerApi`
+  3. `_testApi.Execute(settings)` — for PlayMode, catches expected `NullReferenceException` and falls through to file monitoring
+  4. **Canonical completion path** is `RunFinished` ICallbacks handler; it
+     calls `EnsureResultXmlInPerSpec()` so the XML always lands in
+     `PerSpec/TestResults/` even if the in-process exporter didn't fire
+  5. **Fallback completion path** is `CheckAndProcessResultFile`, guarded by:
+     - `elapsed >= MIN_RUN_SECONDS` (3s) — rejects "completion" that fires
+       within milliseconds of dispatch (the v1.6.0 bug fix; previously
+       method-level PlayMode runs flipped to `completed` instantly)
+     - `IsXmlComplete(xmlPath)` — XML has `total` and `duration` attrs and
+       observed test-case count ≥ declared total
+     - `LastWriteTime >= _monitorStartDateTime - 5s` — file is from this run
+     - File size has been stable for `FILE_STABILITY_WAIT` (3s)
+  6. Method-level runs whose entire result set is `Skipped` are written
+     with terminal status `'inconclusive'` rather than `'completed'`
 
 #### PlayModeTestCompletionChecker
-- **Purpose**: Detect PlayMode test completion
-- **Trigger**: EditorApplication.playModeStateChanged
+- **Purpose**: Last-resort PlayMode completion detection after Play mode exit
+- **Trigger**: `EditorApplication.playModeStateChanged` → `EnteredEditMode`
+  (guarded against mid-PlayMode domain reloads via
+  `!EditorApplication.isPlayingOrWillChangePlaymode`)
 - **Actions**:
-  1. Check for test result files
-  2. Parse XML for counts
-  3. Update database with results
+  1. Find running PlayMode requests via `GetRunningRequests()`
+  2. Search `PerSpec/TestResults/` for XMLs newer than `request.StartedAt - 5s`
+  3. If none, `CopyFromUnityDefaultLocation()` walks
+     `%LocalAppDataLow%\<Company>\<Product>\TestResults.xml` candidates
+     and imports the first fresh one
+  4. Parse XML and `UpdateRequestResults`; empty result sets for method
+     runs become `'inconclusive'`
 
 ### Assembly Structure
 
@@ -669,13 +746,24 @@ PerSpec's architecture achieves reliable Unity test automation through:
 5. **Zero-Allocation Async**: UniTask for performance
 6. **Prefab Pattern**: Consistent, testable Unity components
 
-### Recent Improvements (August 2025)
+### Recent Improvements (v1.6.0, May 2026)
 
-The following optimizations have been successfully implemented:
+Long-standing "Request N not found" failure on `quick_test.py method ... -p play --wait` traced to **SQLite type-affinity corruption** of Python-inserted timestamps. Full hardening pass:
 
-1. **Code Consolidation**: Merged TestCoordinationDebug into TestCoordinatorEditor, reducing file count while preserving all functionality
-2. **Generic Status Updates**: Implemented UpdateStatusBase<T>() in SQLiteManager to eliminate code duplication
-3. **Menu Cleanup**: Removed redundant and commented menu items, maintaining single entry point through Control Center
-4. **Simplified Architecture**: Reduced complexity while maintaining all features and improving maintainability
+1. **Root-cause fix — `created_at` storage convention**: Python now writes `created_at` as `.NET DateTime.Now.Ticks` (INT64) via `_dotnet_ticks_now()`. sqlite-net round-trips the value unchanged. Previously, TEXT timestamps were coerced to integer year (`2026`) by NUMERIC affinity on the first sqlite-net `_connection.Update(entity)`, after which any cleanup `DELETE ... WHERE created_at < ?` deleted the fresh row.
+2. **Premature-completion guards in `TestExecutor`**: removed the EditMode/method-level early-complete branch in `GetLatestResultFile`. The canonical completion path (`CheckAndProcessResultFile`) now requires `MIN_RUN_SECONDS` elapsed + `IsXmlComplete` + write-time freshness + size stability before marking a row terminal.
+3. **`EnsureResultXmlInPerSpec()` in `TestExecutor.RunFinished`**: copies Unity's AppData `TestResults.xml` into `PerSpec/TestResults/` if neither the XML exporter callback nor file monitoring already did, guaranteeing `test_results.py latest` can see the file.
+4. **`RecoverOrphanedRequests` safety gate**: re-verifies request age in C# before marking anything `failed`, defending against future SQL false-positives.
+5. **Status CHECK constraint includes `'inconclusive'`**: new `apply_migration_v5` in `db_auto_maintenance.py`; `db_update_status_constraint.py` is now idempotent.
+6. **Python `wait_for_completion` hardened**: tolerates up to 10 consecutive missing-row reads, waits for the XML artifact before returning, falls back to importing from `%LocalAppDataLow%` if PerSpec's copy never materialized. `--wait` now means "Unity actually finished and results are on disk."
+7. **`test_results.py` multi-directory scan**: enumerates AppData fallback locations when nothing fresh exists in `PerSpec/TestResults/`.
+8. **Fixed migration v4 typo** (`menu_requests` → `menu_item_requests`) that had been silently breaking the migration chain.
+
+### Earlier Improvements (August 2025)
+
+1. **Code Consolidation**: Merged TestCoordinationDebug into TestCoordinatorEditor.
+2. **Generic Status Updates**: Implemented `UpdateStatusBase<T>()` in SQLiteManager.
+3. **Menu Cleanup**: Removed redundant menu items, single entry point via Control Center.
+4. **Simplified Architecture**: Reduced complexity while preserving features.
 
 The architecture prioritizes reliability and simplicity while maintaining extensibility for future enhancements.
