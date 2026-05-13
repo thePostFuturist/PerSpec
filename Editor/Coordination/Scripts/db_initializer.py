@@ -49,7 +49,11 @@ def create_database():
                 request_type TEXT NOT NULL CHECK(request_type IN ('all', 'class', 'method', 'category')),
                 test_filter TEXT,
                 test_platform TEXT NOT NULL CHECK(test_platform IN ('EditMode', 'PlayMode', 'Both')),
-                status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'running', 'completed', 'failed', 'cancelled')),
+                status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN (
+                    'pending', 'processing', 'executing', 'finalizing',
+                    'running', 'completed', 'failed', 'timeout',
+                    'cancelled', 'inconclusive'
+                )),
                 priority INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 started_at TIMESTAMP,

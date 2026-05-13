@@ -61,7 +61,7 @@ def main():
     parser.add_argument('--priority', type=int, default=0,
                        help='Priority level (higher runs first)')
     parser.add_argument('--wait', action='store_true',
-                       help='Wait for test request processing (NOT full test execution)')
+                       help='Wait until Unity finishes the run and results XML is on disk')
     parser.add_argument('--timeout', type=int, default=300,
                        help='Timeout in seconds (default: 300)')
     parser.add_argument('--focus', action='store_true',

@@ -26,9 +26,57 @@ def get_project_root():
     return Path.cwd()
 
 def get_test_results_path():
-    """Get the TestResults directory path"""
+    """Get the primary TestResults directory path (PerSpec/TestResults/)."""
     project_root = get_project_root()
     return project_root / "PerSpec" / "TestResults"
+
+
+def _appdata_unity_candidates():
+    """Mirror C# TestExecutor.cs:602-616 AppData fallback enumeration.
+
+    Returns directories under %LocalAppData%Low that contain a TestResults.xml.
+    Each is a candidate source for the Unity-default results XML.
+    """
+    local_app = os.environ.get("LOCALAPPDATA")
+    if not local_app:
+        return []
+    appdata_low = Path(local_app + "Low")
+    if not appdata_low.exists():
+        return []
+
+    project_name = get_project_root().name
+    preferred = {project_name, "TestFramework"}
+    candidates = []
+    try:
+        for company_dir in appdata_low.iterdir():
+            if not company_dir.is_dir():
+                continue
+            for product_dir in company_dir.iterdir():
+                if not product_dir.is_dir():
+                    continue
+                if (product_dir / "TestResults.xml").exists():
+                    score = (2 if product_dir.name in preferred else 0) + \
+                            (1 if company_dir.name == "DefaultCompany" else 0)
+                    candidates.append((score, product_dir))
+    except OSError:
+        return []
+    candidates.sort(key=lambda t: t[0], reverse=True)
+    return [c for _, c in candidates]
+
+
+def _import_appdata_xml_into_perspec(source_xml: Path, dest_dir: Path) -> Optional[Path]:
+    """Copy Unity's AppData TestResults.xml into PerSpec/TestResults with a timestamp."""
+    try:
+        import shutil
+        mtime = datetime.fromtimestamp(source_xml.stat().st_mtime)
+        dest = dest_dir / f"TestResults_{mtime.strftime('%Y%m%d_%H%M%S')}.xml"
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(str(source_xml), str(dest))
+        print(f"[INFO] Imported {source_xml} -> {dest}")
+        return dest
+    except OSError as e:
+        print(f"[WARN] Failed to import {source_xml}: {e}")
+        return None
 
 def parse_xml_file(xml_path: Path) -> Dict:
     """Parse a test results XML file"""
@@ -78,19 +126,36 @@ def parse_xml_file(xml_path: Path) -> Dict:
         }
 
 def list_result_files(limit: int = 10) -> List[Path]:
-    """List available test result files"""
+    """List available test result files.
+
+    Looks in PerSpec/TestResults/ first. If empty (or if Unity's AppData copy
+    is newer than anything we have), imports the AppData TestResults.xml into
+    PerSpec/TestResults/ first so subsequent reads are consistent.
+    """
     results_path = get_test_results_path()
-    
-    if not results_path.exists():
-        return []
-    
-    # Get all XML files sorted by modification time (newest first)
-    xml_files = sorted(
-        results_path.glob("*.xml"),
-        key=lambda x: x.stat().st_mtime,
-        reverse=True
+    results_path.mkdir(parents=True, exist_ok=True)
+
+    perspec_xmls = list(results_path.glob("*.xml"))
+    perspec_latest_mtime = max(
+        (x.stat().st_mtime for x in perspec_xmls),
+        default=0.0,
     )
-    
+
+    # If AppData has a newer TestResults.xml than anything in PerSpec, import it.
+    for appdata_dir in _appdata_unity_candidates():
+        source = appdata_dir / "TestResults.xml"
+        if source.exists() and source.stat().st_mtime > perspec_latest_mtime:
+            imported = _import_appdata_xml_into_perspec(source, results_path)
+            if imported is not None:
+                perspec_xmls.append(imported)
+                break  # only import from the highest-priority candidate
+
+    xml_files = sorted(
+        perspec_xmls,
+        key=lambda x: x.stat().st_mtime,
+        reverse=True,
+    )
+
     return xml_files[:limit] if limit > 0 else xml_files
 
 def display_summary(data: Dict, verbose: bool = False):

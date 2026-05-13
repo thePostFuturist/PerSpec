@@ -36,6 +36,7 @@ namespace PerSpec.Editor.Coordination
         private const double FILE_STABILITY_WAIT = 3.0; // Wait for file to stabilize
         private const double MAX_WAIT_TIME = 300.0; // 5 minute timeout for batch tests
         private const double MAX_WAIT_TIME_INDIVIDUAL = 600.0; // 10 minute timeout for individual tests
+        private const double MIN_RUN_SECONDS = 3.0; // Reject "completion" that fires within this many seconds of dispatch
         private bool _isMonitoring;
         private bool _hasCompletedViaCallback;
         private bool _testsStarted;
@@ -207,10 +208,16 @@ namespace PerSpec.Editor.Coordination
                     
                     // Process all test results
                     ProcessTestResults(result);
-                    
+
                     // Save individual test results to database
                     SaveTestResultsToDatabase();
-                    
+
+                    // Belt-and-braces: ensure the XML actually landed in PerSpec/TestResults
+                    // so the Python test_results.py viewer can see it. The XMLExporter
+                    // callback usually handles this, but if it didn't fire (PlayMode
+                    // reliability), copy Unity's AppData file in now.
+                    EnsureResultXmlInPerSpec();
+
                     // Now mark as fully completed
                     _dbManager.UpdateRequestStatus(_currentRequest.Id, "completed");
                     _dbManager.LogExecution(_currentRequest.Id, "INFO", "TestExecutor", 
@@ -660,79 +667,30 @@ namespace PerSpec.Editor.Coordination
                             File.Copy(testResultFile, destPath, true);
                             Debug.Log($"[TestExecutor] Copied test results to: {destPath}");
                             
-                            // For EditMode tests or individual test methods, parse and update database immediately
-                            // since RunFinished callback doesn't fire reliably
-                            // IMPORTANT: Skip completion logic when capturing initial snapshot
-                            Debug.Log($"[TestExecutor-FM-DEBUG] === COMPLETION LOGIC CHECK ===");
-                            Debug.Log($"[TestExecutor-FM-DEBUG] forInitialSnapshot: {forInitialSnapshot}");
-                            Debug.Log($"[TestExecutor-FM-DEBUG] _currentRequest != null: {_currentRequest != null}");
-                            Debug.Log($"[TestExecutor-FM-DEBUG] !_hasCompletedViaCallback: {!_hasCompletedViaCallback}");
-                            Debug.Log($"[TestExecutor-FM-DEBUG] TestPlatform: {_currentRequest?.TestPlatform}");
-                            Debug.Log($"[TestExecutor-FM-DEBUG] RequestType: {_currentRequest?.RequestType}");
-                            bool conditionMet = !forInitialSnapshot && _currentRequest != null && !_hasCompletedViaCallback &&
-                                (_currentRequest.TestPlatform == "EditMode" || _currentRequest.RequestType == "method");
-                            Debug.Log($"[TestExecutor-FM-DEBUG] COMPLETION CONDITION MET: {conditionMet}");
-
-                            if (conditionMet)
+                            // We have a fresh AppData XML. The canonical completion path is
+                            // RunFinished (line ~180). Do NOT mark the request 'completed' here
+                            // unless RunFinished failed to fire AND the file is genuinely done.
+                            //
+                            // The previous code marked EditMode/method requests completed the
+                            // instant any fresh file appeared - racing the actual test run and
+                            // surfacing as "Request N not found" / empty results on the Python side.
+                            if (!forInitialSnapshot && _currentRequest != null && !_hasCompletedViaCallback)
                             {
-                                Debug.Log($"[TestExecutor-FM-DEBUG] !!! EARLY COMPLETION TRIGGERED !!!");
-                                Debug.Log($"[TestExecutor-FM-DEBUG] This is the PROVENANCE of early completion!");
-                                Debug.Log($"[TestExecutor-FM-DEBUG] File being used: {destPath}");
-                                Debug.Log($"[TestExecutor] {_currentRequest.TestPlatform} {_currentRequest.RequestType} test detected, parsing XML and updating database");
-                                ParseXmlFile(destPath);
-                                
-                                // Check if we got valid results
-                                if (_currentSummary.TotalTests > 0 || _currentRequest.RequestType == "method")
+                                // Upgrade processing -> executing once we know Unity is writing files.
+                                var liveStatus = _dbManager.GetRequestStatus(_currentRequest.Id);
+                                if (liveStatus == "processing" || liveStatus == "pending")
                                 {
-                                    // For individual tests with no results, mark as inconclusive
-                                    string status = "completed";
-                                    if (_currentRequest.RequestType == "method" && _currentSummary.TotalTests == 1 && _currentSummary.SkippedTests == 1)
-                                    {
-                                        status = "inconclusive";
-                                    }
-                                    
-                                    // Calculate actual duration if not provided
-                                    float duration = _currentSummary.Duration;
-                                    if (duration <= 0.1f && _currentRequest.StartedAt.HasValue)
-                                    {
-                                        duration = (float)(DateTime.Now - _currentRequest.StartedAt.Value).TotalSeconds;
-                                        Debug.Log($"[TestExecutor] Using calculated duration: {duration:F2}s");
-                                    }
-                                    
-                                    // Update database with parsed results
-                                    _dbManager.UpdateRequestResults(
-                                        _currentRequest.Id,
-                                        status,
-                                        _currentSummary.TotalTests,
-                                        _currentSummary.PassedTests,
-                                        _currentSummary.FailedTests,
-                                        _currentSummary.SkippedTests,
-                                        duration
-                                    );
-                                    
-                                    _dbManager.LogExecution(_currentRequest.Id, "INFO", "TestExecutor", 
-                                        $"{_currentRequest.TestPlatform} test {status}: {_currentSummary.PassedTests}/{_currentSummary.TotalTests} passed");
-                                    
-                                    Debug.Log($"[TestExecutor] Request {_currentRequest.Id} marked as completed");
-                                    
-                                    // Mark as completed so we don't process again
-                                    _hasCompletedViaCallback = true;
-                                    
-                                    // Notify completion callback
-                                    if (_onComplete != null)
-                                    {
-                                        _onComplete(_currentRequest, true, null, _currentSummary);
-                                    }
-                                    
-                                    // Stop monitoring
-                                    StopFileMonitoring();
+                                    _dbManager.UpdateRequestStatus(_currentRequest.Id, "executing");
                                 }
-                                else
-                                {
-                                    Debug.LogWarning($"[TestExecutor] No valid test results found, continuing to monitor");
-                                }
+
+                                // CheckAndProcessResultFile (called from the PerSpec branch in
+                                // CheckForNewResultFiles) is the single completion path. Letting
+                                // the regular monitoring loop pick up the freshly-copied destPath
+                                // means it will be subjected to size-stability + IsXmlComplete
+                                // checks before the request is marked completed.
+                                Debug.Log($"[TestExecutor-FM] Copied AppData XML to {destPath} - letting standard monitoring drive completion");
                             }
-                            
+
                             return destPath;
                         }
                     }
@@ -757,17 +715,38 @@ namespace PerSpec.Editor.Coordination
             try
             {
                 Debug.Log($"[TestExecutor-FM] Processing result file: {xmlPath}");
-                
+
+                // Reject completions that fire suspiciously early - this is the symptom
+                // we observed where a method-level run's row flipped to 'completed' before
+                // Unity had actually executed the test.
+                double elapsed = EditorApplication.timeSinceStartup - _monitorStartTime;
+                if (elapsed < MIN_RUN_SECONDS)
+                {
+                    Debug.Log($"[TestExecutor-FM] Only {elapsed:F2}s elapsed since dispatch (< {MIN_RUN_SECONDS}s), holding off completion");
+                    return;
+                }
+
                 // First validate the XML is complete
                 if (!IsXmlComplete(xmlPath))
                 {
                     Debug.Log($"[TestExecutor-FM] XML file not complete yet, continuing to monitor");
                     return;
                 }
-                
+
+                // Reject XML files written before this run started.
+                if (_monitorStartDateTime != default)
+                {
+                    DateTime fileWriteTime = new FileInfo(xmlPath).LastWriteTime;
+                    if (fileWriteTime < _monitorStartDateTime.AddSeconds(-5))
+                    {
+                        Debug.LogWarning($"[TestExecutor-FM] XML at {xmlPath} predates this run (written {fileWriteTime:O}, monitor started {_monitorStartDateTime:O}) - ignoring");
+                        return;
+                    }
+                }
+
                 // Look for corresponding summary file
                 string summaryPath = xmlPath.Replace(".xml", ".summary.txt");
-                
+
                 if (File.Exists(summaryPath))
                 {
                     ParseSummaryFile(summaryPath);
@@ -776,7 +755,7 @@ namespace PerSpec.Editor.Coordination
                 {
                     ParseXmlFile(xmlPath);
                 }
-                
+
                 // Validate results match expectations
                 if (_expectedTestCount > 0 && _currentSummary.TotalTests != _expectedTestCount)
                 {
@@ -787,27 +766,52 @@ namespace PerSpec.Editor.Coordination
                         return; // Don't complete yet
                     }
                 }
-                
+
                 // Mark as completed via file monitoring
                 Debug.Log($"[TestExecutor] Test results validated and parsed from file for request {_currentRequest?.Id}");
                 Debug.Log($"[TestExecutor] Summary - Total: {_currentSummary.TotalTests}, Passed: {_currentSummary.PassedTests}, Failed: {_currentSummary.FailedTests}");
-                
+
                 if (_currentRequest != null && _onComplete != null && !_hasCompletedViaCallback)
                 {
+                    // Choose terminal status: 'inconclusive' when a method-level run produced
+                    // no meaningful results (everything skipped); 'completed' otherwise.
+                    string terminalStatus = "completed";
+                    if (_currentRequest.RequestType == "method"
+                        && _currentSummary.TotalTests > 0
+                        && _currentSummary.PassedTests == 0
+                        && _currentSummary.FailedTests == 0
+                        && _currentSummary.SkippedTests == _currentSummary.TotalTests)
+                    {
+                        terminalStatus = "inconclusive";
+                    }
+
                     // Update status to finalizing
                     _dbManager.UpdateRequestStatus(_currentRequest.Id, "finalizing");
                     _dbManager.LogExecution(_currentRequest.Id, "INFO", "TestExecutor", "Finalizing test results from XML file");
-                    
+
                     // Save results to database
                     SaveTestResultsToDatabase();
-                    
-                    // Mark as completed
-                    _dbManager.UpdateRequestStatus(_currentRequest.Id, "completed");
+
+                    // Persist counts + duration + terminal status in one update.
+                    float duration = _currentSummary.Duration;
+                    if (duration <= 0.1f && _currentRequest.StartedAt.HasValue)
+                    {
+                        duration = (float)(DateTime.Now - _currentRequest.StartedAt.Value).TotalSeconds;
+                    }
+                    _dbManager.UpdateRequestResults(
+                        _currentRequest.Id,
+                        terminalStatus,
+                        _currentSummary.TotalTests,
+                        _currentSummary.PassedTests,
+                        _currentSummary.FailedTests,
+                        _currentSummary.SkippedTests,
+                        duration
+                    );
                     _dbManager.LogExecution(_currentRequest.Id, "INFO", "TestExecutor",
-                        $"Test execution completed via file monitoring: {_currentSummary.PassedTests}/{_currentSummary.TotalTests} passed");
-                    
-                    Debug.Log($"[TestExecutor] Database status updated to 'completed' for request {_currentRequest.Id}");
-                    
+                        $"Test execution {terminalStatus} via file monitoring: {_currentSummary.PassedTests}/{_currentSummary.TotalTests} passed");
+
+                    Debug.Log($"[TestExecutor] Database status updated to '{terminalStatus}' for request {_currentRequest.Id}");
+
                     _hasCompletedViaCallback = true;
                     _onComplete(_currentRequest, true, null, _currentSummary);
                     StopFileMonitoring();
@@ -823,6 +827,64 @@ namespace PerSpec.Editor.Coordination
             }
         }
         
+        private void EnsureResultXmlInPerSpec()
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(_testResultsPath))
+                {
+                    return;
+                }
+                if (!Directory.Exists(_testResultsPath))
+                {
+                    Directory.CreateDirectory(_testResultsPath);
+                }
+
+                // Has the XMLExporter callback (or earlier monitoring) already written a
+                // result file newer than this run's start? If so we're done.
+                DateTime cutoff = _monitorStartDateTime != default
+                    ? _monitorStartDateTime.AddSeconds(-5)
+                    : DateTime.Now.AddMinutes(-5);
+                bool freshExists = Directory.GetFiles(_testResultsPath, "TestResults_*.xml")
+                    .Select(f => new FileInfo(f))
+                    .Any(fi => fi.LastWriteTime >= cutoff);
+                if (freshExists)
+                {
+                    return;
+                }
+
+                // Walk Unity's AppData fallback locations and copy in the first match.
+                string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "Low";
+                string[] candidateDirs =
+                {
+                    Path.Combine(appDataPath, Application.companyName, Application.productName),
+                    Path.Combine(appDataPath, "DefaultCompany", Application.productName),
+                    Path.Combine(appDataPath, "DefaultCompany", "TestFramework"),
+                    Path.Combine(appDataPath, "DefaultCompany", Path.GetFileName(Directory.GetParent(Application.dataPath).FullName)),
+                };
+
+                foreach (var dir in candidateDirs)
+                {
+                    string source = Path.Combine(dir, "TestResults.xml");
+                    if (!File.Exists(source)) continue;
+                    var sourceInfo = new FileInfo(source);
+                    if (sourceInfo.LastWriteTime < cutoff) continue;
+
+                    string timestamp = sourceInfo.LastWriteTime.ToString("yyyyMMdd_HHmmss");
+                    string dest = Path.Combine(_testResultsPath, $"TestResults_{timestamp}.xml");
+                    File.Copy(source, dest, true);
+                    Debug.Log($"[TestExecutor] EnsureResultXmlInPerSpec: imported {source} -> {dest}");
+                    return;
+                }
+
+                Debug.LogWarning("[TestExecutor] EnsureResultXmlInPerSpec: no fresh AppData TestResults.xml found");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[TestExecutor] EnsureResultXmlInPerSpec failed: {e.Message}");
+            }
+        }
+
         private bool IsXmlComplete(string xmlPath)
         {
             try

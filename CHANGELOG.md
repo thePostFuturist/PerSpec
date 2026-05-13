@@ -5,6 +5,48 @@ All notable changes to the PerSpec Testing Framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-05-12
+
+### Fixed
+- **Root cause of `Request N not found` on `quick_test.py method ... -p play --wait`: created_at storage corruption**
+  - Python's `INSERT INTO test_requests` relied on SQLite's `CURRENT_TIMESTAMP` default, which stores a TEXT value like `"2026-05-13 01:25:38"`. Unity's sqlite-net layer reads/writes `created_at` as a `DateTime` mapped to INT64 ticks. When sqlite-net's `_connection.Update(entity)` ran on a Python-inserted row (any status update — `processing`, `executing`, `failed`), it triggered SQLite's NUMERIC affinity coercion that turned the TEXT into the integer `2026` (leading digit prefix). The fresh row's `created_at` then satisfied `created_at < ticks_cutoff` for every subsequent cleanup `DELETE FROM test_requests WHERE created_at < ?`, so the row vanished mid-run.
+  - Fix: `test_coordinator.py` now writes `created_at` as `.NET DateTime.Now.Ticks` (INT64) via the new `_dotnet_ticks_now()` helper. sqlite-net round-trips the integer without coercion and cleanup comparisons behave correctly. Verified end-to-end against the 7-second `Should_Wait_7_Seconds_Before_Publishing` reproduction: row now transitions `pending → processing → completed`, total=1 passed=1, duration=7.04s.
+  - Defense in depth: `TestCoordinatorEditor.RecoverOrphanedRequests` (`TestCoordinatorEditor.cs:92-143`) now re-verifies request age in C# before marking anything `failed`, so even if a future SQL query spuriously returns fresh rows, they won't be flagged as orphaned-by-domain-reload.
+- **Premature `completed` status for single-method PlayMode runs (independent issue surfaced during this investigation)**
+  - Single-method PlayMode runs could flip to `completed` the instant an AppData `TestResults.xml` was observed, racing the actual test execution.
+  - `TestExecutor.cs` no longer marks a request `completed` from the AppData branch of file monitoring. The canonical completion path in `CheckAndProcessResultFile` now also enforces:
+    - At least `MIN_RUN_SECONDS` (3s) elapsed since dispatch
+    - `IsXmlComplete` (already required for the PerSpec branch) — now applied to the AppData branch too via the regular monitoring loop
+    - File write-time newer than `_monitorStartDateTime - 5s` so stale XMLs from a prior run cannot trigger completion
+  - The AppData-copy branch in `GetLatestResultFile` now only upgrades `processing → executing` and lets the standard monitoring loop drive completion.
+- **Results XML missing from `PerSpec/TestResults/` on the `RunFinished` path**
+  - Added `EnsureResultXmlInPerSpec()` invoked from `RunFinished`. If neither the `TestResultXMLExporter` callback nor file monitoring wrote a fresh XML into `PerSpec/TestResults/`, it copies Unity's AppData `TestResults.xml` in before the row is marked `completed`. Guarantees `test_results.py latest` can see the file.
+- **Schema CHECK constraint silently rejecting `'inconclusive'` writes**
+  - `'inconclusive'` is now in the CHECK list across `db_initializer.py`, `db_update_status_constraint.py`, and `db_auto_maintenance.py`.
+  - New migration `apply_migration_v5` in `db_auto_maintenance.py` adds the value to existing databases.
+  - `db_update_status_constraint.py` is now idempotent.
+- **Python poller aborting on a single missing-row read**
+  - `TestCoordinator.wait_for_completion` tolerates up to 10 consecutive `fetchone() == None` reads (≈10s) before raising. Absorbs concurrent cleanup, mid-VACUUM, and other transient invisibilities.
+- **`test_results.py latest` and `wait_for_completion` blind to Unity's AppData XML**
+  - Both now enumerate Unity's `%LocalAppData%Low/<Company>/<Product>/TestResults.xml` fallback locations and import the file into `PerSpec/TestResults/` if it's newer than anything we already have.
+
+### Changed
+- `quick_test.py --wait` now blocks until BOTH the DB row reaches a terminal status AND a matching results XML is on disk in `PerSpec/TestResults/`. Previous behavior returned as soon as the row was processed by Unity (which, due to the race fixed above, often happened before the run actually finished). Help text updated; `test_coordinator.py:wait_for_completion` docstring updated.
+- `wait_for_completion` now accepts `xml_grace_seconds` (default 15) and `missing_row_retries` (default 10) parameters for callers who need to tune.
+- `CheckAndProcessResultFile` now emits `'inconclusive'` for method-level runs whose entire result set is skipped (previously emitted `'completed'`).
+
+### Added
+- `EnsureResultXmlInPerSpec()` helper in `TestExecutor.cs`.
+- `_appdata_unity_candidates()` / `_import_appdata_xml_into_perspec()` helpers in `test_results.py`.
+- `_await_results_xml()`, `_appdata_low_path()`, `_appdata_unity_dirs()`, `_dotnet_ticks_now()`, `_parse_request_timestamp()` helpers in `test_coordinator.py`.
+
+### Internal
+- Fixed long-standing typo in `db_auto_maintenance.py` migration v4: `menu_requests` → `menu_item_requests`. The typo caused v4 to fail with `no such table` on every run, which broke the migration chain so v5 (and any future migrations) could never apply.
+
+### Technical Details
+- Minor version bump because `--wait` semantics changed in a way callers can observe (it now blocks for longer in the common case). No public C# API surface changes.
+- Re-run `python PerSpec/Coordination/Scripts/db_update_status_constraint.py` after pulling this version to add `'inconclusive'` to existing databases; the migration is idempotent.
+
 ## [1.5.20] - 2026-04-16
 
 ### Added

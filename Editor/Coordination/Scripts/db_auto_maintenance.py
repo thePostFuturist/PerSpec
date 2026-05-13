@@ -84,20 +84,27 @@ def apply_migration_v1(conn):
         """)
         result = cursor.fetchone()
         
-        if result and 'processing' not in result[0]:
+        needs_rebuild = result and (
+            'processing' not in result[0] or "'inconclusive'" not in result[0]
+        )
+        if needs_rebuild:
             print("    Updating test_requests status constraint...")
-            
+
+            # Drop staging table from any prior failed migration attempt.
+            cursor.execute("DROP TABLE IF EXISTS test_requests_new")
+
             # Create new table with updated constraint
             cursor.execute("""
-                CREATE TABLE IF NOT EXISTS test_requests_new (
+                CREATE TABLE test_requests_new (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     request_type TEXT NOT NULL,
                     test_filter TEXT,
                     test_platform TEXT NOT NULL,
                     priority INTEGER DEFAULT 0,
                     status TEXT DEFAULT 'pending' CHECK(status IN (
-                        'pending', 'processing', 'executing', 'finalizing', 
-                        'completed', 'failed', 'timeout', 'cancelled', 'running'
+                        'pending', 'processing', 'executing', 'finalizing',
+                        'running', 'completed', 'failed', 'timeout',
+                        'cancelled', 'inconclusive'
                     )),
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     started_at TIMESTAMP,
@@ -237,7 +244,10 @@ def apply_migration_v4(conn):
             ("idx_test_results_request", "test_results(request_id)"),
             ("idx_console_logs_timestamp", "console_logs(timestamp)"),
             ("idx_execution_log_request", "execution_log(request_id)"),
-            ("idx_menu_requests_status", "menu_requests(status)"),
+            # The table is named menu_item_requests in db_initializer.py.
+            # The previous typo `menu_requests` caused v4 to fail every run,
+            # which broke the migration chain (v5 never ran).
+            ("idx_menu_item_requests_status", "menu_item_requests(status)"),
         ]
         
         for idx_name, idx_def in indexes:
@@ -248,6 +258,79 @@ def apply_migration_v4(conn):
     except Exception as e:
         print(f"    Error in migration v4: {e}")
         return False
+
+def apply_migration_v5(conn):
+    """Migration v5: Add 'inconclusive' to test_requests status CHECK constraint"""
+    print("  Applying Migration v5: Add 'inconclusive' status value...")
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT sql FROM sqlite_master
+            WHERE type='table' AND name='test_requests'
+        """)
+        result = cursor.fetchone()
+        if not result or not result[0]:
+            print("    test_requests table missing - skipping")
+            return True
+
+        if "'inconclusive'" in result[0]:
+            print("    'inconclusive' already present - skipping")
+            return True
+
+        print("    Rebuilding test_requests to add 'inconclusive'...")
+
+        cursor.execute("DROP TABLE IF EXISTS test_requests_new")
+        cursor.execute("""
+            CREATE TABLE test_requests_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                request_type TEXT NOT NULL,
+                test_filter TEXT,
+                test_platform TEXT NOT NULL,
+                priority INTEGER DEFAULT 0,
+                status TEXT DEFAULT 'pending' CHECK(status IN (
+                    'pending', 'processing', 'executing', 'finalizing',
+                    'running', 'completed', 'failed', 'timeout',
+                    'cancelled', 'inconclusive'
+                )),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                started_at TIMESTAMP,
+                completed_at TIMESTAMP,
+                total_tests INTEGER,
+                passed_tests INTEGER,
+                failed_tests INTEGER,
+                skipped_tests INTEGER,
+                duration_seconds REAL,
+                error_message TEXT
+            )
+        """)
+
+        cursor.execute("""
+            INSERT INTO test_requests_new (
+                id, request_type, test_filter, test_platform, priority,
+                status, created_at, started_at, completed_at,
+                total_tests, passed_tests, failed_tests, skipped_tests,
+                duration_seconds, error_message
+            )
+            SELECT
+                id, request_type, test_filter, test_platform, priority,
+                status, created_at, started_at, completed_at,
+                total_tests, passed_tests, failed_tests, skipped_tests,
+                duration_seconds, error_message
+            FROM test_requests
+        """)
+
+        cursor.execute("DROP TABLE test_requests")
+        cursor.execute("ALTER TABLE test_requests_new RENAME TO test_requests")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_test_requests_status ON test_requests(status)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_test_requests_created ON test_requests(created_at)")
+
+        print("    'inconclusive' added to status constraint")
+        return True
+    except Exception as e:
+        print(f"    Error in migration v5: {e}")
+        return False
+
 
 def run_maintenance():
     """Run all database maintenance tasks"""
@@ -279,6 +362,7 @@ def run_maintenance():
             (2, "Update refresh_requests status", apply_migration_v2),
             (3, "Clean old data and optimize", apply_migration_v3),
             (4, "Add performance indexes", apply_migration_v4),
+            (5, "Add 'inconclusive' status value", apply_migration_v5),
         ]
         
         # Apply pending migrations

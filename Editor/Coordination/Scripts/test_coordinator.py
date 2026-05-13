@@ -52,6 +52,26 @@ def get_db_path():
     perspec_dir.mkdir(exist_ok=True)
     return str(perspec_dir / "test_coordination.db")
 
+
+_DOTNET_EPOCH = datetime(1, 1, 1)
+
+def _dotnet_ticks_now() -> int:
+    """Return the current local time as .NET DateTime.Now.Ticks.
+
+    sqlite-net (Unity side) defaults to StoreDateTimeAsTicks=true and stores
+    `created_at` as an INT64 tick count of local time since 0001-01-01.
+    If Python INSERTs a TEXT timestamp instead, a later sqlite-net
+    `_connection.Update(entity)` reads the column, SQLite coerces the TEXT
+    via NUMERIC affinity to its leading integer prefix (e.g. "2026-05-13 01:25:38"
+    becomes 2026), and writes back 2026 as INT64. Subsequent maintenance
+    `DELETE WHERE created_at < ?` then matches and deletes the fresh request.
+
+    Writing the timestamp as INT64 ticks up front avoids the coercion entirely.
+    """
+    delta = datetime.now() - _DOTNET_EPOCH
+    # DateTime.Ticks is 100-nanosecond intervals; preserve microsecond precision.
+    return delta.days * 864_000_000_000 + delta.seconds * 10_000_000 + delta.microseconds * 10
+
 class TestCoordinator:
     def __init__(self):
         self.db_path = Path(get_db_path())
@@ -89,14 +109,19 @@ class TestCoordinator:
         conn = self._get_connection()
         try:
             cursor = conn.cursor()
+            # Write created_at as .NET INT64 ticks so sqlite-net round-trips it
+            # safely. See _dotnet_ticks_now() docstring for the SQLite type-affinity
+            # corruption this avoids.
+            now_ticks = _dotnet_ticks_now()
             cursor.execute("""
-                INSERT INTO test_requests (request_type, test_filter, test_platform, priority)
-                VALUES (?, ?, ?, ?)
-            """, (request_type.value, test_filter, platform.value, priority))
-            
+                INSERT INTO test_requests (request_type, test_filter, test_platform, priority, created_at)
+                VALUES (?, ?, ?, ?, ?)
+            """, (request_type.value, test_filter, platform.value, priority, now_ticks))
+
             request_id = cursor.lastrowid
-            
-            # Log the submission
+
+            # Log the submission (let SQLite default created_at; execution_log is
+            # not consulted by the cleanup queries that triggered the corruption).
             cursor.execute("""
                 INSERT INTO execution_log (request_id, log_level, source, message)
                 VALUES (?, 'INFO', 'Python', ?)
@@ -144,42 +169,191 @@ class TestCoordinator:
         finally:
             conn.close()
     
-    def wait_for_completion(self, request_id: int, timeout: int = 300, poll_interval: float = 1.0) -> Dict:
+    def wait_for_completion(self, request_id: int, timeout: int = 300, poll_interval: float = 1.0,
+                            xml_grace_seconds: float = 15.0,
+                            missing_row_retries: int = 10) -> Dict:
         """
-        Wait for a test request to complete
-        
-        NOTE: "completed" means the request was processed and results are available,
-        NOT that Unity has finished executing all tests. Tests may still be running
-        in Unity even after this returns "completed" status.
-        
+        Wait for a test request to fully complete.
+
+        A request is considered fully complete when BOTH:
+          1. The DB row has a terminal status ('completed', 'failed', 'cancelled',
+             'timeout', 'inconclusive'), AND
+          2. A matching results XML file is present in PerSpec/TestResults/. If
+             only Unity's AppData copy exists, this method imports it into
+             PerSpec/TestResults/ before returning.
+
+        Transient invisibility of the row (e.g. mid-VACUUM or concurrent cleanup)
+        is tolerated up to ``missing_row_retries`` consecutive polls.
+
         Args:
             request_id: ID of the test request
-            timeout: Maximum seconds to wait for request processing
+            timeout: Maximum seconds to wait for the run to complete
             poll_interval: Seconds between status checks
-            
+            xml_grace_seconds: After terminal status, seconds to wait for XML
+            missing_row_retries: Consecutive "not found" reads tolerated
+
         Returns:
             Final status dictionary
         """
+        terminal_statuses = {'completed', 'failed', 'cancelled', 'timeout', 'inconclusive'}
         start_time = time.time()
         last_status = None
-        
+        consecutive_misses = 0
+        request_created_at = None
+
         while time.time() - start_time < timeout:
             status = self.get_request_status(request_id)
-            
+
             if not status:
-                raise ValueError(f"Request {request_id} not found")
-            
-            # Print status updates
+                consecutive_misses += 1
+                if consecutive_misses == 1 or consecutive_misses % 3 == 0:
+                    print(f"[WARN] Request {request_id} momentarily not found "
+                          f"(retry {consecutive_misses}/{missing_row_retries})")
+                if consecutive_misses >= missing_row_retries:
+                    raise ValueError(
+                        f"Request {request_id} not found after "
+                        f"{missing_row_retries} consecutive polls"
+                    )
+                time.sleep(poll_interval)
+                continue
+
+            consecutive_misses = 0
+            if request_created_at is None:
+                request_created_at = status.get('created_at')
+
             if status['status'] != last_status:
                 print(f"[STATUS] {status['status']}")
                 last_status = status['status']
-            
-            if status['status'] in ['completed', 'failed', 'cancelled']:
+
+            if status['status'] in terminal_statuses:
+                self._await_results_xml(request_id, request_created_at, xml_grace_seconds)
                 return status
-            
+
             time.sleep(poll_interval)
-        
+
         raise TimeoutError(f"Request {request_id} did not complete within {timeout} seconds")
+
+    def _await_results_xml(self, request_id: int, request_created_at,
+                           xml_grace_seconds: float):
+        """After terminal status, ensure a fresh results XML exists in PerSpec/TestResults.
+
+        Polls PerSpec/TestResults for an XML newer than the request's creation
+        time. If none appears within ``xml_grace_seconds``, attempts a one-shot
+        copy from Unity's AppData fallback locations.
+        """
+        try:
+            from datetime import datetime, timedelta
+            import shutil
+
+            project_root = Path(get_project_root())
+            results_dir = project_root / "PerSpec" / "TestResults"
+            results_dir.mkdir(parents=True, exist_ok=True)
+
+            cutoff = None
+            if request_created_at is not None:
+                cutoff = self._parse_request_timestamp(request_created_at)
+                if cutoff is not None:
+                    cutoff -= timedelta(seconds=5)
+
+            def _matching_xml():
+                xmls = sorted(
+                    results_dir.glob("TestResults_*.xml"),
+                    key=lambda p: p.stat().st_mtime,
+                    reverse=True,
+                )
+                for xml in xmls:
+                    if cutoff is None:
+                        return xml
+                    if datetime.fromtimestamp(xml.stat().st_mtime) >= cutoff:
+                        return xml
+                return None
+
+            deadline = time.time() + xml_grace_seconds
+            while time.time() < deadline:
+                if _matching_xml():
+                    return
+                time.sleep(1.0)
+
+            # Fallback: copy from Unity's AppData fallback locations.
+            appdata_low = self._appdata_low_path()
+            if not appdata_low:
+                print("[WARN] No fresh XML in PerSpec/TestResults; AppData fallback unavailable on this platform")
+                return
+
+            for candidate in self._appdata_unity_dirs(appdata_low):
+                source = candidate / "TestResults.xml"
+                if not source.exists():
+                    continue
+                src_mtime = datetime.fromtimestamp(source.stat().st_mtime)
+                if cutoff is not None and src_mtime < cutoff:
+                    continue
+                dest = results_dir / f"TestResults_{src_mtime.strftime('%Y%m%d_%H%M%S')}.xml"
+                try:
+                    shutil.copy2(str(source), str(dest))
+                    print(f"[INFO] Imported results XML from Unity AppData: {source} -> {dest}")
+                    return
+                except OSError as e:
+                    print(f"[WARN] Failed to copy {source}: {e}")
+
+            print(f"[WARN] Request {request_id} reached terminal status but no results XML was found")
+        except Exception as e:
+            print(f"[WARN] Error while waiting for results XML: {e}")
+
+    @staticmethod
+    def _parse_request_timestamp(value):
+        """Parse a created_at value that may be .NET ticks (int) or ISO text."""
+        from datetime import datetime as _dt, timedelta as _td
+        if isinstance(value, (int, float)):
+            # .NET DateTime.Ticks - 100-ns intervals since 0001-01-01.
+            try:
+                return _DOTNET_EPOCH + _td(microseconds=int(value) // 10)
+            except (OverflowError, ValueError):
+                return None
+        try:
+            text = str(value).replace('Z', '')
+            return _dt.fromisoformat(text)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _appdata_low_path() -> Optional[Path]:
+        """Return %LocalAppData%Low on Windows, else None."""
+        local_app = os.environ.get("LOCALAPPDATA")
+        if not local_app:
+            return None
+        low = Path(local_app + "Low")
+        return low if low.exists() else None
+
+    @staticmethod
+    def _appdata_unity_dirs(appdata_low: Path) -> List[Path]:
+        """Mirror C# TestExecutor.cs:602-616 AppData fallback enumeration.
+
+        We don't know Unity's CompanyName/ProductName from Python, so we walk
+        appdata_low/* and accept any directory containing TestResults.xml.
+        """
+        candidates = []
+        try:
+            project_root = Path(get_project_root())
+            project_name = project_root.name
+            preferred_product_names = {project_name, "TestFramework"}
+
+            for company_dir in appdata_low.iterdir():
+                if not company_dir.is_dir():
+                    continue
+                for product_dir in company_dir.iterdir():
+                    if not product_dir.is_dir():
+                        continue
+                    if (product_dir / "TestResults.xml").exists():
+                        score = 0
+                        if product_dir.name in preferred_product_names:
+                            score += 2
+                        if company_dir.name == "DefaultCompany":
+                            score += 1
+                        candidates.append((score, product_dir))
+        except OSError:
+            return []
+        candidates.sort(key=lambda t: t[0], reverse=True)
+        return [c for _, c in candidates]
     
     def get_test_results(self, request_id: int) -> List[Dict]:
         """

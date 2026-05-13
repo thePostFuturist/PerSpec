@@ -99,12 +99,29 @@ namespace PerSpec.Editor.Coordination
                 if (stuckRequests.Count == 0)
                     return;
 
-                Debug.Log($"[TestCoordinator] Found {stuckRequests.Count} orphaned request(s) after domain reload");
+                Debug.LogWarning($"[TestCoordinator] RecoverOrphanedRequests: Found {stuckRequests.Count} orphaned request(s) after domain reload");
+
+                // SAFETY GATE: only act on requests demonstrably older than the threshold.
+                // sqlite-net may translate the `CreatedAt < cutoff` LINQ predicate in ways that
+                // mis-compare TEXT timestamps (Python-inserted) against tick-based parameters,
+                // causing fresh rows to be falsely flagged as stuck. Re-verify in C# code.
+                var nowTicks = DateTime.Now.Ticks;
+                var thresholdTicks = TimeSpan.FromMinutes(3).Ticks;
 
                 foreach (var request in stuckRequests)
                 {
-                    Debug.Log($"[TestCoordinator] Recovering stuck request #{request.Id} " +
-                             $"(type: {request.RequestType}, platform: {request.TestPlatform}, status: {request.Status})");
+                    long ageTicks = nowTicks - request.CreatedAt.Ticks;
+                    if (ageTicks < thresholdTicks)
+                    {
+                        Debug.LogWarning($"[TestCoordinator] Skipping request #{request.Id} - " +
+                                         $"only {TimeSpan.FromTicks(Math.Max(0, ageTicks)).TotalSeconds:F1}s old " +
+                                         $"(CreatedAt={request.CreatedAt:O}, status={request.Status}). " +
+                                         $"GetStuckRequests returned it spuriously - likely TEXT/INT compare bug.");
+                        continue;
+                    }
+                    Debug.LogWarning($"[TestCoordinator] Recovering stuck request #{request.Id} " +
+                             $"(type: {request.RequestType}, platform: {request.TestPlatform}, status: {request.Status}, " +
+                             $"CreatedAt={request.CreatedAt:O}, age={TimeSpan.FromTicks(ageTicks).TotalSeconds:F1}s)");
 
                     // Check if test results exist in AppData (Unity's default output location)
                     string appDataResult = FindAppDataTestResult();
