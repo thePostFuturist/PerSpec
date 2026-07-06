@@ -788,15 +788,20 @@ namespace PerSpec.Editor.Coordination
         
         public List<AssetRefreshRequest> GetRunningRefreshRequests()
         {
+            return GetRefreshRequestsByStatus("running");
+        }
+
+        public List<AssetRefreshRequest> GetRefreshRequestsByStatus(string status)
+        {
             try
             {
                 return _connection.Table<AssetRefreshRequest>()
-                    .Where(r => r.Status == "running")
+                    .Where(r => r.Status == status)
                     .ToList();
             }
             catch (Exception e)
             {
-                Debug.LogError($"[SQLiteManager] Error getting running refresh requests: {e.Message}");
+                Debug.LogError($"[SQLiteManager] Error getting refresh requests with status '{status}': {e.Message}");
                 return new List<AssetRefreshRequest>();
             }
         }

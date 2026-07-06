@@ -43,10 +43,13 @@ def get_schema_version(conn):
         if not cursor.fetchone():
             return 0
         
-        # Get current version
-        cursor.execute("SELECT version FROM schema_version ORDER BY applied_at DESC LIMIT 1")
+        # Get current version. Use MAX(version) rather than the most-recent applied_at:
+        # CURRENT_TIMESTAMP has 1-second resolution, so migrations applied in the same
+        # second tie on applied_at and can be returned out of order, causing the last
+        # migration to be re-run (harmlessly) on every invocation.
+        cursor.execute("SELECT MAX(version) FROM schema_version")
         result = cursor.fetchone()
-        return result[0] if result else 0
+        return result[0] if result and result[0] is not None else 0
     except:
         return 0
 
@@ -332,6 +335,76 @@ def apply_migration_v5(conn):
         return False
 
 
+def apply_migration_v6(conn):
+    """Migration v6: Add 'compiling' to asset_refresh_requests status CHECK constraint.
+
+    Enables two-phase refresh completion: Unity marks a refresh 'compiling' while
+    scripts recompile + domain reload, and only writes 'completed' once that finishes.
+    Targets the real 'asset_refresh_requests' table (note: the legacy v2 migration
+    targeted a phantom 'refresh_requests' name and never touched this table).
+    """
+    print("  Applying Migration v6: Add 'compiling' refresh status value...")
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT sql FROM sqlite_master
+            WHERE type='table' AND name='asset_refresh_requests'
+        """)
+        result = cursor.fetchone()
+        if not result or not result[0]:
+            print("    asset_refresh_requests table missing - skipping")
+            return True
+
+        if "'compiling'" in result[0]:
+            print("    'compiling' already present - skipping")
+            return True
+
+        print("    Rebuilding asset_refresh_requests to add 'compiling'...")
+
+        cursor.execute("DROP TABLE IF EXISTS asset_refresh_requests_new")
+        cursor.execute("""
+            CREATE TABLE asset_refresh_requests_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                refresh_type TEXT NOT NULL DEFAULT 'full' CHECK(refresh_type IN ('full', 'selective')),
+                paths TEXT,
+                import_options TEXT DEFAULT 'default' CHECK(import_options IN ('default', 'synchronous', 'force_update')),
+                status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'running', 'compiling', 'completed', 'failed', 'cancelled')),
+                priority INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                started_at TIMESTAMP,
+                completed_at TIMESTAMP,
+                duration_seconds REAL DEFAULT 0.0,
+                result_message TEXT,
+                error_message TEXT
+            )
+        """)
+
+        cursor.execute("""
+            INSERT INTO asset_refresh_requests_new (
+                id, refresh_type, paths, import_options, status, priority,
+                created_at, started_at, completed_at, duration_seconds,
+                result_message, error_message
+            )
+            SELECT
+                id, refresh_type, paths, import_options, status, priority,
+                created_at, started_at, completed_at, duration_seconds,
+                result_message, error_message
+            FROM asset_refresh_requests
+        """)
+
+        cursor.execute("DROP TABLE asset_refresh_requests")
+        cursor.execute("ALTER TABLE asset_refresh_requests_new RENAME TO asset_refresh_requests")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_refresh_status ON asset_refresh_requests(status)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_refresh_created ON asset_refresh_requests(created_at DESC)")
+
+        print("    'compiling' added to status constraint")
+        return True
+    except Exception as e:
+        print(f"    Error in migration v6: {e}")
+        return False
+
+
 def run_maintenance():
     """Run all database maintenance tasks"""
     print("\n" + "="*60)
@@ -363,6 +436,7 @@ def run_maintenance():
             (3, "Clean old data and optimize", apply_migration_v3),
             (4, "Add performance indexes", apply_migration_v4),
             (5, "Add 'inconclusive' status value", apply_migration_v5),
+            (6, "Add 'compiling' refresh status value", apply_migration_v6),
         ]
         
         # Apply pending migrations

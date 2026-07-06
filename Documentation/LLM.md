@@ -48,7 +48,7 @@ python Packages/com.digitraver.perspec/ScriptingTools/sync_python_scripts.py
 | "LLM setup"         | `python Packages/com.digitraver.perspec/ScriptingTools/sync_python_scripts.py`              |
 | "show/get errors"   | `python PerSpec/Coordination/Scripts/monitor_editmode_logs.py --errors`                     |
 | "run tests"         | `python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait`                      |
-| "refresh Unity"     | `python PerSpec/Coordination/Scripts/quick_refresh.py full --wait`                          |
+| "refresh Unity"     | `python PerSpec/Coordination/Scripts/quick_refresh.py full --wait` (blocks until compile + domain reload finish) |
 | "show logs"         | `python PerSpec/Coordination/Scripts/monitor_editmode_logs.py recent -n 50`                |
 | "export logs"       | `python PerSpec/Coordination/Scripts/monitor_editmode_logs.py sessions`                     |
 | "monitor logs live" | `python PerSpec/Coordination/Scripts/monitor_editmode_logs.py live`                         |
@@ -242,6 +242,10 @@ python PerSpec/Coordination/Scripts/db_update_status_constraint.py
 python PerSpec/Coordination/Scripts/quick_refresh.py full --wait
 # ❌ NEVER run tests without refreshing - Unity won't see your changes!
 # 📌 Run this IMMEDIATELY after writing/editing ANY C# code!
+# ✅ As of v1.7.0, --wait genuinely BLOCKS until asset import + script
+#    compilation + domain reload all finish. When it returns 'completed',
+#    Unity is running your new code. Full recompiles take a while, so this
+#    can take minutes - do NOT lower --timeout below the 300s default.
 
 # 3. 🚨 MANDATORY: Check compilation errors (NEVER SKIP THIS!)
 python PerSpec/Coordination/Scripts/monitor_editmode_logs.py --errors
@@ -258,7 +262,7 @@ python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait
 - **Running tests without refreshing Unity** → Tests run old code
 - **Skipping error check** → Tests show INCONCLUSIVE
 - **Running tests with compilation errors** → Wastes time, tests can't run
-- **Not waiting for refresh to complete** → Tests run partially updated code
+- **Lowering `--timeout` on refresh** → `--wait` now blocks through the full compile + domain reload (v1.7.0); a short timeout returns before Unity finishes. Keep it at 300s+.
 
 ### 📋 Step-by-Step Checklist (USE THIS EVERY TIME!):
 ☐ Code written/modified
@@ -281,6 +285,15 @@ Terminal statuses and what they mean:
 - **`cancelled`** — User cancelled via CLI
 
 If `quick_test.py --wait` exits 0 and `test_results.py latest -v` shows the run, the tests are truly finished.
+
+### ⚠️ Understanding Refresh Status
+**As of PerSpec v1.7.0**, `quick_refresh.py --wait` is compile-aware. It blocks through asset import AND any resulting script compilation + domain reload, so `completed` means Unity is running your new code (not just that the import started). The request moves through these statuses:
+- **`pending`** — queued; Unity has not picked it up yet
+- **`running`** — Unity received the request and is importing assets
+- **`compiling`** — scripts are recompiling; a domain reload is pending
+- **`completed`** — import + compilation + domain reload all finished
+
+Special case: if compilation finished **with errors**, no domain reload happens, so the request still ends as **`completed`** but its summary carries an `error_message` and prints a `[WARNING] Compilation errors detected` line. That is not a refresh failure — step 3 (`monitor_editmode_logs.py --errors`) still owns error triage and MUST be run. `failed` is reserved for the refresh machinery itself breaking (or a request orphaned by a domain reload / editor restart).
 
 **🚨 CRITICAL PROTOCOL**: 
 1. **ALWAYS** refresh Unity after ANY code change

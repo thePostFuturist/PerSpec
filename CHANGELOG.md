@@ -5,6 +5,27 @@ All notable changes to the PerSpec Testing Framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-07-06
+
+### Added
+- **Two-phase, compile-aware asset refresh completion**
+  - `quick_refresh.py --wait` now blocks until asset import AND any resulting script compilation + domain reload have finished, instead of returning the instant asset import started. When it reports `completed`, Unity is running the new code. This mirrors the v1.6.x work that made `quick_test.py --wait` wait for true completion.
+  - New `compiling` refresh status. A request now moves `pending → running → compiling → completed`. `running` means Unity received the request and is importing assets; `compiling` means scripts are recompiling with a domain reload pending; `completed` is only written after the domain reload (or immediately when no compilation was triggered).
+  - `AssetRefreshCoordinator` subscribes to `CompilationPipeline.compilationStarted/compilationFinished`. On a successful compile it writes `completed` from the post-domain-reload `[InitializeOnLoad]` recovery pass (`RecoverInterruptedRequests`), so completion is proof the new assemblies are loaded. When compilation finishes with errors (no domain reload occurs), the still-loaded `compilationFinished` handler finalizes the request as `completed` with an `error_message` so the poller never hangs — error triage remains workflow step 3 (`monitor_editmode_logs.py --errors`).
+  - Post-reload recovery also rescues requests orphaned in `running`/`compiling` by a domain reload or editor restart (stale `compiling` > 30 min and `running` > 10 min are marked `failed`), fixing a pre-existing bug where an interrupted `running` refresh row was never recovered.
+  - Schema migration **v6** adds `compiling` to the `asset_refresh_requests` status CHECK constraint (`db_auto_maintenance.py`), targeting the real `asset_refresh_requests` table. Constraint also updated in `db_initializer.py` and `add_refresh_table.py` for fresh databases.
+
+### Fixed
+- **`quick_refresh.py --wait` returning while Unity was still compiling** — the coordinator marked a refresh `completed` as soon as asset import finished (via the `AssetPostprocessor` callback or a 2-frame `delayCall` fallback), before script compilation and domain reload. Callers then checked for compile errors / ran tests against stale, still-compiling state. Completion is now gated on compilation + domain reload.
+- **Refresh row deleted mid-flight by `created_at` type-affinity corruption** — `asset_refresh_coordinator.py` inserted `created_at` as ISO **text**, which Unity's sqlite-net coerced to the integer `2026` on the first status `Update`; a maintenance `DELETE ... WHERE created_at < cutoff` during the domain reload then wiped the still-in-flight request (surfacing as `Request N not found`). This is the same corruption fixed for `test_requests` in v1.6.0; `created_at` is now written as .NET INT64 ticks via a `_dotnet_ticks_now()` helper. Before v1.7.0 a refresh completed in ~0.1s so the row was gone before cleanup ran and the bug stayed latent. `print_summary` also now renders tick timestamps as readable dates instead of the raw integer / corrupted `2026`.
+- **No-compile refresh could hang until timeout when Unity was unfocused** — the no-change completion path is driven by a bounded `EditorApplication.delayCall` chain (like the original fallback) rather than a wall-clock window, so it still finishes in a few frames when editor `update` ticks stall on an idle/unfocused editor.
+- **Orphaned `running` refresh rows never recovered** — a refresh interrupted by a domain reload left its row stuck in `running` forever. `RecoverInterruptedRequests` now reconciles these after each reload.
+- **`db_auto_maintenance.py` re-running the newest migration every invocation** — `get_schema_version` ordered by `applied_at` (1-second resolution), so migrations committed in the same second tied and could report an older version. It now uses `MAX(version)`.
+
+### Changed
+- Default refresh `--timeout` raised from 60s to **300s** (`quick_refresh.py`, `asset_refresh_coordinator.py`) since a full recompile + domain reload can take minutes. `wait_for_completion` now prints per-phase progress with elapsed time and names the phase it was stuck in on timeout; `print_summary` prints a `[WARNING] Compilation errors detected` line when a `completed` refresh carries an `error_message`.
+- Removed the forced `CompilationPipeline.RequestScriptCompilation()` in the background-poll path of `AssetRefreshCoordinator`. It forced a full recompile on every unfocused-Unity refresh; `AssetDatabase.Refresh` already schedules compilation when scripts actually changed, so under the compile-aware semantics the forced compile only added a needless reload.
+
 ## [1.6.1] - 2026-05-13
 
 ### Documentation
