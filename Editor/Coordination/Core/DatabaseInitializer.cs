@@ -37,15 +37,23 @@ namespace PerSpec.Editor.Coordination
 
             if (!isEnabled || !isInitialized) return;
 
-            // Check if database needs initialization
-            string dbPath = Path.Combine(perspecPath, "test_coordination.db");
-
-            if (!File.Exists(dbPath))
-            {
-                EnsureDatabaseExists();
-            }
+            EnsureDatabaseReady();
 
             _hasInitializedThisSession = true;
+        }
+
+        /// <summary>
+        /// Ensures the database exists and its schema is current. Creates the DB and all
+        /// tables if the file is missing; otherwise verifies and self-heals the existing
+        /// schema WITHOUT re-running full initialization (which can throw when SQLiteManager
+        /// already holds the DB open). This is the entry point callers should use.
+        /// </summary>
+        /// <returns>True if the database is ready, false on error.</returns>
+        public static bool EnsureDatabaseReady()
+        {
+            string projectPath = Directory.GetParent(Application.dataPath).FullName;
+            string dbPath = Path.Combine(projectPath, "PerSpec", "test_coordination.db");
+            return File.Exists(dbPath) ? EnsureSchemaCurrent() : EnsureDatabaseExists();
         }
 
         /// <summary>
@@ -82,6 +90,9 @@ namespace PerSpec.Editor.Coordination
                     // Create all indexes
                     CreateIndexes(connection);
 
+                    // Repair schemas that predate current constraints (self-healing migration)
+                    EnsureRefreshStatusConstraint(connection);
+
                     // Initialize system status if empty
                     InitializeSystemStatus(connection);
                 }
@@ -92,6 +103,36 @@ namespace PerSpec.Editor.Coordination
             catch (Exception e)
             {
                 Debug.LogError($"[DatabaseInitializer] Error initializing database: {e.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Verifies and self-heals the schema of an EXISTING database without re-running full
+        /// initialization. Opens a short-lived read/write connection (no Create flag, no PRAGMA
+        /// re-set) so it does not conflict with a connection SQLiteManager already holds open,
+        /// then applies the idempotent constraint repair. Safe to call once per session.
+        /// </summary>
+        public static bool EnsureSchemaCurrent()
+        {
+            try
+            {
+                string projectPath = Directory.GetParent(Application.dataPath).FullName;
+                string dbPath = Path.Combine(projectPath, "PerSpec", "test_coordination.db");
+
+                if (!File.Exists(dbPath)) return false;
+
+                using (var connection = new SQLiteConnection(dbPath, SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.FullMutex))
+                {
+                    connection.BusyTimeout = TimeSpan.FromSeconds(5);
+                    EnsureRefreshStatusConstraint(connection);
+                }
+
+                return true;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[DatabaseInitializer] Error verifying database schema: {e.Message}");
                 return false;
             }
         }
@@ -169,7 +210,7 @@ namespace PerSpec.Editor.Coordination
                     refresh_type TEXT NOT NULL DEFAULT 'full',
                     paths TEXT,
                     import_options TEXT DEFAULT 'default',
-                    status TEXT NOT NULL DEFAULT 'pending',
+                    status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'running', 'compiling', 'completed', 'failed', 'cancelled')),
                     priority INTEGER DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     started_at TIMESTAMP,
@@ -265,6 +306,64 @@ namespace PerSpec.Editor.Coordination
 
             // Scene hierarchy indexes
             connection.Execute("CREATE INDEX IF NOT EXISTS idx_hierarchy_status ON scene_hierarchy_requests(status)");
+        }
+
+        /// <summary>
+        /// Self-healing migration for the asset_refresh_requests status CHECK constraint.
+        /// The 'compiling' status (two-phase refresh, added in 1.7.0) is rejected by any DB
+        /// whose table was created before it existed, causing a "CHECK constraint failed"
+        /// error on every compilation. SQLite cannot ALTER a CHECK constraint, so we rebuild
+        /// the table. This is the pure-C# equivalent of Python migration v6 and runs on every
+        /// editor load without depending on the Python maintenance runner or a script sync.
+        /// Idempotent: a no-op once the constraint already allows 'compiling'.
+        /// </summary>
+        private static void EnsureRefreshStatusConstraint(SQLiteConnection connection)
+        {
+            var tableSql = connection.ExecuteScalar<string>(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='asset_refresh_requests'");
+
+            // Table not created yet, or already carries the current constraint - nothing to do.
+            if (string.IsNullOrEmpty(tableSql)) return;
+            if (tableSql.Contains("'compiling'")) return;
+
+            connection.RunInTransaction(() =>
+            {
+                connection.Execute("DROP TABLE IF EXISTS asset_refresh_requests_new");
+                connection.Execute(@"
+                    CREATE TABLE asset_refresh_requests_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        refresh_type TEXT NOT NULL DEFAULT 'full' CHECK(refresh_type IN ('full', 'selective')),
+                        paths TEXT,
+                        import_options TEXT DEFAULT 'default' CHECK(import_options IN ('default', 'synchronous', 'force_update')),
+                        status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'running', 'compiling', 'completed', 'failed', 'cancelled')),
+                        priority INTEGER DEFAULT 0,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        started_at TIMESTAMP,
+                        completed_at TIMESTAMP,
+                        duration_seconds REAL DEFAULT 0.0,
+                        result_message TEXT,
+                        error_message TEXT
+                    )
+                ");
+                connection.Execute(@"
+                    INSERT INTO asset_refresh_requests_new (
+                        id, refresh_type, paths, import_options, status, priority,
+                        created_at, started_at, completed_at, duration_seconds,
+                        result_message, error_message
+                    )
+                    SELECT
+                        id, refresh_type, paths, import_options, status, priority,
+                        created_at, started_at, completed_at, duration_seconds,
+                        result_message, error_message
+                    FROM asset_refresh_requests
+                ");
+                connection.Execute("DROP TABLE asset_refresh_requests");
+                connection.Execute("ALTER TABLE asset_refresh_requests_new RENAME TO asset_refresh_requests");
+                connection.Execute("CREATE INDEX IF NOT EXISTS idx_refresh_status ON asset_refresh_requests(status)");
+                connection.Execute("CREATE INDEX IF NOT EXISTS idx_refresh_created ON asset_refresh_requests(created_at DESC)");
+            });
+
+            Debug.Log("[DatabaseInitializer] Upgraded asset_refresh_requests constraint (added 'compiling')");
         }
 
         private static void InitializeSystemStatus(SQLiteConnection connection)

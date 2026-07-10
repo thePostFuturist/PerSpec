@@ -5,6 +5,18 @@ All notable changes to the PerSpec Testing Framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.1] - 2026-07-10
+
+### Fixed
+- **`CHECK constraint failed` spam on every compilation for databases created before 1.7.0**
+  - Symptom: `[SQLiteManager] Error updating status: CHECK constraint failed: status IN ('pending', 'running', 'completed', 'failed', 'cancelled')`, thrown from `AssetRefreshCoordinator.OnCompilationStarted` → `SQLiteManager.UpdateRefreshRequestStatus` whenever the two-phase refresh wrote the new `compiling` status.
+  - Root cause: a SQLite CHECK constraint is frozen at `CREATE TABLE` time. A DB file created by a pre-1.7.0 `db_initializer.py` kept the old 5-value `asset_refresh_requests` constraint. The v6 fix migration reached users unreliably — it ran the *synced working-copy* script (stale until a manual `sync_python_scripts.py`), and after any exit-0 run it bumped the package-version EditorPref, suppressing the version-triggered retry for 7 days.
+  - **Self-healing repair in C#** — `DatabaseInitializer` now verifies the `asset_refresh_requests` status constraint on every editor load (not just when the DB file is missing) and rebuilds the table to add `compiling` if absent. This is the pure-C# equivalent of Python migration v6 and needs no `python` on PATH and no script sync. The C# `CREATE TABLE` for `asset_refresh_requests` now also carries the full CHECK constraint, so the C# and Python create-paths agree.
+  - **Maintenance runner now prefers the package script** — `DatabaseMaintenanceRunner.GetMaintenanceScriptPath()` resolves the always-current package copy of `db_auto_maintenance.py` before the synced working copy, removing the stale-working-copy trap for the Python migration path.
+
+### Added
+- **"Initialize / Migrate Database" button in Control Center** — Test Coordinator → Database Maintenance. Creates the DB if missing and upgrades a stale schema on demand (runs the C# self-heal plus the full Python migration sweep). Available even when the database is not yet initialized.
+
 ## [1.7.0] - 2026-07-06
 
 ### Added
