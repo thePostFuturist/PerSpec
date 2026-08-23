@@ -5,6 +5,7 @@
 ## 📋 Quick Navigation
 - [Script Locations](#script-locations) 🔍
 - [Natural Language Commands](#natural-language-commands) 🗣️
+- [Unity Helper — Augmented Toolbox](#unity-helper--augmented-toolbox-read-the-docs-before-use) 🧰
 - [TDD Workflow](#tdd-workflow) ⭐
 - [Critical Patterns](#critical-patterns) 🚨
 - [Test Requirements](#test-requirements) 🧪
@@ -48,7 +49,7 @@ python Packages/com.digitraver.perspec/ScriptingTools/sync_python_scripts.py
 | "LLM setup"         | `python Packages/com.digitraver.perspec/ScriptingTools/sync_python_scripts.py`              |
 | "show/get errors"   | `python PerSpec/Coordination/Scripts/monitor_editmode_logs.py --errors`                     |
 | "run tests"         | `python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait`                      |
-| "refresh Unity"     | `python PerSpec/Coordination/Scripts/quick_refresh.py full --wait` (blocks until compile + domain reload finish) |
+| "refresh Unity"     | `python PerSpec/Coordination/Scripts/quick_refresh.py full --focus --wait` (blocks until compile + domain reload finish) |
 | "show logs"         | `python PerSpec/Coordination/Scripts/monitor_editmode_logs.py recent -n 50`                |
 | "export logs"       | `python PerSpec/Coordination/Scripts/monitor_editmode_logs.py sessions`                     |
 | "monitor logs live" | `python PerSpec/Coordination/Scripts/monitor_editmode_logs.py live`                         |
@@ -90,6 +91,28 @@ python Packages/com.digitraver.perspec/ScriptingTools/sync_python_scripts.py
 - **DOTSTestBase not found?** → Enable DOTS support in Control Center
 - **Build/automate scene?** → Write scenario JSON + use Scenario Runner or `unityhelper_coordinator.py`
 - **Scene setup from CLI?** → `unityhelper_coordinator.py execute --file <path> --focus --wait`
+
+## 🧰 Unity Helper — Augmented Toolbox (READ THE DOCS BEFORE USE)
+
+**What it is:** Unity Helper is a declarative scene/asset/component automation system. Instead of writing one-off C# editor scripts, you author a JSON **scenario** that lists **actions** (`AddGameObject`, `SetProperty`, `InstantiatePrefab`, `ApplyRecipe`, `Validate`, `WrapWithParent`, `SetListProperty`, `ExportHierarchy`, …). The scenario is submitted to Unity via `unityhelper_coordinator.py` or the in-Editor Scenario Runner; Unity executes each action and reports per-task success/failure.
+
+**Why this matters to you (the agent):** Unity Helper exposes **40+ scene actions and 16+ localization actions** — a large, evolving toolbox. Most "build / configure / inspect / validate a scene or prefab" requests can be solved by writing a scenario JSON instead of new C# code or manual click-by-click instructions. **You cannot know the action set or their parameters from this file alone — the catalogue lives in `unity-helper-tasks.md`.**
+
+### MANDATORY: read these BEFORE authoring scenarios, recipes, or validator rules
+
+```bash
+cat PerSpec/package_location.txt                                    # → {package_path}
+cat {package_path}/Documentation/unity-helper.md                    # overview + runner mechanics
+cat {package_path}/Documentation/unity-helper-tasks.md              # FULL action catalogue (treat as API reference)
+```
+
+`unity-helper-tasks.md` documents every action with its required/optional parameters, JSON examples, and result shape. Re-read it when:
+- The user asks to build, modify, inspect, or validate a scene/prefab.
+- The user mentions "scenario", "recipe", "ApplyRecipe", "Validate", or any action name you don't immediately recognize.
+- The user describes a repetitive UI/component setup — `ApplyRecipe` likely fits; check the recipe section.
+- You're about to author or modify a `*.scenario.json`, `*.recipe.json`, or validator-rules file.
+
+**Do NOT guess action names or parameters from training data** — the action set is project-local and grows over time. Always re-read the catalogue. JSON Schemas in `{package_path}/Editor/Schemas/` (`scenario.schema.json`, `recipe.schema.json`, `validator-rules.schema.json`) authoritatively describe the file shapes and are validated pre-execution by `unityhelper_coordinator.py`.
 
 ## 📊 Log Monitoring
 
@@ -247,7 +270,7 @@ python PerSpec/Coordination/Scripts/db_update_status_constraint.py
 # Don't wait until test time - verify compilation RIGHT AFTER coding!
 
 # 2. ⚡ ALWAYS REFRESH UNITY FIRST! (DO NOT SKIP!)
-python PerSpec/Coordination/Scripts/quick_refresh.py full --wait
+python PerSpec/Coordination/Scripts/quick_refresh.py full --focus --wait
 # ❌ NEVER run tests without refreshing - Unity won't see your changes!
 # 📌 Run this IMMEDIATELY after writing/editing ANY C# code!
 # ✅ As of v1.7.0, --wait genuinely BLOCKS until asset import + script
@@ -274,7 +297,7 @@ python PerSpec/Coordination/Scripts/quick_test.py all -p edit --wait
 
 ### 📋 Step-by-Step Checklist (USE THIS EVERY TIME!):
 ☐ Code written/modified
-☐ Unity refreshed (`quick_refresh.py full --wait`)
+☐ Unity refreshed (`quick_refresh.py full --focus --wait`)
 ☐ Compilation checked (`monitor_editmode_logs.py --errors`)
 ☐ No errors found (or all fixed)
 ☐ Tests executed (`quick_test.py`)
@@ -344,7 +367,7 @@ quick_test.py method Tests.PlayMode.SimplePerSpecTest.Should_Pass -p play --wait
 ```bash
 # MANDATORY AFTER ANY CODE CHANGE - DO NOT SKIP!
 # 1. Refresh Unity to pick up changes
-python PerSpec/Coordination/Scripts/quick_refresh.py full --wait
+python PerSpec/Coordination/Scripts/quick_refresh.py full --focus --wait
 
 # 2. Check for compilation errors
 python PerSpec/Coordination/Scripts/monitor_editmode_logs.py --errors
@@ -507,7 +530,8 @@ cat PerSpec/package_location.txt  # Returns: Packages/com.digitraver.perspec
 | Python issues | `{package_path}/Documentation/coordination-guide.md` |
 | Using agents | `{package_path}/Documentation/agents/[agent-name].md` |
 | Unity Helper overview | `{package_path}/Documentation/unity-helper.md` |
-| Unity Helper tasks | `{package_path}/Documentation/unity-helper-tasks.md` |
+| Unity Helper actions (REQUIRED before authoring any scenario/recipe/validator) | `{package_path}/Documentation/unity-helper-tasks.md` |
+| Scenario / Recipe / Validator JSON shapes | `{package_path}/Editor/Schemas/*.schema.json` |
 
 ## 🎯 Test Facade Pattern
 
@@ -730,7 +754,7 @@ public class ExampleComponent : MonoBehaviour {
 ### Check DOTS Status
 ```bash
 # Check if DOTS is enabled (look for PERSPEC_DOTS_ENABLED in output)
-python PerSpec/Coordination/Scripts/quick_refresh.py full --wait
+python PerSpec/Coordination/Scripts/quick_refresh.py full --focus --wait
 # Then check Unity console or Control Center > Dashboard for "DOTS Support" status
 ```
 
@@ -884,7 +908,7 @@ python PerSpec/Coordination/Scripts/quick_menu.py cancel <request_id>
 ## 📊 Quick Reference
 
 ### 🔴 STOP! Before Running ANY Test:
-1. Did you refresh Unity? → If no, run `quick_refresh.py full --wait`
+1. Did you refresh Unity? → If no, run `quick_refresh.py full --focus --wait`
 2. Did you check for errors? → If no, run `monitor_editmode_logs.py --errors`
 3. Are there compilation errors? → If yes, FIX THEM FIRST
 4. Only NOW can you run tests → `quick_test.py all -p edit --wait`
@@ -892,7 +916,7 @@ python PerSpec/Coordination/Scripts/quick_menu.py cancel <request_id>
 ### Compilation Error Handling
 | Situation | Action | Command |
 |-----------|--------|---------|
-| **BEFORE ANY TEST** | **ALWAYS refresh Unity** | `quick_refresh.py full --wait` |
+| **BEFORE ANY TEST** | **ALWAYS refresh Unity** | `quick_refresh.py full --focus --wait` |
 | **After EVERY refresh** | **ALWAYS check errors** | `monitor_editmode_logs.py --errors` |
 | Errors found | FIX before testing | Do NOT run tests |
 | Tests show "inconclusive" | Check compilation | `monitor_editmode_logs.py --errors` |
