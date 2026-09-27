@@ -193,8 +193,11 @@ namespace PerSpec.Editor.Coordination
                 {
                     if (component == null) continue;
 
-                    // Skip Transform as it's already exported separately
-                    if (component is Transform) continue;
+                    // Skip vanilla Transform (data already in the `transform` block).
+                    // Do NOT skip RectTransform — its anchorMin/Max, sizeDelta, pivot,
+                    // offsetMin/Max are only accessible via its SerializedProperty iterator,
+                    // not via the simple transform block.
+                    if (component is Transform && !(component is RectTransform)) continue;
 
                     try
                     {
@@ -345,7 +348,14 @@ namespace PerSpec.Editor.Coordination
                         {
                             type = obj.GetType().Name,
                             name = obj.name,
+                            // Unity 6000.4+ replaces the 32-bit InstanceID with the 64-bit
+                            // EntityId (GetInstanceID is CS0619 in 6000.6). Exported as a
+                            // string there; older editors keep the numeric instance id.
+#if UNITY_6000_4_OR_NEWER
+                            instanceId = obj.GetEntityId().ToString()
+#else
                             instanceId = obj.GetInstanceID()
+#endif
                         };
                     }
                     return null;
