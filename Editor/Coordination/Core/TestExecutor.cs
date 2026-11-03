@@ -137,6 +137,8 @@ namespace PerSpec.Editor.Coordination
                 
                 try
                 {
+                    SceneDirtyUtility.DiscardUnsavedChanges("test run");
+
                     // Execute tests with the filter
                     _testApi.Execute(settings);
                     

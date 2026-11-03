@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine.UI;
+using PerSpec.Editor.Coordination;
 
 namespace PerSpec.UnityHelper.Editor
 {
@@ -95,11 +96,12 @@ namespace PerSpec.UnityHelper.Editor
             
             if (System.IO.File.Exists(scenePath))
             {
-                currentScene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+                currentScene = OpenSceneDiscardingChanges(scenePath);
                 Debug.Log($"[SceneTaskExecutor]Scene already exists, opened: {name}");
                 return true;
             }
             
+            SceneDirtyUtility.DiscardUnsavedChanges("CreateScene");
             currentScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             Debug.Log($"[SceneTaskExecutor]Created scene: {name} (empty - no camera)");
             return true;
@@ -168,7 +170,7 @@ namespace PerSpec.UnityHelper.Editor
                 return false;
             }
             
-            currentScene = EditorSceneManager.OpenScene(path, OpenSceneMode.Single);
+            currentScene = OpenSceneDiscardingChanges(path);
             
             // TODO: VERIFY scene is actually active and loaded
             // if (EditorSceneManager.GetActiveScene().path != path) return false;
@@ -176,6 +178,13 @@ namespace PerSpec.UnityHelper.Editor
             Debug.Log($"[SceneTaskExecutor]Loaded scene: {path}");
             return true;
         }
+
+        private static UnityEngine.SceneManagement.Scene OpenSceneDiscardingChanges(string path)
+        {
+            SceneDirtyUtility.DiscardUnsavedChanges($"opening {path}");
+            return EditorSceneManager.OpenScene(path, OpenSceneMode.Single);
+        }
+
         private bool AddComponent(Task task)
         {
             string path = GetParam(task, "path");
@@ -456,13 +465,13 @@ namespace PerSpec.UnityHelper.Editor
             var previousScene = EditorSceneManager.GetActiveScene();
             string previousScenePath = previousScene.path;
 
-            var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+            var scene = OpenSceneDiscardingChanges(scenePath);
 
             var go = GameObject.Find(goPath);
             if (go == null)
             {
                 if (!string.IsNullOrEmpty(previousScenePath))
-                    EditorSceneManager.OpenScene(previousScenePath, OpenSceneMode.Single);
+                    OpenSceneDiscardingChanges(previousScenePath);
                 task.error = $"GameObject not found in scene '{scenePath}': {goPath}";
                 return false;
             }
@@ -476,7 +485,7 @@ namespace PerSpec.UnityHelper.Editor
             }
 
             if (!string.IsNullOrEmpty(previousScenePath))
-                EditorSceneManager.OpenScene(previousScenePath, OpenSceneMode.Single);
+                OpenSceneDiscardingChanges(previousScenePath);
 
             return result;
         }
@@ -1139,7 +1148,7 @@ namespace PerSpec.UnityHelper.Editor
             var previousScene = EditorSceneManager.GetActiveScene();
             string previousScenePath = previousScene.path;
 
-            var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+            var scene = OpenSceneDiscardingChanges(scenePath);
 
             var output = new System.Text.StringBuilder();
             output.AppendLine($"=== Scene Hierarchy: {scene.name} ===");
@@ -1159,7 +1168,7 @@ namespace PerSpec.UnityHelper.Editor
             Debug.Log($"[SceneTaskExecutor] ExportHierarchyScene: {scenePath} ✓");
 
             if (!string.IsNullOrEmpty(previousScenePath))
-                EditorSceneManager.OpenScene(previousScenePath, OpenSceneMode.Single);
+                OpenSceneDiscardingChanges(previousScenePath);
 
             return true;
         }

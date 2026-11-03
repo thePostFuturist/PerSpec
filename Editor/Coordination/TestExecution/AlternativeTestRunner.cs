@@ -57,6 +57,7 @@ namespace PerSpec.Editor.Coordination
                     testMode = TestMode.EditMode
                 };
                 
+                SceneDirtyUtility.DiscardUnsavedChanges("EditMode test run");
                 testApi.Execute(new ExecutionSettings(filter));
                 
                 Debug.Log("[AlternativeTestRunner] EditMode tests started");
