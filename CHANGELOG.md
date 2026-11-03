@@ -5,6 +5,18 @@ All notable changes to the PerSpec Testing Framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.1] - 2026-11-03
+
+### Fixed
+- **Automated runs no longer stall on the "Scene(s) Have Been Modified" prompt**
+  - When a scene had unsaved changes, Unity's Test Runner and some scene switches opened
+    a modal save dialog and waited for a click, so CLI-driven runs hung.
+  - New `SceneDirtyUtility.DiscardUnsavedChanges()` clears the dirty flag on every loaded
+    scene before `SceneTaskExecutor` opens or creates scenes and before tests execute.
+  - Uses Unity's internal `EditorSceneManager.ClearSceneDirtiness` through reflection; if
+    that is missing, it reloads the scene setup from disk instead (untitled scenes are dropped).
+  - Note: unsaved scene edits are discarded, not saved. Save your scene before running tests.
+
 ## [1.13.0] - 2026-09-18
 
 ### Added
